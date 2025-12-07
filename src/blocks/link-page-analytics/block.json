@@ -1,12 +1,12 @@
 {
 	"$schema": "https://schemas.wp.org/trunk/block.json",
 	"apiVersion": 3,
-	"name": "extrachill-artist-platform/link-page-editor",
+	"name": "extrachill-artist-platform/link-page-analytics",
 	"version": "0.1.1",
-	"title": "Link Page Editor",
+	"title": "Link Page Analytics",
 	"category": "widgets",
-	"icon": "admin-links",
-	"description": "Manage your artist link page with a live preview.",
+	"icon": "chart-line",
+	"description": "View analytics for your artist link pages.",
 	"textdomain": "extrachill-artist-platform",
 	"attributes": {},
 	"supports": {

@@ -49,54 +49,67 @@ function ec_send_artist_invitation_email( $recipient_email, $artist_name, $membe
     $subject_template = __( 'You\'re invited to join %1$s on %2$s!', 'extrachill-artist-platform' );
     $subject = sprintf( $subject_template, esc_html( $artist_name ), get_bloginfo( 'name' ) );
 
-    $message_lines = array();
-    // Greeting: use recipient's display name if they are an existing user
-    $recipient_user = get_user_by('email', $recipient_email);
+    // Resolve the recipient's display name for the branded template greeting.
+    // The template renders its own "Hey {recipient_name}," so we don't include
+    // a greeting line in the body.
+    $recipient_user = get_user_by( 'email', $recipient_email );
     if ( $recipient_user ) {
         $recipient_name = $recipient_user->display_name ? $recipient_user->display_name : $recipient_user->user_login;
-        $message_lines[] = sprintf( __( 'Hello %s,', 'extrachill-artist-platform' ), esc_html( $recipient_name ) );
-    } elseif ( !empty($member_display_name) ) {
-        $message_lines[] = sprintf( __( 'Hello %s,', 'extrachill-artist-platform' ), esc_html( $member_display_name ) );
+    } elseif ( ! empty( $member_display_name ) ) {
+        $recipient_name = $member_display_name;
     } else {
-        $message_lines[] = __( 'Hello,', 'extrachill-artist-platform' );
+        $recipient_name = '';
     }
-    $message_lines[] = '';
-    // Main invitation line
-    $message_lines[] = sprintf( __( '%1$s has invited you to join the artist \'%2$s\' on %3$s.', 'extrachill-artist-platform' ), esc_html($inviter_display), esc_html( $artist_name ), get_bloginfo( 'name' ) );
+
+    // CTA copy varies based on whether the invitee already has an account.
     if ( $invitation_status === 'invited_new_user' ) {
-        $message_lines[] = __( 'To accept this invitation and create your account, please click the link below:', 'extrachill-artist-platform' );
+        $cta_label = __( 'Accept invitation & create account', 'extrachill-artist-platform' );
     } else {
-        $message_lines[] = __( 'To accept this invitation and join the artist, please click the link below:', 'extrachill-artist-platform' );
+        $cta_label = __( 'Accept invitation', 'extrachill-artist-platform' );
     }
-    $message_lines[] = $invitation_link;
-    $message_lines[] = '';
-    $message_lines[] = sprintf( __( 'If you were not expecting this invitation, please ignore this email.', 'extrachill-artist-platform' ) );
-    $message_lines[] = '';
-    $message_lines[] = sprintf( __( 'Regards,', 'extrachill-artist-platform' ) );
-    $message_lines[] = get_bloginfo( 'name' );
 
-    $message = implode( "\r\n", $message_lines );
+    // Build the invitation body as HTML. The branded template handles the
+    // greeting, sign-off, header, footer, and CTA button, so the body_html
+    // is just the invitation-specific middle content.
+    $intro_line  = sprintf(
+        /* translators: 1: Inviter display name. 2: Artist name. 3: Site name. */
+        __( '%1$s has invited you to join the artist &lsquo;%2$s&rsquo; on %3$s.', 'extrachill-artist-platform' ),
+        esc_html( $inviter_display ),
+        esc_html( $artist_name ),
+        esc_html( get_bloginfo( 'name' ) )
+    );
+    $ignore_line = esc_html__( 'If you were not expecting this invitation, you can safely ignore this email.', 'extrachill-artist-platform' );
 
-    $headers = array( 'Content-Type: text/plain; charset=UTF-8' );
+    $body_html  = '<p style="margin:0 0 16px 0;font-size:16px;line-height:1.6;">' . $intro_line . '</p>';
+    $body_html .= '<p style="margin:0 0 16px 0;font-size:14px;line-height:1.6;color:#555;">' . $ignore_line . '</p>';
 
-    // Set the 'From' name and email for this email only
-    add_filter('wp_mail_from_name', function() { return 'Extra Chill Community'; });
-    add_filter('wp_mail_from', function() { return 'admin@extrachill.com'; });
-    $sent = wp_mail( $recipient_email, $subject, $message, $headers );
-    remove_all_filters('wp_mail_from_name');
-    remove_all_filters('wp_mail_from');
+    if ( ! function_exists( 'ec_send_email' ) ) {
+        error_log( 'Artist Invitation Email: ec_send_email() is not available — is extrachill-multisite active?' );
+        return false;
+    }
+
+    $result = ec_send_email( array(
+        'to'         => $recipient_email,
+        'subject'    => $subject,
+        'from_name'  => 'Extra Chill Community',
+        'from_email' => 'admin@extrachill.com',
+        'template'   => 'extrachill/branded',
+        'context'    => array(
+            'recipient_name' => $recipient_name,
+            'subject_html'   => esc_html( $subject ),
+            'body_html'      => $body_html,
+            'cta_url'        => $invitation_link,
+            'cta_label'      => $cta_label,
+        ),
+    ) );
+
+    $sent = is_array( $result ) && ! empty( $result['success'] );
 
     if ( ! $sent ) {
-        global $ts_mail_errors;
-        global $phpmailer;
-        if ( !is_array( $ts_mail_errors ) ) $ts_mail_errors = array();
-        if ( isset( $phpmailer ) ) {
-            if ( !empty( $phpmailer->ErrorInfo ) ) {
-                $ts_mail_errors[] = $phpmailer->ErrorInfo;
-                error_log( 'Artist Invitation Email Error (PHPMailer): ' . $phpmailer->ErrorInfo );
-            }
-        }
-        // Email sending failed - wp_mail() returned false
+        $error_message = is_array( $result ) && ! empty( $result['error'] )
+            ? (string) $result['error']
+            : ( is_array( $result ) && ! empty( $result['message'] ) ? (string) $result['message'] : 'unknown error' );
+        error_log( 'Artist Invitation Email Error: ' . $error_message );
     }
 
     return $sent;

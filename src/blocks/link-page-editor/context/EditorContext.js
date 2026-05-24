@@ -93,34 +93,64 @@ export function EditorProvider( { artistId: initialArtistId, children } ) {
 		setSaveError( null );
 
 		try {
-			const promises = [];
+			const tasks = [];
 
 			if ( dirtySections.has( 'artist' ) ) {
-				promises.push(
-					artistData.update( {
+				tasks.push( {
+					section: 'artist',
+					promise: artistData.update( {
 						name: artistData.artist?.name,
 						profile_image_id: artistData.artist?.profile_image_id,
-					} )
-				);
+					} ),
+				} );
 			}
 
 			if ( dirtySections.has( 'links' ) ) {
-				promises.push(
-					linksData.update( {
+				tasks.push( {
+					section: 'links',
+					promise: linksData.update( {
 						links: linksData.links,
 						settings: { ...linksData.settings, bio: linksData.bio },
 						css_vars: linksData.cssVars,
 						background_image_id: linksData.backgroundImageId,
-					} )
-				);
+					} ),
+				} );
 			}
 
 			if ( dirtySections.has( 'socials' ) ) {
-				promises.push( socialsData.update( socialsData.socials ) );
+				tasks.push( {
+					section: 'socials',
+					promise: socialsData.update( socialsData.socials ),
+				} );
 			}
 
-			if ( promises.length > 0 ) {
-				await Promise.all( promises );
+			if ( tasks.length === 0 ) {
+				setHasUnsavedChanges( false );
+				setDirtySections( new Set() );
+				return true;
+			}
+
+			const results = await Promise.allSettled(
+				tasks.map( ( task ) => task.promise )
+			);
+
+			const failedSections = new Set();
+			const failedMessages = [];
+			results.forEach( ( result, idx ) => {
+				if ( result.status === 'rejected' ) {
+					const section = tasks[ idx ].section;
+					failedSections.add( section );
+					failedMessages.push(
+						`${ section }: ${ result.reason?.message || 'unknown error' }`
+					);
+				}
+			} );
+
+			if ( failedSections.size > 0 ) {
+				setSaveError( failedMessages.join( '; ' ) );
+				setDirtySections( failedSections );
+				setHasUnsavedChanges( true );
+				return false;
 			}
 
 			setHasUnsavedChanges( false );

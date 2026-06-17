@@ -8,6 +8,20 @@
 
 defined( 'ABSPATH' ) || exit;
 
+/*
+ * Event-name contract constant (Extra-Chill/extrachill-users#129).
+ * ----------------------------------------------------------------
+ * The artist-funnel analytics event_type string is defined ONCE here and
+ * referenced at the emit site below, so a rename is mechanical and a
+ * stray-literal typo can't silently desync this emit from the shared
+ * contract (the "permanently-zero metric, no error" failure mode).
+ *
+ * Scope: extrachill-artist-platform owns and emits only this one funnel
+ * event. The read-side aggregation lives in the analytics summary reader;
+ * no load-time cross-plugin dependency is introduced in either direction.
+ */
+const EC_ARTIST_PLATFORM_EVENT_PROFILE_CREATED = 'artist_profile_created';
+
 /**
  * Create a new artist profile.
  *
@@ -64,7 +78,7 @@ function extrachill_artist_platform_ability_create_artist( $input ) {
 	if ( $analytics_ability ) {
 		$analytics_ability->execute(
 			array(
-				'event_type' => 'artist_profile_created',
+				'event_type' => EC_ARTIST_PLATFORM_EVENT_PROFILE_CREATED,
 				'event_data' => array(
 					'user_id'   => $user_id,
 					'artist_id' => (int) $artist_id,

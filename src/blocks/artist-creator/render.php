@@ -63,10 +63,15 @@ if ( function_exists( 'ec_get_artists_for_user' ) ) {
 // viewing the create-artist form (entered the activation flow). Carries the
 // anonymous visitor_id + user_id so this step stitches to the upstream
 // user_registration row and the downstream artist_profile_created /
-// _first_publish rows for the same member. Readers dedupe per visitor_id +
-// user_id, so a re-view of the form does not distort the funnel. Skipped for
-// users who already have a profile (the notice above) since they are past
-// this step.
+// _first_publish rows for the same member. This emit is intentionally dumb —
+// one row per form render. Per-person dedup is the READER's job: the funnel
+// is read via the extrachill/get-activation-funnel ability, which counts each
+// step as COUNT(DISTINCT COALESCE(NULLIF(user_id,0), visitor_id)), so a
+// member re-viewing the form collapses to one person and does not distort the
+// funnel. Do NOT read this funnel with the generic get-analytics-summary
+// COUNT(*), which counts rows and would over-count signup-flow entries.
+// Skipped for users who already have a profile (the notice above) since they
+// are past this step.
 if ( empty( $existing_artists ) && function_exists( 'ec_artist_platform_emit_funnel_event' )
 	&& defined( 'EC_ANALYTICS_EVENT_ARTIST_SIGNUP_STARTED' ) ) {
 	ec_artist_platform_emit_funnel_event(

@@ -39,6 +39,7 @@ if ( ! $can_create ) {
 }
 
 // Check if user already has artist profiles
+$existing_artists = array();
 if ( function_exists( 'ec_get_artists_for_user' ) ) {
 	$existing_artists = ec_get_artists_for_user( $current_user_id );
 	if ( ! empty( $existing_artists ) ) {
@@ -56,6 +57,22 @@ if ( function_exists( 'ec_get_artists_for_user' ) ) {
 		echo '<a href="' . esc_url( home_url( '/manage-artist/' ) ) . '" class="button-1 button-medium">' . esc_html__( 'Manage Artist', 'extrachill-artist-platform' ) . '</a>';
 		echo '</div>';
 	}
+}
+
+// Emit the artist_signup_started funnel event: an eligible logged-in user is
+// viewing the create-artist form (entered the activation flow). Carries the
+// anonymous visitor_id + user_id so this step stitches to the upstream
+// user_registration row and the downstream artist_profile_created /
+// _first_publish rows for the same member. Readers dedupe per visitor_id +
+// user_id, so a re-view of the form does not distort the funnel. Skipped for
+// users who already have a profile (the notice above) since they are past
+// this step.
+if ( empty( $existing_artists ) && function_exists( 'ec_artist_platform_emit_funnel_event' )
+	&& defined( 'EC_ANALYTICS_EVENT_ARTIST_SIGNUP_STARTED' ) ) {
+	ec_artist_platform_emit_funnel_event(
+		EC_ANALYTICS_EVENT_ARTIST_SIGNUP_STARTED,
+		array( 'user_id' => $current_user_id )
+	);
 }
 
 // Prefill data from user profile

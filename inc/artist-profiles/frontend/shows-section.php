@@ -61,8 +61,10 @@ add_filter( 'ec_artist_profile_sections', 'ec_register_artist_profile_shows_sect
  * switch_to_blog()/restore_current_blog() paired in try/finally.
  *
  * @param int $artist_term_id Bound main-blog `artist` term_id.
- * @return array{blog_id:int,term_id:int}|null Events blog id + events-blog artist
- *                                             term_id, or null when unresolvable.
+ * @return array{blog_id:int,term_id:int,slug:string}|null Events blog id,
+ *                                             events-blog artist term_id, and the
+ *                                             shared artist slug, or null when
+ *                                             unresolvable.
  */
 function ec_artist_shows_resolve_events_term( $artist_term_id ) {
 	$artist_term_id = (int) $artist_term_id;
@@ -118,7 +120,39 @@ function ec_artist_shows_resolve_events_term( $artist_term_id ) {
 	return array(
 		'blog_id' => (int) $events_blog_id,
 		'term_id' => $events_term_id,
+		'slug'    => (string) $slug,
 	);
+}
+
+/**
+ * Build the canonical artist events-archive URL on the events site.
+ *
+ * Points at the events-blog `artist` taxonomy archive (events.extrachill.com/
+ * artist/{slug}) — the same archive the events-blog artist term resolves to.
+ * The events site base URL is resolved via ec_get_blog_id('events') +
+ * get_site_url() rather than hardcoding the domain, so it stays correct across
+ * environments. No-ops (returns '') when the slug or events blog is missing.
+ *
+ * @param string $slug Shared artist slug (equals the events-blog term slug).
+ * @return string Absolute archive URL, or '' when unresolvable.
+ */
+function ec_artist_shows_archive_url( $slug ) {
+	$slug = (string) $slug;
+	if ( '' === $slug || ! function_exists( 'ec_get_blog_id' ) ) {
+		return '';
+	}
+
+	$events_blog_id = ec_get_blog_id( 'events' );
+	if ( ! $events_blog_id ) {
+		return '';
+	}
+
+	$base = get_site_url( (int) $events_blog_id );
+	if ( empty( $base ) ) {
+		return '';
+	}
+
+	return trailingslashit( $base ) . 'artist/' . rawurlencode( $slug );
 }
 
 /**
@@ -277,7 +311,9 @@ function ec_artist_profile_has_shows( $artist_id, $artist_term_id = 0 ) {
  * LINKS to the canonical event page on events.extrachill.com (no SEO
  * duplication) and composes the shared `.related-tax-*` card primitives. Past
  * cards surface the "I Was There" attendance button when extrachill-users is
- * active. Server-side render, no AJAX.
+ * active. A "View all shows" link closes the section, completing the discovery
+ * doorway to the full canonical artist events archive (the section caps at 12
+ * upcoming + 12 past cards). Server-side render, no AJAX.
  *
  * @param int $artist_id      Artist profile post ID.
  * @param int $artist_term_id Bound main-blog `artist` term_id.
@@ -309,6 +345,23 @@ function ec_render_artist_profile_shows_section( $artist_id, $artist_term_id = 0
 			__( 'Past Shows', 'extrachill-artist-platform' ),
 			$cards['past']
 		);
+	}
+
+	// "View all shows" doorway to the full canonical artist events archive. The
+	// resolver already computed the shared slug when gathering cards; reuse it to
+	// build the events-site archive URL. Guarded so a missing slug/blog no-ops
+	// cleanly (the section itself is already visibility-gated on having shows).
+	$resolved = ec_artist_shows_resolve_events_term( $artist_term_id );
+	$slug     = ( null !== $resolved && ! empty( $resolved['slug'] ) ) ? $resolved['slug'] : '';
+	$archive_url = ec_artist_shows_archive_url( $slug );
+	if ( '' !== $archive_url ) {
+		echo '<div class="artist-shows-view-all">';
+		printf(
+			'<a href="%s" class="button-3 button-small">%s</a>',
+			esc_url( $archive_url ),
+			esc_html__( 'View all shows →', 'extrachill-artist-platform' )
+		);
+		echo '</div>';
 	}
 
 	echo '</div>'; // .artist-shows-section

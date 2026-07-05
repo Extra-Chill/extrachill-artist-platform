@@ -126,15 +126,31 @@ body {
   color: var(--link-page-text-color); /* Ensures title uses the main text color variable */
 }
 
-/* A leading emoji in the title. Emoji glyphs render at the full font-size and
-   fill the entire em-box, so at the title's large --link-page-title-font-size
-   (default 2.1em) they visually dwarf the surrounding text. Bound the emoji to
-   a fraction of the title size and keep it inline so it no longer balloons,
-   without shrinking the title text for names that have no emoji. */
-.extrch-link-page-title-emoji {
-  font-size: 0.75em;
-  line-height: 1;
-  vertical-align: middle;
+/* Emoji / smiley image sizing (scoped to the link page).
+   The live link-page template bypasses wp_head() (see
+   inc/link-pages/live/minimal-head-assets.php — it prints styles via the custom
+   `extrachill_artist_link_page_minimal_head` hook + wp_print_styles(), NOT
+   wp_head()). WordPress core normally injects the canonical
+   `img.wp-smiley, img.emoji { height:1em; width:1em; ... }` sizing via
+   print_emoji_styles() hooked on wp_head — but because these templates bypass
+   wp_head, that rule is never printed, while core still converts emoji text
+   into <img class="emoji"> tags. The unsized <img> then renders at its natural
+   SVG size (huge). This mirrors core's canonical emoji sizing, scoped to the
+   link-page container so it bounds emoji in the title, bio, and link labels
+   from one authoritative rule — and stays contained so the same stylesheet,
+   when loaded into the editor preview, cannot leak emoji sizing into wp-admin.
+   See https://developer.wordpress.org/reference/functions/print_emoji_styles/ */
+.extrch-link-page-container img.wp-smiley,
+.extrch-link-page-container img.emoji {
+  height: 1em;
+  width: 1em;
+  margin: 0 .07em;
+  vertical-align: -0.1em;
+  background: none;
+  padding: 0;
+  border: none;
+  box-shadow: none;
+  display: inline;
 }
 
 .extrch-link-page-bio {

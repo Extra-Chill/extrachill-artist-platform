@@ -360,7 +360,10 @@ function ec_render_artist_profile_coverage_section( $artist_id, $artist_term_id 
 					<div class="related-tax-meta">
 						<?php if ( ! empty( $card['date_str'] ) ) : ?>
 							<div class="ec-related-meta-item">
-								<?php if ( function_exists( 'ec_icon' ) ) { echo ec_icon( 'calendar' ); } // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped ?>
+								<?php
+								if ( function_exists( 'ec_icon' ) ) {
+									echo ec_icon( 'calendar' ); } // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped 
+								?>
 								<span><?php echo esc_html( $card['date_str'] ); ?></span>
 							</div>
 						<?php endif; ?>

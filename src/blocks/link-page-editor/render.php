@@ -57,55 +57,55 @@ if ( empty( $user_artists ) ) {
 }
 
 // Build user artists data for switcher (only artists with link pages)
-$user_artists_data = array();
+$user_artists_data               = array();
 $user_artist_ids_with_link_pages = array();
 
 foreach ( $user_artists as $ua_id ) {
-    $artist_post = get_post( $ua_id );
-    if ( ! $artist_post || $artist_post->post_status !== 'publish' ) {
-        continue;
-    }
+	$artist_post = get_post( $ua_id );
+	if ( ! $artist_post || $artist_post->post_status !== 'publish' ) {
+		continue;
+	}
 
-    $link_page_id = function_exists( 'ec_get_link_page_for_artist' )
-        ? ec_get_link_page_for_artist( $ua_id )
-        : 0;
+	$link_page_id = function_exists( 'ec_get_link_page_for_artist' )
+		? ec_get_link_page_for_artist( $ua_id )
+		: 0;
 
-    if ( $link_page_id && get_post_status( $link_page_id ) === 'publish' ) {
-        $user_artists_data[] = array(
-            'id'   => (int) $ua_id,
-            'name' => $artist_post->post_title,
-            'slug' => $artist_post->post_name,
-        );
-        $user_artist_ids_with_link_pages[] = (int) $ua_id;
-    }
+	if ( $link_page_id && get_post_status( $link_page_id ) === 'publish' ) {
+		$user_artists_data[]               = array(
+			'id'   => (int) $ua_id,
+			'name' => $artist_post->post_title,
+			'slug' => $artist_post->post_name,
+		);
+		$user_artist_ids_with_link_pages[] = (int) $ua_id;
+	}
 }
 
 // No link pages yet for this user (should not happen due to auto-creation above)
 if ( empty( $user_artists_data ) ) {
-    echo '<div class="notice notice-error">';
-    echo '<p>' . esc_html__( 'Unable to create link page. Please try refreshing the page or contact support.', 'extrachill-artist-platform' ) . '</p>';
-    echo '</div>';
-    return;
+	echo '<div class="notice notice-error">';
+	echo '<p>' . esc_html__( 'Unable to create link page. Please try refreshing the page or contact support.', 'extrachill-artist-platform' ) . '</p>';
+	echo '</div>';
+	return;
 }
 
 // Get the artist to edit (prefer latest with a link page)
 $artist_id = 0;
 if ( function_exists( 'ec_get_latest_artist_for_user' ) ) {
-    $latest_artist_id = ec_get_latest_artist_for_user( $current_user_id );
-    if ( $latest_artist_id && in_array( (int) $latest_artist_id, $user_artist_ids_with_link_pages, true ) ) {
-        $artist_id = (int) $latest_artist_id;
-    }
+	$latest_artist_id = ec_get_latest_artist_for_user( $current_user_id );
+	if ( $latest_artist_id && in_array( (int) $latest_artist_id, $user_artist_ids_with_link_pages, true ) ) {
+		$artist_id = (int) $latest_artist_id;
+	}
 }
 
 if ( ! $artist_id ) {
-    $artist_id = (int) $user_artists_data[0]['id'];
+	$artist_id = (int) $user_artists_data[0]['id'];
 }
 
 if ( ! $artist_id ) {
-    echo '<div class="notice notice-error">';
-    echo '<p>' . esc_html__( 'Could not determine which artist to edit.', 'extrachill-artist-platform' ) . '</p>';
-    echo '</div>';
-    return;
+	echo '<div class="notice notice-error">';
+	echo '<p>' . esc_html__( 'Could not determine which artist to edit.', 'extrachill-artist-platform' ) . '</p>';
+	echo '</div>';
+	return;
 }
 
 
@@ -128,16 +128,16 @@ $social_types = array();
 if ( function_exists( 'extrachill_artist_platform_social_links' ) ) {
 	$social_manager = extrachill_artist_platform_social_links();
 	$raw_types      = $social_manager->get_supported_types();
-	
-    // Transform associative array to indexed array with id/label/icon_class for React
-    foreach ( $raw_types as $type_id => $type_data ) {
-        $icon_value = isset( $type_data['icon'] ) ? $type_data['icon'] : '';
-        $social_types[] = array(
-            'id'         => $type_id,
-            'label'      => $type_data['label'],
-            'icon_class' => $icon_value,
-        );
-    }
+
+	// Transform associative array to indexed array with id/label/icon_class for React
+	foreach ( $raw_types as $type_id => $type_data ) {
+		$icon_value     = isset( $type_data['icon'] ) ? $type_data['icon'] : '';
+		$social_types[] = array(
+			'id'         => $type_id,
+			'label'      => $type_data['label'],
+			'icon_class' => $icon_value,
+		);
+	}
 }
 
 
@@ -150,11 +150,11 @@ $config = array(
 	'fonts'             => $fonts_data,
 	'localFontsCss'     => $local_fonts_css,
 	'socialTypes'       => $social_types,
-'linkPageCssUrl'     => EXTRACHILL_ARTIST_PLATFORM_PLUGIN_URL . 'assets/css/extrch-links.css',
-    'socialIconsCssUrl' => EXTRACHILL_ARTIST_PLATFORM_PLUGIN_URL . 'assets/css/custom-social-icons.css',
-    'shareModalCssUrl'  => EXTRACHILL_ARTIST_PLATFORM_PLUGIN_URL . 'assets/css/extrch-share-modal.css',
-    'fontAwesomeUrl'    => '//cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css',
-    'iconSpriteUrl'     => get_template_directory_uri() . '/assets/fonts/extrachill.svg?v=' . filemtime( get_template_directory() . '/assets/fonts/extrachill.svg' ),
+	'linkPageCssUrl'    => EXTRACHILL_ARTIST_PLATFORM_PLUGIN_URL . 'assets/css/extrch-links.css',
+	'socialIconsCssUrl' => EXTRACHILL_ARTIST_PLATFORM_PLUGIN_URL . 'assets/css/custom-social-icons.css',
+	'shareModalCssUrl'  => EXTRACHILL_ARTIST_PLATFORM_PLUGIN_URL . 'assets/css/extrch-share-modal.css',
+	'fontAwesomeUrl'    => '//cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css',
+	'iconSpriteUrl'     => get_template_directory_uri() . '/assets/fonts/extrachill.svg?v=' . filemtime( get_template_directory() . '/assets/fonts/extrachill.svg' ),
 );
 
 

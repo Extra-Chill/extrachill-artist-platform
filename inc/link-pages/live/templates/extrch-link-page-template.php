@@ -196,9 +196,14 @@ $body_bg_style = '';
         }
         ?>
 
-        <?php if ($data['powered_by']): ?>
+        <?php if ($data['powered_by']):
+            // Route the footer credit at the /power page's artist-conversion anchor on the
+            // main site rather than the editorial homepage, with UTM params for attribution
+            // (extrachill.link doesn't otherwise appear in extrachill.com referral sources).
+            $powered_by_url = ec_get_site_url('main') . '/power/?utm_source=linkpage&utm_medium=footer&utm_campaign=power#artists';
+        ?>
         <div class="extrch-link-page-powered" style="margin-top:auto; padding-top:1em; padding-bottom:1em;">
-            <a href="https://extrachill.com" rel="noopener">Powered by Extra Chill</a>
+            <a href="<?php echo esc_url($powered_by_url); ?>" rel="noopener">Powered by Extra Chill</a>
         </div>
         <?php endif; ?>
     </div>

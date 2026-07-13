@@ -1,5 +1,4 @@
 <?php
-declare(strict_types=1);
 /**
  * Handler: extrachill/artists-list
  *
@@ -8,6 +7,8 @@ declare(strict_types=1);
  * @package ExtraChillArtistPlatform
  * @since   1.9.0
  */
+
+declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
@@ -43,7 +44,7 @@ function extrachill_artist_platform_ability_artists_list( array $input ): array|
 		'order'          => 'DESC',
 	);
 
-	if ( $search !== '' ) {
+	if ( '' !== $search ) {
 		$query_args['s'] = $search;
 	}
 
@@ -59,13 +60,15 @@ function extrachill_artist_platform_ability_artists_list( array $input ): array|
 			$profile_image_url = $profile_image_id
 				? wp_get_attachment_image_url( (int) $profile_image_id, 'medium' )
 				: null;
+			$local_city        = get_post_meta( $artist_id, '_local_city', true );
+			$genre             = get_post_meta( $artist_id, '_genre', true );
 
 			$artists[] = array(
 				'id'                => (int) $artist_id,
 				'name'              => get_the_title(),
 				'slug'              => get_post_field( 'post_name', $artist_id ),
-				'local_city'        => get_post_meta( $artist_id, '_local_city', true ) ?: null,
-				'genre'             => get_post_meta( $artist_id, '_genre', true ) ?: null,
+				'local_city'        => $local_city ? $local_city : null,
+				'genre'             => $genre ? $genre : null,
 				'profile_image_url' => $profile_image_url,
 			);
 		}

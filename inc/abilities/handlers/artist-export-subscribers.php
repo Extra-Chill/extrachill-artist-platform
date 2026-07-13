@@ -1,5 +1,4 @@
 <?php
-declare(strict_types=1);
 /**
  * Handler: extrachill/artist-export-subscribers
  *
@@ -8,6 +7,8 @@ declare(strict_types=1);
  * @package ExtraChillArtistPlatform
  * @since   1.9.0
  */
+
+declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
@@ -47,7 +48,7 @@ function extrachill_artist_platform_ability_artist_export_subscribers( array $in
 	$export_data            = array();
 
 	foreach ( $subscribers as $subscriber ) {
-		$is_exported = isset( $subscriber->exported ) && $subscriber->exported == 1;
+		$is_exported = isset( $subscriber->exported ) && 1 === (int) $subscriber->exported;
 
 		$export_data[] = array(
 			'email'         => $subscriber->subscriber_email,

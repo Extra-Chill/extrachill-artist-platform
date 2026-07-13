@@ -1,5 +1,4 @@
 <?php
-declare(strict_types=1);
 /**
  * Handler: extrachill/artist-create-social
  *
@@ -8,6 +7,8 @@ declare(strict_types=1);
  * @package ExtraChillArtistPlatform
  * @since   1.9.0
  */
+
+declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
@@ -58,7 +59,7 @@ function extrachill_artist_platform_ability_artist_create_social( array $input )
 
 	$link_page_id = function_exists( 'ec_get_link_page_for_artist' ) ? ec_get_link_page_for_artist( $artist_id ) : 0;
 
-	$sanitized = extrachill_artist_platform_sanitize_socials( $existing, $link_page_id ?: 0 );
+	$sanitized = extrachill_artist_platform_sanitize_socials( $existing, $link_page_id ? $link_page_id : 0 );
 	$result    = $social_manager->save( $artist_id, $sanitized );
 
 	if ( is_wp_error( $result ) ) {

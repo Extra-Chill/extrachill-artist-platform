@@ -31,7 +31,7 @@ function extrachill_artist_platform_ability_get_artist_data( $input ) {
 
 	$artist = get_post( $artist_id );
 
-	if ( ! $artist || $artist->post_type !== 'artist_profile' ) {
+	if ( ! $artist || 'artist_profile' !== $artist->post_type ) {
 		if ( $did_switch ) {
 			restore_current_blog();
 		}
@@ -61,8 +61,8 @@ function extrachill_artist_platform_ability_get_artist_data( $input ) {
 		'name'              => $artist->post_title,
 		'slug'              => $artist->post_name,
 		'bio'               => $artist->post_content,
-		'local_city'        => $local_city !== '' ? $local_city : null,
-		'genre'             => $genre !== '' ? $genre : null,
+		'local_city'        => '' !== $local_city ? $local_city : null,
+		'genre'             => '' !== $genre ? $genre : null,
 		'profile_image_id'  => $profile_image_id ? (int) $profile_image_id : null,
 		'profile_image_url' => $profile_image_url,
 		'header_image_id'   => $header_image_id ? (int) $header_image_id : null,

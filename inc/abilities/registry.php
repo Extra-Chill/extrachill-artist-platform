@@ -57,7 +57,7 @@ function extrachill_artist_platform_register_abilities() {
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
-					'artist_id' => array(
+					'artist_id'    => array(
 						'type'        => 'integer',
 						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
 					),
@@ -96,11 +96,11 @@ function extrachill_artist_platform_register_abilities() {
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
-					'name' => array(
+					'name'       => array(
 						'type'        => 'string',
 						'description' => __( 'Artist name.', 'extrachill-artist-platform' ),
 					),
-					'bio' => array(
+					'bio'        => array(
 						'type'        => 'string',
 						'description' => __( 'Artist bio (HTML allowed).', 'extrachill-artist-platform' ),
 					),
@@ -108,11 +108,11 @@ function extrachill_artist_platform_register_abilities() {
 						'type'        => 'string',
 						'description' => __( 'Local city/scene.', 'extrachill-artist-platform' ),
 					),
-					'genre' => array(
+					'genre'      => array(
 						'type'        => 'string',
 						'description' => __( 'Genre.', 'extrachill-artist-platform' ),
 					),
-					'user_id' => array(
+					'user_id'    => array(
 						'type'        => 'integer',
 						'description' => __( 'User ID to link as member. Defaults to current user.', 'extrachill-artist-platform' ),
 					),
@@ -145,23 +145,23 @@ function extrachill_artist_platform_register_abilities() {
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
-					'artist_id' => array(
+					'artist_id'        => array(
 						'type'        => 'integer',
 						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
 					),
-					'name' => array(
+					'name'             => array(
 						'type'        => 'string',
 						'description' => __( 'Artist name.', 'extrachill-artist-platform' ),
 					),
-					'bio' => array(
+					'bio'              => array(
 						'type'        => 'string',
 						'description' => __( 'Artist bio (HTML allowed).', 'extrachill-artist-platform' ),
 					),
-					'local_city' => array(
+					'local_city'       => array(
 						'type'        => 'string',
 						'description' => __( 'Local city/scene.', 'extrachill-artist-platform' ),
 					),
-					'genre' => array(
+					'genre'            => array(
 						'type'        => 'string',
 						'description' => __( 'Genre.', 'extrachill-artist-platform' ),
 					),
@@ -169,7 +169,7 @@ function extrachill_artist_platform_register_abilities() {
 						'type'        => 'integer',
 						'description' => __( 'Profile image attachment ID. 0 to remove.', 'extrachill-artist-platform' ),
 					),
-					'header_image_id' => array(
+					'header_image_id'  => array(
 						'type'        => 'integer',
 						'description' => __( 'Header image attachment ID. 0 to remove.', 'extrachill-artist-platform' ),
 					),
@@ -206,7 +206,7 @@ function extrachill_artist_platform_register_abilities() {
 						'type'        => 'integer',
 						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
 					),
-					'links' => array(
+					'links'     => array(
 						'type'        => 'array',
 						'description' => __( 'Array of link sections with nested links.', 'extrachill-artist-platform' ),
 					),
@@ -243,7 +243,7 @@ function extrachill_artist_platform_register_abilities() {
 						'type'        => 'integer',
 						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
 					),
-					'css_vars' => array(
+					'css_vars'  => array(
 						'type'        => 'object',
 						'description' => __( 'CSS variables to save. Merged with existing.', 'extrachill-artist-platform' ),
 					),
@@ -276,15 +276,15 @@ function extrachill_artist_platform_register_abilities() {
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
-					'artist_id' => array(
+					'artist_id'           => array(
 						'type'        => 'integer',
 						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
 					),
-					'settings' => array(
+					'settings'            => array(
 						'type'        => 'object',
 						'description' => __( 'Settings to save.', 'extrachill-artist-platform' ),
 					),
-					'bio' => array(
+					'bio'                 => array(
 						'type'        => 'string',
 						'description' => __( 'Short bio displayed on the public link page.', 'extrachill-artist-platform' ),
 					),
@@ -292,7 +292,7 @@ function extrachill_artist_platform_register_abilities() {
 						'type'        => 'integer',
 						'description' => __( 'Background image attachment ID. 0 to remove.', 'extrachill-artist-platform' ),
 					),
-					'profile_image_id' => array(
+					'profile_image_id'    => array(
 						'type'        => 'integer',
 						'description' => __( 'Profile image attachment ID. 0 to remove.', 'extrachill-artist-platform' ),
 					),
@@ -325,7 +325,7 @@ function extrachill_artist_platform_register_abilities() {
 			'input_schema'        => array(
 				'type'       => 'object',
 				'properties' => array(
-					'artist_id' => array(
+					'artist_id'    => array(
 						'type'        => 'integer',
 						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
 					),
@@ -367,9 +367,21 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array(),
 				'properties'           => array(
-					'page'     => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Page number.', 'extrachill-artist-platform' ) ),
-					'per_page' => array( 'type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'description' => __( 'Results per page.', 'extrachill-artist-platform' ) ),
-					'search'   => array( 'type' => 'string', 'description' => __( 'Search by artist name.', 'extrachill-artist-platform' ) ),
+					'page'     => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Page number.', 'extrachill-artist-platform' ),
+					),
+					'per_page' => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'maximum'     => 100,
+						'description' => __( 'Results per page.', 'extrachill-artist-platform' ),
+					),
+					'search'   => array(
+						'type'        => 'string',
+						'description' => __( 'Search by artist name.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -406,7 +418,11 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array(),
 				'properties'           => array(
-					'days' => array( 'type' => 'integer', 'minimum' => 0, 'description' => __( 'Window in days for the recent aggregates. 0 disables the recent metrics window. Default 28.', 'extrachill-artist-platform' ) ),
+					'days' => array(
+						'type'        => 'integer',
+						'minimum'     => 0,
+						'description' => __( 'Window in days for the recent aggregates. 0 disables the recent metrics window. Default 28.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -445,7 +461,11 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'id' ),
 				'properties'           => array(
-					'id' => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
+					'id' => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -455,7 +475,10 @@ function extrachill_artist_platform_register_abilities() {
 					'id'                => array( 'type' => 'integer' ),
 					'name'              => array( 'type' => 'string' ),
 					'slug'              => array( 'type' => 'string' ),
-					'permalink'         => array( 'type' => 'string', 'format' => 'uri' ),
+					'permalink'         => array(
+						'type'   => 'string',
+						'format' => 'uri',
+					),
 					'bio'               => array( 'type' => 'string' ),
 					'local_city'        => array( 'type' => array( 'string', 'null' ) ),
 					'genre'             => array( 'type' => array( 'string', 'null' ) ),
@@ -490,7 +513,11 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'id' ),
 				'properties'           => array(
-					'id' => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
+					'id' => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -521,14 +548,39 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'id' ),
 				'properties'           => array(
-					'id'                 => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
-					'links'              => array( 'type' => 'array', 'description' => __( 'Link sections with nested links.', 'extrachill-artist-platform' ) ),
-					'css_vars'           => array( 'type' => 'object', 'description' => __( 'CSS variables to save.', 'extrachill-artist-platform' ) ),
-					'settings'           => array( 'type' => 'object', 'description' => __( 'Advanced settings.', 'extrachill-artist-platform' ) ),
-					'socials'            => array( 'type' => 'array', 'description' => __( 'Social link objects.', 'extrachill-artist-platform' ) ),
-					'background_image_id' => array( 'type' => 'integer', 'description' => __( 'Background image attachment ID.', 'extrachill-artist-platform' ) ),
-					'profile_image_id'   => array( 'type' => 'integer', 'description' => __( 'Profile image attachment ID.', 'extrachill-artist-platform' ) ),
-					'bio'                => array( 'type' => 'string', 'description' => __( 'Short bio for the link page.', 'extrachill-artist-platform' ) ),
+					'id'                  => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
+					'links'               => array(
+						'type'        => 'array',
+						'description' => __( 'Link sections with nested links.', 'extrachill-artist-platform' ),
+					),
+					'css_vars'            => array(
+						'type'        => 'object',
+						'description' => __( 'CSS variables to save.', 'extrachill-artist-platform' ),
+					),
+					'settings'            => array(
+						'type'        => 'object',
+						'description' => __( 'Advanced settings.', 'extrachill-artist-platform' ),
+					),
+					'socials'             => array(
+						'type'        => 'array',
+						'description' => __( 'Social link objects.', 'extrachill-artist-platform' ),
+					),
+					'background_image_id' => array(
+						'type'        => 'integer',
+						'description' => __( 'Background image attachment ID.', 'extrachill-artist-platform' ),
+					),
+					'profile_image_id'    => array(
+						'type'        => 'integer',
+						'description' => __( 'Profile image attachment ID.', 'extrachill-artist-platform' ),
+					),
+					'bio'                 => array(
+						'type'        => 'string',
+						'description' => __( 'Short bio for the link page.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -559,7 +611,11 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'id' ),
 				'properties'           => array(
-					'id' => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
+					'id' => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -594,7 +650,11 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'id' ),
 				'properties'           => array(
-					'id' => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
+					'id' => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -628,7 +688,11 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'id' ),
 				'properties'           => array(
-					'id' => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
+					'id' => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -661,9 +725,20 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'id', 'type', 'url' ),
 				'properties'           => array(
-					'id'   => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
-					'type' => array( 'type' => 'string', 'description' => __( 'Social platform type.', 'extrachill-artist-platform' ) ),
-					'url'  => array( 'type' => 'string', 'format' => 'uri', 'description' => __( 'Social link URL.', 'extrachill-artist-platform' ) ),
+					'id'   => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
+					'type' => array(
+						'type'        => 'string',
+						'description' => __( 'Social platform type.', 'extrachill-artist-platform' ),
+					),
+					'url'  => array(
+						'type'        => 'string',
+						'format'      => 'uri',
+						'description' => __( 'Social link URL.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -696,10 +771,24 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'id', 'social_id' ),
 				'properties'           => array(
-					'id'        => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
-					'social_id' => array( 'type' => 'string', 'description' => __( 'Social link ID to update.', 'extrachill-artist-platform' ) ),
-					'type'      => array( 'type' => 'string', 'description' => __( 'Social platform type.', 'extrachill-artist-platform' ) ),
-					'url'       => array( 'type' => 'string', 'format' => 'uri', 'description' => __( 'Social link URL.', 'extrachill-artist-platform' ) ),
+					'id'        => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
+					'social_id' => array(
+						'type'        => 'string',
+						'description' => __( 'Social link ID to update.', 'extrachill-artist-platform' ),
+					),
+					'type'      => array(
+						'type'        => 'string',
+						'description' => __( 'Social platform type.', 'extrachill-artist-platform' ),
+					),
+					'url'       => array(
+						'type'        => 'string',
+						'format'      => 'uri',
+						'description' => __( 'Social link URL.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -732,8 +821,15 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'id', 'social_id' ),
 				'properties'           => array(
-					'id'        => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
-					'social_id' => array( 'type' => 'string', 'description' => __( 'Social link ID to delete.', 'extrachill-artist-platform' ) ),
+					'id'        => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
+					'social_id' => array(
+						'type'        => 'string',
+						'description' => __( 'Social link ID to delete.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -768,8 +864,16 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'id', 'email' ),
 				'properties'           => array(
-					'id'    => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
-					'email' => array( 'type' => 'string', 'format' => 'email', 'description' => __( 'Subscriber email address.', 'extrachill-artist-platform' ) ),
+					'id'    => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
+					'email' => array(
+						'type'        => 'string',
+						'format'      => 'email',
+						'description' => __( 'Subscriber email address.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -802,9 +906,22 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'id' ),
 				'properties'           => array(
-					'id'       => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
-					'page'     => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Page number.', 'extrachill-artist-platform' ) ),
-					'per_page' => array( 'type' => 'integer', 'minimum' => 1, 'maximum' => 100, 'description' => __( 'Results per page.', 'extrachill-artist-platform' ) ),
+					'id'       => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
+					'page'     => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Page number.', 'extrachill-artist-platform' ),
+					),
+					'per_page' => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'maximum'     => 100,
+						'description' => __( 'Results per page.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -840,8 +957,15 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'id' ),
 				'properties'           => array(
-					'id'               => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
-					'include_exported' => array( 'type' => 'boolean', 'description' => __( 'Include already exported subscribers.', 'extrachill-artist-platform' ) ),
+					'id'               => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
+					'include_exported' => array(
+						'type'        => 'boolean',
+						'description' => __( 'Include already exported subscribers.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -878,8 +1002,17 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'id' ),
 				'properties'           => array(
-					'id'         => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
-					'date_range' => array( 'type' => 'integer', 'minimum' => 1, 'maximum' => 90, 'description' => __( 'Number of days to query.', 'extrachill-artist-platform' ) ),
+					'id'         => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
+					'date_range' => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'maximum'     => 90,
+						'description' => __( 'Number of days to query.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -918,8 +1051,15 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array(),
 				'properties'           => array(
-					'view'   => array( 'type' => 'string', 'enum' => array( 'artists', 'users' ), 'description' => __( 'View mode.', 'extrachill-artist-platform' ) ),
-					'search' => array( 'type' => 'string', 'description' => __( 'Search term.', 'extrachill-artist-platform' ) ),
+					'view'   => array(
+						'type'        => 'string',
+						'enum'        => array( 'artists', 'users' ),
+						'description' => __( 'View mode.', 'extrachill-artist-platform' ),
+					),
+					'search' => array(
+						'type'        => 'string',
+						'description' => __( 'Search term.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -952,8 +1092,16 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'user_id', 'artist_id' ),
 				'properties'           => array(
-					'user_id'   => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'WordPress user ID.', 'extrachill-artist-platform' ) ),
-					'artist_id' => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
+					'user_id'   => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'WordPress user ID.', 'extrachill-artist-platform' ),
+					),
+					'artist_id' => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -986,8 +1134,16 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'user_id', 'artist_id' ),
 				'properties'           => array(
-					'user_id'   => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'WordPress user ID.', 'extrachill-artist-platform' ) ),
-					'artist_id' => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
+					'user_id'   => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'WordPress user ID.', 'extrachill-artist-platform' ),
+					),
+					'artist_id' => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),
@@ -1051,8 +1207,16 @@ function extrachill_artist_platform_register_abilities() {
 				'type'                 => 'object',
 				'required'             => array( 'user_id', 'artist_id' ),
 				'properties'           => array(
-					'user_id'   => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'WordPress user ID.', 'extrachill-artist-platform' ) ),
-					'artist_id' => array( 'type' => 'integer', 'minimum' => 1, 'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ) ),
+					'user_id'   => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'WordPress user ID.', 'extrachill-artist-platform' ),
+					),
+					'artist_id' => array(
+						'type'        => 'integer',
+						'minimum'     => 1,
+						'description' => __( 'Artist profile post ID.', 'extrachill-artist-platform' ),
+					),
 				),
 				'additionalProperties' => false,
 			),

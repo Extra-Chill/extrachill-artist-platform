@@ -62,13 +62,16 @@ function ec_handle_artist_relationship_admin_action() {
 /** Render the relationship list, link form, and orphan cleanup workflow. */
 function ec_render_artist_relationship_admin_page() {
 	$requested_view = isset( $_GET['view'] ) ? sanitize_key( wp_unslash( $_GET['view'] ) ) : 'artists';
-	$view   = in_array( $requested_view, array( 'artists', 'users', 'orphans' ), true ) ? $requested_view : 'artists';
-	$search = isset( $_GET['search'] ) ? sanitize_text_field( wp_unslash( $_GET['search'] ) ) : '';
-	$name   = 'orphans' === $view ? 'extrachill/admin-list-orphan-artist-relationships' : 'extrachill/admin-list-artist-relationships';
-	$input  = 'orphans' === $view ? array() : array( 'view' => $view, 'search' => $search );
-	$ability = wp_get_ability( $name );
-	$result  = $ability ? $ability->execute( $input ) : new WP_Error( 'ability_not_found', __( 'Relationship ability is unavailable.', 'extrachill-artist-platform' ) );
-	$notice_type = isset( $_GET['type'] ) && 'error' === sanitize_key( wp_unslash( $_GET['type'] ) ) ? 'error' : 'success';
+	$view           = in_array( $requested_view, array( 'artists', 'users', 'orphans' ), true ) ? $requested_view : 'artists';
+	$search         = isset( $_GET['search'] ) ? sanitize_text_field( wp_unslash( $_GET['search'] ) ) : '';
+	$name           = 'orphans' === $view ? 'extrachill/admin-list-orphan-artist-relationships' : 'extrachill/admin-list-artist-relationships';
+	$input          = 'orphans' === $view ? array() : array(
+		'view'   => $view,
+		'search' => $search,
+	);
+	$ability        = wp_get_ability( $name );
+	$result         = $ability ? $ability->execute( $input ) : new WP_Error( 'ability_not_found', __( 'Relationship ability is unavailable.', 'extrachill-artist-platform' ) );
+	$notice_type    = isset( $_GET['type'] ) && 'error' === sanitize_key( wp_unslash( $_GET['type'] ) ) ? 'error' : 'success';
 	?>
 	<div class="wrap">
 		<h1><?php esc_html_e( 'Artist Relationships', 'extrachill-artist-platform' ); ?></h1>
@@ -77,8 +80,26 @@ function ec_render_artist_relationship_admin_page() {
 		<?php endif; ?>
 		<p><?php esc_html_e( 'Manage bidirectional links between network users and artist profiles.', 'extrachill-artist-platform' ); ?></p>
 		<nav class="nav-tab-wrapper">
-			<?php foreach ( array( 'artists' => __( 'Artists', 'extrachill-artist-platform' ), 'users' => __( 'Users', 'extrachill-artist-platform' ), 'orphans' => __( 'Orphans', 'extrachill-artist-platform' ) ) as $key => $label ) : ?>
-				<a class="nav-tab <?php echo $view === $key ? 'nav-tab-active' : ''; ?>" href="<?php echo esc_url( add_query_arg( array( 'page' => 'ec-artist-relationships', 'view' => $key ), network_admin_url( 'settings.php' ) ) ); ?>"><?php echo esc_html( $label ); ?></a>
+			<?php
+			foreach ( array(
+				'artists' => __( 'Artists', 'extrachill-artist-platform' ),
+				'users'   => __( 'Users', 'extrachill-artist-platform' ),
+				'orphans' => __( 'Orphans', 'extrachill-artist-platform' ),
+			) as $key => $label ) :
+				?>
+				<a class="nav-tab <?php echo $view === $key ? 'nav-tab-active' : ''; ?>" href="
+				<?php
+				echo esc_url(
+					add_query_arg(
+						array(
+							'page' => 'ec-artist-relationships',
+							'view' => $key,
+						),
+						network_admin_url( 'settings.php' )
+					)
+				);
+				?>
+									"><?php echo esc_html( $label ); ?></a>
 			<?php endforeach; ?>
 		</nav>
 
@@ -100,7 +121,11 @@ function ec_render_artist_relationship_admin_page() {
 
 		<?php if ( is_wp_error( $result ) ) : ?>
 			<div class="notice notice-error"><p><?php echo esc_html( $result->get_error_message() ); ?></p></div>
-		<?php else : ec_render_artist_relationship_admin_table( $view, 'orphans' === $view ? $result['orphans'] : $result['items'] ); endif; ?>
+			<?php
+		else :
+			ec_render_artist_relationship_admin_table( $view, 'orphans' === $view ? $result['orphans'] : $result['items'] );
+endif;
+		?>
 	</div>
 	<?php
 }
@@ -114,11 +139,19 @@ function ec_render_artist_relationship_admin_page() {
 function ec_render_artist_relationship_admin_table( $view, array $items ) {
 	?>
 	<table class="widefat striped"><thead><tr><th><?php echo 'users' === $view ? esc_html__( 'User', 'extrachill-artist-platform' ) : esc_html__( 'Artist', 'extrachill-artist-platform' ); ?></th><th><?php echo 'orphans' === $view ? esc_html__( 'Invalid Artist ID', 'extrachill-artist-platform' ) : esc_html__( 'Relationships', 'extrachill-artist-platform' ); ?></th></tr></thead><tbody>
-	<?php if ( empty( $items ) ) : ?><tr><td colspan="2"><?php esc_html_e( 'No relationships found.', 'extrachill-artist-platform' ); ?></td></tr><?php endif; ?>
+	<?php
+	if ( empty( $items ) ) :
+		?>
+		<tr><td colspan="2"><?php esc_html_e( 'No relationships found.', 'extrachill-artist-platform' ); ?></td></tr><?php endif; ?>
 	<?php foreach ( $items as $item ) : ?>
 		<tr><td><?php echo esc_html( 'artists' === $view ? $item['title'] . ' (#' . $item['id'] . ')' : $item['user']['display_name'] ?? $item['display_name'] ); ?></td><td>
 		<?php
-		$relationships = 'artists' === $view ? $item['members'] : ( 'users' === $view ? $item['artists'] : array( array( 'ID' => $item['user']['ID'], 'artist_id' => $item['invalid_artist_id'] ) ) );
+		$relationships = 'artists' === $view ? $item['members'] : ( 'users' === $view ? $item['artists'] : array(
+			array(
+				'ID'        => $item['user']['ID'],
+				'artist_id' => $item['invalid_artist_id'],
+			),
+		) );
 		foreach ( $relationships as $relationship ) {
 			$user_id   = 'artists' === $view ? $relationship['ID'] : ( 'users' === $view ? $item['ID'] : $relationship['ID'] );
 			$artist_id = 'artists' === $view ? $item['id'] : ( 'users' === $view ? $relationship['ID'] : $relationship['artist_id'] );

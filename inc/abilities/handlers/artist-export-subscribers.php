@@ -38,10 +38,13 @@ function extrachill_artist_platform_ability_artist_export_subscribers( array $in
 
 	$exported_filter = $include_exported ? null : 0;
 
-	$subscribers = extrachill_artist_get_artist_subscribers( $artist_id, array(
-		'limit'    => -1,
-		'exported' => $exported_filter,
-	) );
+	$subscribers = extrachill_artist_get_artist_subscribers(
+		$artist_id,
+		array(
+			'limit'    => -1,
+			'exported' => $exported_filter,
+		)
+	);
 
 	$subscriber_ids_to_mark = array();
 	$export_data            = array();

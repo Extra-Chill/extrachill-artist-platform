@@ -35,50 +35,50 @@ defined( 'ABSPATH' ) || exit;
  * @return int Main-blog `artist` term_id, or 0 if none can be resolved.
  */
 function ec_get_artist_term_id( $profile_id ) {
-    $profile_id = (int) $profile_id;
-    if ( $profile_id <= 0 ) {
-        return 0;
-    }
+	$profile_id = (int) $profile_id;
+	if ( $profile_id <= 0 ) {
+		return 0;
+	}
 
-    // 1. Stored binding wins.
-    $stored = (int) get_post_meta( $profile_id, '_artist_term_id', true );
-    if ( $stored > 0 ) {
-        return $stored;
-    }
+	// 1. Stored binding wins.
+	$stored = (int) get_post_meta( $profile_id, '_artist_term_id', true );
+	if ( $stored > 0 ) {
+		return $stored;
+	}
 
-    // 2. Slug fallback. The profile lives on the artist blog; resolve its slug
-    //    there, then look the term up on the main blog.
-    $slug = get_post_field( 'post_name', $profile_id );
-    if ( empty( $slug ) ) {
-        return 0;
-    }
+	// 2. Slug fallback. The profile lives on the artist blog; resolve its slug
+	// there, then look the term up on the main blog.
+	$slug = get_post_field( 'post_name', $profile_id );
+	if ( empty( $slug ) ) {
+		return 0;
+	}
 
-    $main_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'main' ) : null;
-    if ( ! $main_blog_id ) {
-        return 0;
-    }
+	$main_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'main' ) : null;
+	if ( ! $main_blog_id ) {
+		return 0;
+	}
 
-    $term_id   = 0;
-    $term_slug = '';
-    switch_to_blog( $main_blog_id );
-    try {
-        $term = get_term_by( 'slug', $slug, 'artist' );
-        if ( $term && ! is_wp_error( $term ) ) {
-            $term_id   = (int) $term->term_id;
-            $term_slug = $term->slug;
-        }
-    } finally {
-        restore_current_blog();
-    }
+	$term_id   = 0;
+	$term_slug = '';
+	switch_to_blog( $main_blog_id );
+	try {
+		$term = get_term_by( 'slug', $slug, 'artist' );
+		if ( $term && ! is_wp_error( $term ) ) {
+			$term_id   = (int) $term->term_id;
+			$term_slug = $term->slug;
+		}
+	} finally {
+		restore_current_blog();
+	}
 
-    if ( $term_id <= 0 ) {
-        return 0;
-    }
+	if ( $term_id <= 0 ) {
+		return 0;
+	}
 
-    // 3. Self-heal: persist both sides of the binding.
-    ec_bind_artist_profile_to_term( $profile_id, $term_id, $main_blog_id );
+	// 3. Self-heal: persist both sides of the binding.
+	ec_bind_artist_profile_to_term( $profile_id, $term_id, $main_blog_id );
 
-    return $term_id;
+	return $term_id;
 }
 
 /**
@@ -92,72 +92,74 @@ function ec_get_artist_term_id( $profile_id ) {
  * @return int Artist profile post ID (on the artist blog), or 0 if none.
  */
 function ec_get_artist_profile_id( $term_id ) {
-    $term_id = (int) $term_id;
-    if ( $term_id <= 0 ) {
-        return 0;
-    }
+	$term_id = (int) $term_id;
+	if ( $term_id <= 0 ) {
+		return 0;
+	}
 
-    $main_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'main' ) : null;
-    if ( ! $main_blog_id ) {
-        return 0;
-    }
+	$main_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'main' ) : null;
+	if ( ! $main_blog_id ) {
+		return 0;
+	}
 
-    // 1. Stored binding wins. Term meta lives on the MAIN blog alongside the term.
-    $stored    = 0;
-    $term_slug = '';
-    switch_to_blog( $main_blog_id );
-    try {
-        $stored = (int) get_term_meta( $term_id, '_artist_profile_id', true );
-        if ( $stored <= 0 ) {
-            $term = get_term( $term_id, 'artist' );
-            if ( $term && ! is_wp_error( $term ) ) {
-                $term_slug = $term->slug;
-            }
-        }
-    } finally {
-        restore_current_blog();
-    }
+	// 1. Stored binding wins. Term meta lives on the MAIN blog alongside the term.
+	$stored    = 0;
+	$term_slug = '';
+	switch_to_blog( $main_blog_id );
+	try {
+		$stored = (int) get_term_meta( $term_id, '_artist_profile_id', true );
+		if ( $stored <= 0 ) {
+			$term = get_term( $term_id, 'artist' );
+			if ( $term && ! is_wp_error( $term ) ) {
+				$term_slug = $term->slug;
+			}
+		}
+	} finally {
+		restore_current_blog();
+	}
 
-    if ( $stored > 0 ) {
-        return $stored;
-    }
+	if ( $stored > 0 ) {
+		return $stored;
+	}
 
-    if ( empty( $term_slug ) ) {
-        return 0;
-    }
+	if ( empty( $term_slug ) ) {
+		return 0;
+	}
 
-    // 2. Slug fallback. Look the profile up on the artist blog by slug.
-    $artist_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'artist' ) : null;
-    if ( ! $artist_blog_id ) {
-        return 0;
-    }
+	// 2. Slug fallback. Look the profile up on the artist blog by slug.
+	$artist_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'artist' ) : null;
+	if ( ! $artist_blog_id ) {
+		return 0;
+	}
 
-    $profile_id = 0;
-    switch_to_blog( $artist_blog_id );
-    try {
-        $found = get_posts( array(
-            'post_type'        => 'artist_profile',
-            'name'             => $term_slug,
-            'post_status'      => 'publish',
-            'posts_per_page'   => 1,
-            'fields'           => 'ids',
-            'suppress_filters' => false,
-        ) );
-        if ( ! empty( $found ) ) {
-            $profile_id = (int) $found[0];
-        }
-    } finally {
-        restore_current_blog();
-    }
+	$profile_id = 0;
+	switch_to_blog( $artist_blog_id );
+	try {
+		$found = get_posts(
+			array(
+				'post_type'        => 'artist_profile',
+				'name'             => $term_slug,
+				'post_status'      => 'publish',
+				'posts_per_page'   => 1,
+				'fields'           => 'ids',
+				'suppress_filters' => false,
+			)
+		);
+		if ( ! empty( $found ) ) {
+			$profile_id = (int) $found[0];
+		}
+	} finally {
+		restore_current_blog();
+	}
 
-    if ( $profile_id <= 0 ) {
-        return 0;
-    }
+	if ( $profile_id <= 0 ) {
+		return 0;
+	}
 
-    // 3. Self-heal: persist both sides of the binding.
-    ec_bind_artist_profile_to_term( $profile_id, $term_id, $main_blog_id );
+	// 3. Self-heal: persist both sides of the binding.
+	ec_bind_artist_profile_to_term( $profile_id, $term_id, $main_blog_id );
 
-    return $profile_id;
+	return $profile_id;
 }
 
 /**
@@ -174,31 +176,31 @@ function ec_get_artist_profile_id( $term_id ) {
  * @return void
  */
 function ec_bind_artist_profile_to_term( $profile_id, $term_id, $main_blog_id = null ) {
-    $profile_id = (int) $profile_id;
-    $term_id    = (int) $term_id;
-    if ( $profile_id <= 0 || $term_id <= 0 ) {
-        return;
-    }
+	$profile_id = (int) $profile_id;
+	$term_id    = (int) $term_id;
+	if ( $profile_id <= 0 || $term_id <= 0 ) {
+		return;
+	}
 
-    // Profile-side meta. update_post_meta targets the post on whichever blog it
-    // lives on; this binding is only ever resolved from the artist blog where
-    // the profile is the current post, so write it directly.
-    update_post_meta( $profile_id, '_artist_term_id', $term_id );
+	// Profile-side meta. update_post_meta targets the post on whichever blog it
+	// lives on; this binding is only ever resolved from the artist blog where
+	// the profile is the current post, so write it directly.
+	update_post_meta( $profile_id, '_artist_term_id', $term_id );
 
-    // Term-side meta lives on the main blog.
-    if ( null === $main_blog_id ) {
-        $main_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'main' ) : null;
-    }
-    if ( ! $main_blog_id ) {
-        return;
-    }
+	// Term-side meta lives on the main blog.
+	if ( null === $main_blog_id ) {
+		$main_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'main' ) : null;
+	}
+	if ( ! $main_blog_id ) {
+		return;
+	}
 
-    switch_to_blog( $main_blog_id );
-    try {
-        update_term_meta( $term_id, '_artist_profile_id', $profile_id );
-    } finally {
-        restore_current_blog();
-    }
+	switch_to_blog( $main_blog_id );
+	try {
+		update_term_meta( $term_id, '_artist_profile_id', $profile_id );
+	} finally {
+		restore_current_blog();
+	}
 }
 
 /**
@@ -214,54 +216,54 @@ function ec_bind_artist_profile_to_term( $profile_id, $term_id, $main_blog_id = 
  * @return void
  */
 function ec_sync_artist_profile_term_binding( $profile_id ) {
-    $profile_id = (int) $profile_id;
-    if ( $profile_id <= 0 || get_post_type( $profile_id ) !== 'artist_profile' ) {
-        return;
-    }
+	$profile_id = (int) $profile_id;
+	if ( $profile_id <= 0 || get_post_type( $profile_id ) !== 'artist_profile' ) {
+		return;
+	}
 
-    // Already bound? Nothing to do.
-    if ( (int) get_post_meta( $profile_id, '_artist_term_id', true ) > 0 ) {
-        return;
-    }
+	// Already bound? Nothing to do.
+	if ( (int) get_post_meta( $profile_id, '_artist_term_id', true ) > 0 ) {
+		return;
+	}
 
-    // Try the slug-fallback resolver first (it self-heals on success).
-    $term_id = ec_get_artist_term_id( $profile_id );
-    if ( $term_id > 0 ) {
-        return;
-    }
+	// Try the slug-fallback resolver first (it self-heals on success).
+	$term_id = ec_get_artist_term_id( $profile_id );
+	if ( $term_id > 0 ) {
+		return;
+	}
 
-    // No matching term exists yet — create one on the main blog so the profile
-    // is always represented in the network join key.
-    $title = get_the_title( $profile_id );
-    $slug  = get_post_field( 'post_name', $profile_id );
-    if ( empty( $title ) || empty( $slug ) ) {
-        return;
-    }
+	// No matching term exists yet — create one on the main blog so the profile
+	// is always represented in the network join key.
+	$title = get_the_title( $profile_id );
+	$slug  = get_post_field( 'post_name', $profile_id );
+	if ( empty( $title ) || empty( $slug ) ) {
+		return;
+	}
 
-    $main_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'main' ) : null;
-    if ( ! $main_blog_id ) {
-        return;
-    }
+	$main_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'main' ) : null;
+	if ( ! $main_blog_id ) {
+		return;
+	}
 
-    $new_term_id = 0;
-    switch_to_blog( $main_blog_id );
-    try {
-        $existing = get_term_by( 'slug', $slug, 'artist' );
-        if ( $existing && ! is_wp_error( $existing ) ) {
-            $new_term_id = (int) $existing->term_id;
-        } else {
-            $inserted = wp_insert_term( $title, 'artist', array( 'slug' => $slug ) );
-            if ( ! is_wp_error( $inserted ) && ! empty( $inserted['term_id'] ) ) {
-                $new_term_id = (int) $inserted['term_id'];
-            }
-        }
-    } finally {
-        restore_current_blog();
-    }
+	$new_term_id = 0;
+	switch_to_blog( $main_blog_id );
+	try {
+		$existing = get_term_by( 'slug', $slug, 'artist' );
+		if ( $existing && ! is_wp_error( $existing ) ) {
+			$new_term_id = (int) $existing->term_id;
+		} else {
+			$inserted = wp_insert_term( $title, 'artist', array( 'slug' => $slug ) );
+			if ( ! is_wp_error( $inserted ) && ! empty( $inserted['term_id'] ) ) {
+				$new_term_id = (int) $inserted['term_id'];
+			}
+		}
+	} finally {
+		restore_current_blog();
+	}
 
-    if ( $new_term_id > 0 ) {
-        ec_bind_artist_profile_to_term( $profile_id, $new_term_id, $main_blog_id );
-    }
+	if ( $new_term_id > 0 ) {
+		ec_bind_artist_profile_to_term( $profile_id, $new_term_id, $main_blog_id );
+	}
 }
 add_action( 'ec_artist_profile_save', 'ec_sync_artist_profile_term_binding', 5, 1 );
 
@@ -280,78 +282,80 @@ add_action( 'ec_artist_profile_save', 'ec_sync_artist_profile_term_binding', 5, 
  * @return void
  */
 function ec_backfill_artist_term_bindings() {
-    $backfill_version = '1.0.0';
-    $stored = get_option( 'extrachill_artist_platform_term_binding_backfill', '0' );
-    if ( version_compare( $stored, $backfill_version, '>=' ) ) {
-        return;
-    }
+	$backfill_version = '1.0.0';
+	$stored           = get_option( 'extrachill_artist_platform_term_binding_backfill', '0' );
+	if ( version_compare( $stored, $backfill_version, '>=' ) ) {
+		return;
+	}
 
-    $artist_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'artist' ) : null;
-    $main_blog_id   = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'main' ) : null;
-    if ( ! $artist_blog_id || ! $main_blog_id ) {
-        // Network helpers unavailable; do not burn the version gate. Retry next load.
-        return;
-    }
+	$artist_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'artist' ) : null;
+	$main_blog_id   = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'main' ) : null;
+	if ( ! $artist_blog_id || ! $main_blog_id ) {
+		// Network helpers unavailable; do not burn the version gate. Retry next load.
+		return;
+	}
 
-    // Collect candidate profiles (id + slug) from the artist blog.
-    $profiles = array();
-    switch_to_blog( $artist_blog_id );
-    try {
-        $found = get_posts( array(
-            'post_type'        => 'artist_profile',
-            'post_status'      => 'any',
-            'posts_per_page'   => -1,
-            'fields'           => 'ids',
-            'suppress_filters' => false,
-        ) );
-        foreach ( (array) $found as $pid ) {
-            $pid = (int) $pid;
-            if ( (int) get_post_meta( $pid, '_artist_term_id', true ) > 0 ) {
-                continue; // already bound
-            }
-            $slug = get_post_field( 'post_name', $pid );
-            if ( ! empty( $slug ) ) {
-                $profiles[ $pid ] = $slug;
-            }
-        }
-    } finally {
-        restore_current_blog();
-    }
+	// Collect candidate profiles (id + slug) from the artist blog.
+	$profiles = array();
+	switch_to_blog( $artist_blog_id );
+	try {
+		$found = get_posts(
+			array(
+				'post_type'        => 'artist_profile',
+				'post_status'      => 'any',
+				'posts_per_page'   => -1,
+				'fields'           => 'ids',
+				'suppress_filters' => false,
+			)
+		);
+		foreach ( (array) $found as $pid ) {
+			$pid = (int) $pid;
+			if ( (int) get_post_meta( $pid, '_artist_term_id', true ) > 0 ) {
+				continue; // already bound
+			}
+			$slug = get_post_field( 'post_name', $pid );
+			if ( ! empty( $slug ) ) {
+				$profiles[ $pid ] = $slug;
+			}
+		}
+	} finally {
+		restore_current_blog();
+	}
 
-    if ( empty( $profiles ) ) {
-        update_option( 'extrachill_artist_platform_term_binding_backfill', $backfill_version );
-        return;
-    }
+	if ( empty( $profiles ) ) {
+		update_option( 'extrachill_artist_platform_term_binding_backfill', $backfill_version );
+		return;
+	}
 
-    // Resolve each slug to a term on the main blog (single switch for the batch).
-    $resolved = array();
-    switch_to_blog( $main_blog_id );
-    try {
-        foreach ( $profiles as $pid => $slug ) {
-            $term = get_term_by( 'slug', $slug, 'artist' );
-            if ( $term && ! is_wp_error( $term ) ) {
-                $term_id = (int) $term->term_id;
-                $resolved[ $pid ] = $term_id;
-                // Write the term-side meta while we are already on the main blog.
-                update_term_meta( $term_id, '_artist_profile_id', $pid );
-            }
-        }
-    } finally {
-        restore_current_blog();
-    }
+	// Resolve each slug to a term on the main blog (single switch for the batch).
+	$resolved = array();
+	switch_to_blog( $main_blog_id );
+	try {
+		foreach ( $profiles as $pid => $slug ) {
+			$term = get_term_by( 'slug', $slug, 'artist' );
+			if ( $term && ! is_wp_error( $term ) ) {
+				$term_id          = (int) $term->term_id;
+				$resolved[ $pid ] = $term_id;
+				// Write the term-side meta while we are already on the main blog.
+				update_term_meta( $term_id, '_artist_profile_id', $pid );
+			}
+		}
+	} finally {
+		restore_current_blog();
+	}
 
-    // Write the profile-side meta on the artist blog.
-    if ( ! empty( $resolved ) ) {
-        switch_to_blog( $artist_blog_id );
-        try {
-            foreach ( $resolved as $pid => $term_id ) {
-                update_post_meta( $pid, '_artist_term_id', $term_id );
-            }
-        } finally {
-            restore_current_blog();
-        }
-    }
+	// Write the profile-side meta on the artist blog.
+	if ( ! empty( $resolved ) ) {
+		switch_to_blog( $artist_blog_id );
+		try {
+			foreach ( $resolved as $pid => $term_id ) {
+				update_post_meta( $pid, '_artist_term_id', $term_id );
+			}
+		} finally {
+			restore_current_blog();
+		}
+	}
 
-    update_option( 'extrachill_artist_platform_term_binding_backfill', $backfill_version );
+	update_option( 'extrachill_artist_platform_term_binding_backfill', $backfill_version );
 }
 add_action( 'admin_init', 'ec_backfill_artist_term_bindings' );

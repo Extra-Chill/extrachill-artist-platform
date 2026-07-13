@@ -24,8 +24,8 @@ function ec_artist_platform_secondary_header_items( $items ) {
 		return $items;
 	}
 
-	$user_artists  = ec_get_artists_for_user( $user_id );
-	$artist_count  = count( $user_artists );
+	$user_artists = ec_get_artists_for_user( $user_id );
+	$artist_count = count( $user_artists );
 
 	// Artist Profile Link (priority 10)
 	if ( $artist_count > 0 ) {
@@ -74,7 +74,6 @@ function ec_artist_platform_secondary_header_items( $items ) {
 				'priority' => 40,
 			);
 		}
-
 	}
 
 	// Shop Link (priority 30).

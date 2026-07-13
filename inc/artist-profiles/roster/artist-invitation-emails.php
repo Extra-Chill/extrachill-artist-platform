@@ -33,17 +33,23 @@ function ec_send_artist_invitation_email( $recipient_email, $artist_name, $membe
 	// Construct the invitation link
 	$invitation_base_url = home_url( '/' );
 	if ( EC_INVITE_STATUS_NEW_USER === $invitation_status ) {
-		$invitation_link = add_query_arg( array(
-			'action'    => 'ec_accept_invite',
-			'token'     => $invitation_token,
-			'artist_id' => $artist_id,
-		), trailingslashit( $invitation_base_url ) . 'register/' );
+		$invitation_link = add_query_arg(
+			array(
+				'action'    => 'ec_accept_invite',
+				'token'     => $invitation_token,
+				'artist_id' => $artist_id,
+			),
+			trailingslashit( $invitation_base_url ) . 'register/'
+		);
 	} else {
-		$invitation_link = add_query_arg( array(
-			'action'    => 'ec_accept_invite',
-			'token'     => $invitation_token,
-			'artist_id' => $artist_id,
-		), get_permalink( $artist_id ) );
+		$invitation_link = add_query_arg(
+			array(
+				'action'    => 'ec_accept_invite',
+				'token'     => $invitation_token,
+				'artist_id' => $artist_id,
+			),
+			get_permalink( $artist_id )
+		);
 	}
 
 	/* translators: 1: artist name, 2: site name */
@@ -89,20 +95,22 @@ function ec_send_artist_invitation_email( $recipient_email, $artist_name, $membe
 		return false;
 	}
 
-	$result = ec_send_email( array(
-		'to'         => $recipient_email,
-		'subject'    => $subject,
-		'from_name'  => 'Extra Chill Community',
-		'from_email' => 'admin@extrachill.com',
-		'template'   => 'extrachill/branded',
-		'context'    => array(
-			'recipient_name' => $recipient_name,
-			'subject_html'   => esc_html( $subject ),
-			'body_html'      => $body_html,
-			'cta_url'        => $invitation_link,
-			'cta_label'      => $cta_label,
-		),
-	) );
+	$result = ec_send_email(
+		array(
+			'to'         => $recipient_email,
+			'subject'    => $subject,
+			'from_name'  => 'Extra Chill Community',
+			'from_email' => 'admin@extrachill.com',
+			'template'   => 'extrachill/branded',
+			'context'    => array(
+				'recipient_name' => $recipient_name,
+				'subject_html'   => esc_html( $subject ),
+				'body_html'      => $body_html,
+				'cta_url'        => $invitation_link,
+				'cta_label'      => $cta_label,
+			),
+		)
+	);
 
 	$sent = is_array( $result ) && ! empty( $result['success'] );
 
@@ -123,12 +131,12 @@ function ec_send_artist_invitation_email( $recipient_email, $artist_name, $membe
 function ec_handle_invitation_acceptance() {
 	if ( isset( $_GET['action'] ) && 'ec_accept_invite' === $_GET['action'] && isset( $_GET['token'] ) && isset( $_GET['artist_id'] ) ) {
 		$token        = sanitize_text_field( $_GET['token'] );
-		$artist_id    = apply_filters('ec_get_artist_id', $_GET);
+		$artist_id    = apply_filters( 'ec_get_artist_id', $_GET );
 		$redirect_url = get_permalink( $artist_id );
 
 		if ( ! $redirect_url ) {
 			// Fallback if artist profile doesn't exist for some reason
-			$redirect_url = home_url('/');
+			$redirect_url = home_url( '/' );
 		}
 
 		// 1. User must be logged in

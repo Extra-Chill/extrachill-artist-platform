@@ -19,152 +19,151 @@ define( 'EXTRACHILL_ARTIST_PLATFORM_PLUGIN_URL', plugin_dir_url( __FILE__ ) );
 define( 'EXTRACHILL_ARTIST_PLATFORM_PLUGIN_BASENAME', plugin_basename( __FILE__ ) );
 
 if ( ! defined( 'EXTRCH_LINKPAGE_DEV' ) ) {
-    define( 'EXTRCH_LINKPAGE_DEV', false );
+	define( 'EXTRCH_LINKPAGE_DEV', false );
 }
 
 if ( file_exists( EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'vendor/autoload.php' ) ) {
-    require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'vendor/autoload.php';
+	require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'vendor/autoload.php';
 }
 
 class ExtraChillArtistPlatform {
 
-    private static $instance = null;
+	private static $instance = null;
 
-    public static function instance() {
-        if ( null === self::$instance ) {
-            self::$instance = new self();
-        }
-        return self::$instance;
-    }
+	public static function instance() {
+		if ( null === self::$instance ) {
+			self::$instance = new self();
+		}
+		return self::$instance;
+	}
 
-    private function __construct() {
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/artist-platform-post-types.php';
-        $this->init_hooks();
-    }
+	private function __construct() {
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/artist-platform-post-types.php';
+		$this->init_hooks();
+	}
 
 
-    private function init_hooks() {
-        add_action( 'init', 'extrachill_artist_platform_register_blocks' );
-        add_action( 'init', array( $this, 'init' ), 15 );
-        add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
-        register_activation_hook( __FILE__, array( $this, 'activate' ) );
-        register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
-    }
+	private function init_hooks() {
+		add_action( 'init', 'extrachill_artist_platform_register_blocks' );
+		add_action( 'init', array( $this, 'init' ), 15 );
+		add_action( 'plugins_loaded', array( $this, 'load_textdomain' ) );
+		register_activation_hook( __FILE__, array( $this, 'activate' ) );
+		register_deactivation_hook( __FILE__, array( $this, 'deactivate' ) );
+	}
 
-    public function init() {
-        $this->load_includes();
-    }
+	public function init() {
+		$this->load_includes();
+	}
 
-    public function load_textdomain() {
-        load_plugin_textdomain( 
-            'extrachill-artist-platform', 
-            false, 
-            dirname( EXTRACHILL_ARTIST_PLATFORM_PLUGIN_BASENAME ) . '/languages' 
-        );
-    }
+	public function load_textdomain() {
+		load_plugin_textdomain(
+			'extrachill-artist-platform',
+			false,
+			dirname( EXTRACHILL_ARTIST_PLATFORM_PLUGIN_BASENAME ) . '/languages'
+		);
+	}
 
-    private function load_includes() {
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/class-templates.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/artist-platform-assets.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/artist-platform-rewrite-rules.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/ids.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/defaults.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/create.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/social-icons.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/fonts.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/templates.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/page-title.php';
+	private function load_includes() {
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/class-templates.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/artist-platform-assets.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/artist-platform-rewrite-rules.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/ids.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/defaults.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/create.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/social-icons.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/fonts.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/templates.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/page-title.php';
 
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/artist-term-binding.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/artist-term-binding.php';
 
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/admin/user-linking.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/admin/relationship-admin-page.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/permissions.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/frontend/artist-grid.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/frontend/breadcrumbs.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/frontend/section-registry.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/frontend/default-sections.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/frontend/shows-section.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/frontend/coverage-section.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/subscribe-data-functions.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/admin/user-linking.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/admin/relationship-admin-page.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/permissions.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/frontend/artist-grid.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/frontend/breadcrumbs.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/frontend/section-registry.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/frontend/default-sections.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/frontend/shows-section.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/frontend/coverage-section.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/subscribe-data-functions.php';
 
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/create-link-page.php';
-        // Link-page analytics (write path, read provider, prune, and tables) is
-        // owned by extrachill-analytics (ECA) as of extrachill-artist-platform#89
-        // / extrachill-analytics#94. AP consumes it via the
-        // extrachill_get_link_page_analytics filter (see the artist-get-analytics
-        // ability) and renders it through the artist-analytics block.
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/live/minimal-head-assets.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/live/link-page-head.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/live/link-page-seo.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/create-link-page.php';
+		// Link-page analytics (write path, read provider, prune, and tables) is
+		// owned by extrachill-analytics (ECA) as of extrachill-artist-platform#89
+		// / extrachill-analytics#94. AP consumes it via the
+		// extrachill_get_link_page_analytics filter (see the artist-get-analytics
+		// ability) and renders it through the artist-analytics block.
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/live/minimal-head-assets.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/live/link-page-head.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/live/link-page-seo.php';
 
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/management/advanced-tab/link-expiration.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/management/advanced-tab/link-expiration.php';
 
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/roster/manage-roster-ui.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/roster/roster-filter-handlers.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/roster/manage-roster-ui.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/artist-profiles/roster/roster-filter-handlers.php';
 
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/database/subscriber-db.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/database/subscriber-db.php';
 
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/actions/save.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/actions/sync.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/actions/delete.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/actions/add.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/actions/save.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/actions/sync.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/actions/delete.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/actions/add.php';
 
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/home/homepage-hooks.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/home/homepage-artist-card-actions.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/home/homepage-hooks.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/home/homepage-artist-card-actions.php';
 
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/join/join-flow.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/join/artist-access-approval.php';
-        
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/data.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/nav.php';
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/platform-artist-provisioning.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/join/join-flow.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/join/artist-access-approval.php';
 
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/analytics/activation-funnel.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/filters/data.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/nav.php';
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/platform-artist-provisioning.php';
 
-        ExtraChillArtistPlatform_PageTemplates::instance();
-        ExtraChillArtistPlatform_Assets::instance();
-        ExtraChillArtistPlatform_SocialLinks::instance();
-        ExtraChillArtistPlatform_Fonts::instance();
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/analytics/activation-funnel.php';
 
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/abilities/abilities.php';
+		ExtraChillArtistPlatform_PageTemplates::instance();
+		ExtraChillArtistPlatform_Assets::instance();
+		ExtraChillArtistPlatform_SocialLinks::instance();
+		ExtraChillArtistPlatform_Fonts::instance();
 
-        add_action('after_switch_theme', 'extrachill_artist_create_subscribers_table');
-    }
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/abilities/abilities.php';
 
-    public static function activate() {
-        // Link-page analytics tables are owned and created by extrachill-analytics
-        // (ECA) as of extrachill-artist-platform#89 / extrachill-analytics#94.
-        flush_rewrite_rules();
-        // Persist the rewrite-rules version so the version-gated flush on init
-        // does not immediately re-run after activation. The constant is defined
-        // in inc/core/artist-platform-rewrite-rules.php, loaded during init().
-        if ( defined( 'EXTRCH_ARTIST_PLATFORM_REWRITE_VERSION' ) ) {
-            update_option( 'ec_artist_platform_rewrite_version', EXTRCH_ARTIST_PLATFORM_REWRITE_VERSION );
-        }
-        update_option( 'extrachill_artist_platform_activated', true );
+		add_action( 'after_switch_theme', 'extrachill_artist_create_subscribers_table' );
+	}
 
-        // Provision platform artist profile (suspenders).
-        require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/platform-artist-provisioning.php';
-        if ( function_exists( 'ec_activate_provision_platform_artist' ) ) {
-            ec_activate_provision_platform_artist();
-        }
-    }
+	public static function activate() {
+		// Link-page analytics tables are owned and created by extrachill-analytics
+		// (ECA) as of extrachill-artist-platform#89 / extrachill-analytics#94.
+		flush_rewrite_rules();
+		// Persist the rewrite-rules version so the version-gated flush on init
+		// does not immediately re-run after activation. The constant is defined
+		// in inc/core/artist-platform-rewrite-rules.php, loaded during init().
+		if ( defined( 'EXTRCH_ARTIST_PLATFORM_REWRITE_VERSION' ) ) {
+			update_option( 'ec_artist_platform_rewrite_version', EXTRCH_ARTIST_PLATFORM_REWRITE_VERSION );
+		}
+		update_option( 'extrachill_artist_platform_activated', true );
 
-    public static function deactivate() {
-        flush_rewrite_rules();
-        delete_option( 'extrachill_artist_platform_activated' );
+		// Provision platform artist profile (suspenders).
+		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/core/platform-artist-provisioning.php';
+		if ( function_exists( 'ec_activate_provision_platform_artist' ) ) {
+			ec_activate_provision_platform_artist();
+		}
+	}
 
-        // Link-page analytics pruning cron is owned by extrachill-analytics (ECA)
-        // as of extrachill-artist-platform#89 / extrachill-analytics#94. ECA also
-        // unschedules AP's legacy 'extrachill_artist_daily_analytics_prune_event'
-        // in its coexistence shim, so nothing to unschedule here.
-    }
+	public static function deactivate() {
+		flush_rewrite_rules();
+		delete_option( 'extrachill_artist_platform_activated' );
 
+		// Link-page analytics pruning cron is owned by extrachill-analytics (ECA)
+		// as of extrachill-artist-platform#89 / extrachill-analytics#94. ECA also
+		// unschedules AP's legacy 'extrachill_artist_daily_analytics_prune_event'
+		// in its coexistence shim, so nothing to unschedule here.
+	}
 }
 
 function extrachill_artist_platform() {
-    return ExtraChillArtistPlatform::instance();
+	return ExtraChillArtistPlatform::instance();
 }
 
 extrachill_artist_platform();
@@ -173,11 +172,11 @@ extrachill_artist_platform();
  * Register Gutenberg blocks from build directory.
  */
 function extrachill_artist_platform_register_blocks() {
-    register_block_type( __DIR__ . '/build/blocks/link-page-editor' );
-    register_block_type( __DIR__ . '/build/blocks/artist-analytics' );
-    register_block_type( __DIR__ . '/build/blocks/artist-manager' );
-    register_block_type( __DIR__ . '/build/blocks/artist-creator' );
-    register_block_type( __DIR__ . '/build/blocks/artist-shop-manager' );
+	register_block_type( __DIR__ . '/build/blocks/link-page-editor' );
+	register_block_type( __DIR__ . '/build/blocks/artist-analytics' );
+	register_block_type( __DIR__ . '/build/blocks/artist-manager' );
+	register_block_type( __DIR__ . '/build/blocks/artist-creator' );
+	register_block_type( __DIR__ . '/build/blocks/artist-shop-manager' );
 }
 
 /**
@@ -187,16 +186,18 @@ function extrachill_artist_platform_register_blocks() {
  * Safe to run multiple times - checks if migration already complete.
  */
 function extrachill_artist_platform_migrate_pages() {
-    // Migrate manage-artist-profiles -> manage-artist
-    $old_page = get_page_by_path( 'manage-artist-profiles' );
-    if ( $old_page ) {
-        wp_update_post( array(
-            'ID'           => $old_page->ID,
-            'post_name'    => 'manage-artist',
-            'post_title'   => 'Manage Artist',
-            'post_content' => '<!-- wp:extrachill/artist-manager /-->',
-        ) );
-    }
+	// Migrate manage-artist-profiles -> manage-artist
+	$old_page = get_page_by_path( 'manage-artist-profiles' );
+	if ( $old_page ) {
+		wp_update_post(
+			array(
+				'ID'           => $old_page->ID,
+				'post_name'    => 'manage-artist',
+				'post_title'   => 'Manage Artist',
+				'post_content' => '<!-- wp:extrachill/artist-manager /-->',
+			)
+		);
+	}
 }
 
 /**
@@ -206,37 +207,39 @@ function extrachill_artist_platform_migrate_pages() {
  * Called on plugin activation and admin_init with version check.
  */
 function extrachill_artist_platform_create_pages() {
-    $pages = array(
-        'create-artist' => array(
-            'title'   => 'Create Artist',
-            'content' => '<!-- wp:extrachill/artist-creator /-->',
-        ),
-        'manage-artist' => array(
-            'title'   => 'Manage Artist',
-            'content' => '<!-- wp:extrachill/artist-manager /-->',
-        ),
-        'manage-link-page' => array(
-            'title'   => 'Manage Link Page',
-            'content' => '<!-- wp:extrachill/link-page-editor /-->',
-        ),
-        'manage-shop' => array(
-            'title'   => 'Manage Shop',
-            'content' => '<!-- wp:extrachill/artist-shop-manager /-->',
-        ),
-    );
+	$pages = array(
+		'create-artist'    => array(
+			'title'   => 'Create Artist',
+			'content' => '<!-- wp:extrachill/artist-creator /-->',
+		),
+		'manage-artist'    => array(
+			'title'   => 'Manage Artist',
+			'content' => '<!-- wp:extrachill/artist-manager /-->',
+		),
+		'manage-link-page' => array(
+			'title'   => 'Manage Link Page',
+			'content' => '<!-- wp:extrachill/link-page-editor /-->',
+		),
+		'manage-shop'      => array(
+			'title'   => 'Manage Shop',
+			'content' => '<!-- wp:extrachill/artist-shop-manager /-->',
+		),
+	);
 
-    foreach ( $pages as $slug => $page_data ) {
-        $existing_page = get_page_by_path( $slug );
-        if ( ! $existing_page ) {
-            wp_insert_post( array(
-                'post_title'   => $page_data['title'],
-                'post_name'    => $slug,
-                'post_content' => $page_data['content'],
-                'post_status'  => 'publish',
-                'post_type'    => 'page',
-            ) );
-        }
-    }
+	foreach ( $pages as $slug => $page_data ) {
+		$existing_page = get_page_by_path( $slug );
+		if ( ! $existing_page ) {
+			wp_insert_post(
+				array(
+					'post_title'   => $page_data['title'],
+					'post_name'    => $slug,
+					'post_content' => $page_data['content'],
+					'post_status'  => 'publish',
+					'post_type'    => 'page',
+				)
+			);
+		}
+	}
 }
 
 /**
@@ -245,14 +248,14 @@ function extrachill_artist_platform_create_pages() {
  * Ensures pages are migrated/created on plugin upgrades, not just fresh activations.
  */
 function extrachill_artist_platform_maybe_create_pages() {
-    $current_version = EXTRACHILL_ARTIST_PLATFORM_VERSION;
-    $stored_version = get_option( 'extrachill_artist_platform_pages_version', '0' );
+	$current_version = EXTRACHILL_ARTIST_PLATFORM_VERSION;
+	$stored_version  = get_option( 'extrachill_artist_platform_pages_version', '0' );
 
-    if ( version_compare( $stored_version, $current_version, '<' ) ) {
-        extrachill_artist_platform_migrate_pages();
-        extrachill_artist_platform_create_pages();
-        update_option( 'extrachill_artist_platform_pages_version', $current_version );
-    }
+	if ( version_compare( $stored_version, $current_version, '<' ) ) {
+		extrachill_artist_platform_migrate_pages();
+		extrachill_artist_platform_create_pages();
+		update_option( 'extrachill_artist_platform_pages_version', $current_version );
+	}
 }
 add_action( 'admin_init', 'extrachill_artist_platform_maybe_create_pages' );
 
@@ -284,55 +287,55 @@ add_action( 'admin_init', 'extrachill_artist_platform_maybe_create_pages' );
  * @return void
  */
 function extrachill_artist_platform_heal_zero_modified_dates() {
-    global $wpdb;
+	global $wpdb;
 
-    $healed_version = '1.0.0';
-    $stored = get_option( 'extrachill_artist_platform_feed_date_heal', '0' );
-    if ( version_compare( $stored, $healed_version, '>=' ) ) {
-        return;
-    }
+	$healed_version = '1.0.0';
+	$stored         = get_option( 'extrachill_artist_platform_feed_date_heal', '0' );
+	if ( version_compare( $stored, $healed_version, '>=' ) ) {
+		return;
+	}
 
-    $zero = '0000-00-00 00:00:00';
+	$zero = '0000-00-00 00:00:00';
 
-    // Resolve this blog's UTC offset as a MySQL CONVERT_TZ offset string.
-    // wp_timezone() is per-site and DST-aware; it yields '+00:00' on a site
-    // configured for UTC and e.g. '-04:00' on America/New_York during EDT.
-    $tz      = wp_timezone();
-    $seconds = $tz->getOffset( new DateTime( 'now', new DateTimeZone( 'UTC' ) ) );
-    $sign    = $seconds < 0 ? '-' : '+';
-    $abs     = abs( (int) $seconds );
-    $offset  = sprintf( '%s%02d:%02d', $sign, intdiv( $abs, HOUR_IN_SECONDS ), intdiv( $abs % HOUR_IN_SECONDS, MINUTE_IN_SECONDS ) );
+	// Resolve this blog's UTC offset as a MySQL CONVERT_TZ offset string.
+	// wp_timezone() is per-site and DST-aware; it yields '+00:00' on a site
+	// configured for UTC and e.g. '-04:00' on America/New_York during EDT.
+	$tz      = wp_timezone();
+	$seconds = $tz->getOffset( new DateTime( 'now', new DateTimeZone( 'UTC' ) ) );
+	$sign    = $seconds < 0 ? '-' : '+';
+	$abs     = abs( (int) $seconds );
+	$offset  = sprintf( '%s%02d:%02d', $sign, intdiv( $abs, HOUR_IN_SECONDS ), intdiv( $abs % HOUR_IN_SECONDS, MINUTE_IN_SECONDS ) );
 
-    // Repair a zero post_date_gmt first, derived from the valid local post_date.
-    $wpdb->query(
-        $wpdb->prepare(
-            "UPDATE {$wpdb->posts}
+	// Repair a zero post_date_gmt first, derived from the valid local post_date.
+	$wpdb->query(
+		$wpdb->prepare(
+			"UPDATE {$wpdb->posts}
              SET post_date_gmt = CONVERT_TZ( post_date, %s, '+00:00' )
              WHERE post_date_gmt = %s
                AND post_date <> %s",
-            $offset,
-            $zero,
-            $zero
-        )
-    );
+			$offset,
+			$zero,
+			$zero
+		)
+	);
 
-    // Backfill modified dates. post_modified mirrors the local post_date;
-    // post_modified_gmt is derived from the LOCAL post_date (never trusted from
-    // post_date_gmt). Heals all statuses so a future status flip to publish
-    // cannot resurface the feed crash.
-    $wpdb->query(
-        $wpdb->prepare(
-            "UPDATE {$wpdb->posts}
+	// Backfill modified dates. post_modified mirrors the local post_date;
+	// post_modified_gmt is derived from the LOCAL post_date (never trusted from
+	// post_date_gmt). Heals all statuses so a future status flip to publish
+	// cannot resurface the feed crash.
+	$wpdb->query(
+		$wpdb->prepare(
+			"UPDATE {$wpdb->posts}
              SET post_modified     = post_date,
                  post_modified_gmt = CONVERT_TZ( post_date, %s, '+00:00' )
              WHERE post_modified_gmt = %s
                AND post_date <> %s",
-            $offset,
-            $zero,
-            $zero
-        )
-    );
+			$offset,
+			$zero,
+			$zero
+		)
+	);
 
-    update_option( 'extrachill_artist_platform_feed_date_heal', $healed_version );
+	update_option( 'extrachill_artist_platform_feed_date_heal', $healed_version );
 }
 add_action( 'admin_init', 'extrachill_artist_platform_heal_zero_modified_dates' );

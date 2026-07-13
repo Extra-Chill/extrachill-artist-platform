@@ -99,7 +99,6 @@ function ec_provision_platform_artist() {
 			update_option( 'extrachill_shop_needs_lifetime_membership_product_sync', 1 );
 			restore_current_blog();
 		}
-
 	} finally {
 		restore_current_blog();
 	}

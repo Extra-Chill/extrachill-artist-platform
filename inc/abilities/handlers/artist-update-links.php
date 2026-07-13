@@ -45,10 +45,12 @@ function extrachill_artist_platform_ability_artist_update_links( array $input ):
 
 		$ability = function_exists( 'wp_get_ability' ) ? wp_get_ability( 'extrachill/save-link-page-links' ) : null;
 		if ( $ability ) {
-			$result = $ability->execute( array(
-				'artist_id' => $artist_id,
-				'links'     => $input['links'],
-			) );
+			$result = $ability->execute(
+				array(
+					'artist_id' => $artist_id,
+					'links'     => $input['links'],
+				)
+			);
 			if ( is_wp_error( $result ) ) {
 				return $result;
 			}
@@ -63,10 +65,12 @@ function extrachill_artist_platform_ability_artist_update_links( array $input ):
 
 		$ability = function_exists( 'wp_get_ability' ) ? wp_get_ability( 'extrachill/save-link-page-styles' ) : null;
 		if ( $ability ) {
-			$result = $ability->execute( array(
-				'artist_id' => $artist_id,
-				'css_vars'  => $input['css_vars'],
-			) );
+			$result = $ability->execute(
+				array(
+					'artist_id' => $artist_id,
+					'css_vars'  => $input['css_vars'],
+				)
+			);
 			if ( is_wp_error( $result ) ) {
 				return $result;
 			}
@@ -107,10 +111,12 @@ function extrachill_artist_platform_ability_artist_update_links( array $input ):
 
 		$ability = function_exists( 'wp_get_ability' ) ? wp_get_ability( 'extrachill/save-social-links' ) : null;
 		if ( $ability ) {
-			$result = $ability->execute( array(
-				'artist_id'    => $artist_id,
-				'social_links' => $input['socials'],
-			) );
+			$result = $ability->execute(
+				array(
+					'artist_id'    => $artist_id,
+					'social_links' => $input['socials'],
+				)
+			);
 			if ( is_wp_error( $result ) ) {
 				return $result;
 			}

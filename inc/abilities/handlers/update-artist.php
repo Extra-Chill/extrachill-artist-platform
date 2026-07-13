@@ -38,12 +38,12 @@ function extrachill_artist_platform_ability_update_artist( $input ) {
 
 	if ( isset( $input['name'] ) ) {
 		$post_data['post_title'] = sanitize_text_field( wp_unslash( $input['name'] ) );
-		$has_updates = true;
+		$has_updates             = true;
 	}
 
 	if ( isset( $input['bio'] ) ) {
 		$post_data['post_content'] = wp_kses_post( wp_unslash( $input['bio'] ) );
-		$has_updates = true;
+		$has_updates               = true;
 	}
 
 	if ( array_key_exists( 'local_city', $input ) ) {

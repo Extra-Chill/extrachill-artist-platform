@@ -39,10 +39,13 @@ function extrachill_artist_platform_ability_artist_list_subscribers( array $inpu
 	}
 
 	$offset      = ( $page - 1 ) * $per_page;
-	$subscribers = extrachill_artist_get_artist_subscribers( $artist_id, array(
-		'limit'  => $per_page,
-		'offset' => $offset,
-	) );
+	$subscribers = extrachill_artist_get_artist_subscribers(
+		$artist_id,
+		array(
+			'limit'  => $per_page,
+			'offset' => $offset,
+		)
+	);
 
 	global $wpdb;
 	$table = $wpdb->prefix . 'artist_subscribers';

@@ -50,6 +50,7 @@ function extrachill_artist_platform_ability_artist_list_subscribers( array $inpu
 	global $wpdb;
 	$table = $wpdb->prefix . 'artist_subscribers';
 	$total = (int) $wpdb->get_var(
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name is derived exclusively from the trusted WordPress database prefix.
 		$wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE artist_profile_id = %d", $artist_id )
 	);
 

@@ -46,6 +46,10 @@ function ec_template_handler( $output, $template_name, $args = array() ) {
             'file' => 'inc/link-pages/live/templates/components/link-section.php',
             'required' => array( 'links' )
         ),
+        'profile-continuation' => array(
+            'file' => 'inc/link-pages/live/templates/components/profile-continuation.php',
+            'required' => array()
+        ),
         'social-icon' => array(
             'file' => 'inc/link-pages/live/templates/components/social-icon.php',
             'required' => array( 'social_data' )

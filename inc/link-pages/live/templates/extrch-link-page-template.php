@@ -196,15 +196,15 @@ $body_bg_style = '';
         }
         ?>
 
-        <?php if ($data['powered_by']):
-            // Route the generic footer credit to the main site's network discovery page,
-            // with UTM params for attribution.
-            $powered_by_url = ec_get_site_url('main') . '/power/?utm_source=linkpage&utm_medium=footer&utm_campaign=power';
+        <?php
+        echo ec_render_template(
+            'profile-continuation',
+            array(
+                'artist_profile' => $data['artist_profile'] ?? null,
+                'powered_by'     => $data['powered_by'],
+            )
+        );
         ?>
-        <div class="extrch-link-page-powered" style="margin-top:auto; padding-top:1em; padding-bottom:1em;">
-            <a href="<?php echo esc_url($powered_by_url); ?>" rel="noopener">Powered by Extra Chill</a>
-        </div>
-        <?php endif; ?>
     </div>
 
     <?php

@@ -206,12 +206,34 @@ body {
   width: 100%;
  }
 
-.extrch-link-page-powered {
-  margin-top: 2em;
-  font-size: 0.98em;
+.extrch-link-page-footer {
+  width: 100%;
+  margin-top: auto;
+  padding: 2em 0 1em;
   color: var(--link-page-muted-text-color);
-  font-family: var(--link-page-body-font-family); /* Directly apply body font */
+  font-family: var(--link-page-body-font-family);
   text-align: center;
+}
+
+.extrch-link-page-profile-continuation {
+  display: inline-flex;
+  min-height: 44px;
+  max-width: 100%;
+  align-items: center;
+  color: var(--link-page-link-text-color);
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  text-decoration: underline;
+}
+
+.extrch-link-page-profile-continuation:hover {
+  color: var(--link-page-button-hover-bg-color);
+}
+
+.extrch-link-page-powered {
+  margin-top: 0.5em;
+  font-size: 0.875em;
+  color: var(--link-page-muted-text-color);
 }
 .extrch-link-page-powered a {
   color: var(--link-page-link-text-color); /* Consistent link text color */
@@ -294,6 +316,9 @@ body {
   .extrch-link-page-link {
     font-size: 1em;
     padding: 0.85em .95em;
+  }
+  .extrch-link-page-footer {
+    padding-bottom: 0.5em;
   }
 }
 

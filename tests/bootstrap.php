@@ -64,6 +64,10 @@ function get_post_field( $field, $post_id ) {
 }
 
 function get_permalink( $post_id ) {
+	if ( isset( $GLOBALS['ec_test']['permalinks'][ $post_id ] ) ) {
+		return $GLOBALS['ec_test']['permalinks'][ $post_id ];
+	}
+
 	return 'https://artist.example/artists/' . get_post_field( 'post_name', $post_id ) . '/';
 }
 

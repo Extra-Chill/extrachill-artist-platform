@@ -1,5 +1,4 @@
 <?php
-declare(strict_types=1);
 /**
  * Handler: extrachill/artist-list-subscribers
  *
@@ -8,6 +7,8 @@ declare(strict_types=1);
  * @package ExtraChillArtistPlatform
  * @since   1.9.0
  */
+
+declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
@@ -47,6 +48,7 @@ function extrachill_artist_platform_ability_artist_list_subscribers( array $inpu
 	global $wpdb;
 	$table = $wpdb->prefix . 'artist_subscribers';
 	$total = (int) $wpdb->get_var(
+		// phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table name uses the trusted WordPress database prefix; artist ID uses a placeholder.
 		$wpdb->prepare( "SELECT COUNT(*) FROM {$table} WHERE artist_profile_id = %d", $artist_id )
 	);
 

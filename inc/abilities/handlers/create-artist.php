@@ -96,11 +96,11 @@ function extrachill_artist_platform_ability_create_artist( $input ) {
 		return $artist_id;
 	}
 
-	if ( $local_city !== '' ) {
+	if ( '' !== $local_city ) {
 		update_post_meta( $artist_id, '_local_city', $local_city );
 	}
 
-	if ( $genre !== '' ) {
+	if ( '' !== $genre ) {
 		update_post_meta( $artist_id, '_genre', $genre );
 	}
 

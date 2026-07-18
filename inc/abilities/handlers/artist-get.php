@@ -1,5 +1,4 @@
 <?php
-declare(strict_types=1);
 /**
  * Handler: extrachill/artist-get
  *
@@ -8,6 +7,8 @@ declare(strict_types=1);
  * @package ExtraChillArtistPlatform
  * @since   1.9.0
  */
+
+declare(strict_types=1);
 
 defined( 'ABSPATH' ) || exit;
 
@@ -34,7 +35,7 @@ function extrachill_artist_platform_ability_artist_get( array $input ): array|WP
 
 	$artist = get_post( $artist_id );
 
-	if ( ! $artist || $artist->post_type !== 'artist_profile' || $artist->post_status !== 'publish' ) {
+	if ( ! $artist || 'artist_profile' !== $artist->post_type || 'publish' !== $artist->post_status ) {
 		if ( $did_switch ) {
 			restore_current_blog();
 		}
@@ -53,13 +54,13 @@ function extrachill_artist_platform_ability_artist_get( array $input ): array|WP
 		'slug'              => $data['slug'],
 		'permalink'         => $data['permalink'],
 		'bio'               => $data['bio'],
-		'local_city'        => $data['local_city'] !== '' ? $data['local_city'] : null,
-		'genre'             => $data['genre'] !== '' ? $data['genre'] : null,
+		'local_city'        => '' !== $data['local_city'] ? $data['local_city'] : null,
+		'genre'             => '' !== $data['genre'] ? $data['genre'] : null,
 		'profile_image_id'  => $data['profile_image_id'] ? (int) $data['profile_image_id'] : null,
-		'profile_image_url' => $data['profile_image_url'] ?: null,
+		'profile_image_url' => $data['profile_image_url'] ? $data['profile_image_url'] : null,
 		'header_image_id'   => $data['header_image_id'] ? (int) $data['header_image_id'] : null,
-		'header_image_url'  => $data['header_image_url'] ?: null,
+		'header_image_url'  => $data['header_image_url'] ? $data['header_image_url'] : null,
 		'official_links'    => $data['social_links'],
-		'link_page_id'      => $data['link_page_id'] ?: null,
+		'link_page_id'      => $data['link_page_id'] ? $data['link_page_id'] : null,
 	);
 }

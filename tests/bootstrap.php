@@ -34,6 +34,10 @@ function sanitize_text_field( $value ) {
 	return trim( $value );
 }
 
+function absint( $value ) {
+	return abs( (int) $value );
+}
+
 function get_post_type( $post_id ) {
 	return $GLOBALS['ec_test']['posts'][ $post_id ]->post_type ?? '';
 }
@@ -69,6 +73,40 @@ function get_permalink( $post_id ) {
 
 function get_post( $post_id ) {
 	return $GLOBALS['ec_test']['posts'][ $post_id ] ?? null;
+}
+
+function get_current_user_id() {
+	return $GLOBALS['ec_test']['current_user_id'] ?? 0;
+}
+
+function get_user_meta( $user_id, $key, $single = false ) {
+	$value = $GLOBALS['ec_test']['user_meta'][ $user_id ][ $key ] ?? ( $single ? '' : array() );
+	return $value;
+}
+
+function ec_get_blog_id( $site ) {
+	return 'artist' === $site ? ( $GLOBALS['ec_test']['artist_blog_id'] ?? 7 ) : null;
+}
+
+function switch_to_blog( $blog_id ) {
+	$GLOBALS['ec_test']['switched_to'][] = $blog_id;
+}
+
+function restore_current_blog() {
+	$GLOBALS['ec_test']['restore_count'] = ( $GLOBALS['ec_test']['restore_count'] ?? 0 ) + 1;
+}
+
+function get_current_blog_id() {
+	return $GLOBALS['ec_test']['current_blog_id'] ?? 1;
+}
+
+function user_can( $user_id, $capability ) {
+	return ! empty( $GLOBALS['ec_test']['user_caps'][ $user_id ][ $capability ] );
+}
+
+function get_posts( $args ) {
+	$GLOBALS['ec_test']['get_posts_args'][] = $args;
+	return $GLOBALS['ec_test']['get_posts_result'] ?? array();
 }
 
 function wp_get_attachment_url( $attachment_id ) {
@@ -128,6 +166,7 @@ require_once dirname( __DIR__ ) . '/inc/abilities/handlers/admin-link-artist-rel
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/admin-unlink-artist-relationship.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/admin-list-orphan-artist-relationships.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/admin-cleanup-artist-relationships.php';
+require_once dirname( __DIR__ ) . '/inc/artist-profiles/memberships.php';
 require_once dirname( __DIR__ ) . '/inc/core/filters/data.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-get.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/helpers.php';

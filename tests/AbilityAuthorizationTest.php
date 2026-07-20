@@ -76,18 +76,23 @@ final class AbilityAuthorizationTest extends TestCase {
 		}
 	}
 
-	public function test_mutation_handler_rechecks_artist_access(): void {
+	public function test_artist_mutation_handlers_recheck_access_before_state_changes(): void {
 		$GLOBALS['ec_test']['current_user_id'] = 7;
 
-		$result = extrachill_artist_platform_ability_update_artist(
-			array(
-				'artist_id' => 42,
-				'name'      => 'Unauthorized Rename',
-			)
+		$mutations = array(
+			'extrachill_artist_platform_ability_create_artist' => array( 'name' => 'Band', 'user_id' => 8 ),
+			'extrachill_artist_platform_ability_update_artist' => array( 'artist_id' => 42, 'name' => 'Unauthorized Rename' ),
+			'extrachill_artist_platform_ability_save_link_page_links' => array( 'artist_id' => 42, 'links' => array() ),
+			'extrachill_artist_platform_ability_save_social_links' => array( 'artist_id' => 42, 'social_links' => array() ),
+			'extrachill_artist_platform_ability_artist_export_subscribers' => array( 'id' => 42 ),
 		);
 
-		$this->assertInstanceOf( WP_Error::class, $result );
-		$this->assertSame( 'artist_access_denied', $result->get_error_code() );
+		foreach ( $mutations as $handler => $input ) {
+			$result = $handler( $input );
+
+			$this->assertInstanceOf( WP_Error::class, $result, $handler . ' did not fail closed.' );
+			$this->assertSame( 'artist_access_denied', $result->get_error_code(), $handler . ' returned the wrong denial.' );
+		}
 	}
 
 	public function test_subscriber_export_is_annotated_as_mutating(): void {

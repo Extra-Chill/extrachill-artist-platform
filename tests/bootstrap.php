@@ -187,3 +187,7 @@ require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-get.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/helpers.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/registry.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/update-artist.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/handlers/create-artist.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-link-page-links.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-social-links.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-export-subscribers.php';

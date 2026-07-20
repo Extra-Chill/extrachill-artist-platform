@@ -54,39 +54,96 @@ function ec_register_artist_profile_shows_section( $sections, $artist_id, $artis
 add_filter( 'ec_artist_profile_sections', 'ec_register_artist_profile_shows_section', 10, 3 );
 
 /**
- * Resolve the shared artist slug for a bound artist.
+ * Call the Events-site term ability through the loopback seam.
  *
- * The bound $artist_term_id is a MAIN-blog `artist` term. Its slug is the
- * canonical cross-blog join key: the events-by-term ability looks the same
- * slug up on the events blog. Resolution is done inside a switch_to_blog()/
- * restore_current_blog() pair so blog context can never leak.
+ * @param array $input Ability input.
+ * @return array|WP_Error Ability response, or an error when unavailable.
+ */
+function ec_artist_shows_request_events( $input ) {
+	if ( ! function_exists( 'ec_cross_site_rest_request' ) ) {
+		return new WP_Error( 'events_request_unavailable', __( 'Events lookup is unavailable.', 'extrachill-artist-platform' ) );
+	}
+
+	$force_loopback = static function ( $enabled ) {
+		return true;
+	};
+	add_filter( 'ec_cross_site_use_http_loopback', $force_loopback, 10 );
+	$result = ec_cross_site_rest_request(
+		'events',
+		'GET',
+		'/wp-abilities/v1/abilities/data-machine-events/events-by-term/run',
+		array( 'query' => array( 'input' => $input ) )
+	);
+	remove_filter( 'ec_cross_site_use_http_loopback', $force_loopback, 10 );
+
+	return $result;
+}
+
+/**
+ * Resolve the stable Events-site artist term ID for a bound main-site term.
+ *
+ * The mapping is stored on the canonical main-site artist term. An upgraded
+ * site may discover the Events ID once through the old slug contract, but the
+ * response must include that ID and the exact slug before it is persisted.
+ * Until the Events owner provides that response contract, lookup fails closed.
  *
  * @param int $artist_term_id Bound main-blog `artist` term_id.
- * @return string Artist slug, or '' when unresolvable.
+ * @return int Events-site artist term ID, or 0 when unresolvable.
  */
-function ec_artist_shows_resolve_slug( $artist_term_id ) {
+function ec_artist_shows_resolve_events_term_id( $artist_term_id ) {
 	$artist_term_id = (int) $artist_term_id;
 	if ( $artist_term_id <= 0 || ! function_exists( 'ec_get_blog_id' ) ) {
-		return '';
+		return 0;
 	}
 
 	$main_blog_id = ec_get_blog_id( 'main' );
 	if ( ! $main_blog_id ) {
-		return '';
+		return 0;
 	}
 
-	$slug = '';
+	$events_term_id = 0;
+	$term_slug      = '';
 	switch_to_blog( $main_blog_id );
 	try {
 		$term = get_term( $artist_term_id, 'artist' );
-		if ( $term && ! is_wp_error( $term ) ) {
-			$slug = (string) $term->slug;
+		if ( $term && ! is_wp_error( $term ) && 'artist' === $term->taxonomy ) {
+			$events_term_id = (int) get_term_meta( $artist_term_id, '_events_artist_term_id', true );
+			$term_slug      = (string) $term->slug;
 		}
 	} finally {
 		restore_current_blog();
 	}
 
-	return $slug;
+	if ( $events_term_id > 0 || '' === $term_slug ) {
+		return $events_term_id;
+	}
+
+	$result = ec_artist_shows_request_events(
+		array(
+			'taxonomy'  => 'artist',
+			'term_slug' => $term_slug,
+			'scope'     => 'all',
+			'limit'     => 1,
+		)
+	);
+	if (
+		is_wp_error( $result )
+		|| empty( $result['found'] )
+		|| (string) ( $result['term_slug'] ?? '' ) !== $term_slug
+		|| (int) ( $result['term_id'] ?? 0 ) <= 0
+	) {
+		return 0;
+	}
+
+	$events_term_id = (int) $result['term_id'];
+	switch_to_blog( $main_blog_id );
+	try {
+		update_term_meta( $artist_term_id, '_events_artist_term_id', $events_term_id );
+	} finally {
+		restore_current_blog();
+	}
+
+	return $events_term_id;
 }
 
 /**
@@ -98,7 +155,7 @@ function ec_artist_shows_resolve_slug( $artist_term_id ) {
  * the domain, so it stays correct across environments. No-ops (returns '')
  * when the slug or events blog is missing.
  *
- * @param string $slug Shared artist slug (equals the events-blog term slug).
+ * @param string $slug Current Events-site artist term slug.
  * @return string Absolute archive URL, or '' when unresolvable.
  */
 function ec_artist_shows_archive_url( $slug ) {
@@ -123,7 +180,7 @@ function ec_artist_shows_archive_url( $slug ) {
 /**
  * Gather the artist's shows via the cross-site events-by-term ability.
  *
- * Resolves the artist slug from the bound main-blog term, then calls the
+ * Resolves the stable Events-site term ID from the bound main-blog term, then calls the
  * events-blog-only `data-machine-events/events-by-term` ability through the
  * existing ec_cross_site_rest_request() seam. The ability is registered ONLY
  * on the events blog (where data-machine-events loads); switch_to_blog() does
@@ -133,7 +190,7 @@ function ec_artist_shows_archive_url( $slug ) {
  * visibility gate and the render do not trigger two loopback calls.
  *
  * @param int $artist_term_id Bound main-blog `artist` term_id.
- * @return array{upcoming:array[],past:array[]} Event rows grouped by scope.
+ * @return array{term_slug:string,upcoming:array[],past:array[]} Event rows grouped by scope.
  */
 function ec_artist_shows_gather( $artist_term_id ) {
 	static $memo = array();
@@ -143,60 +200,39 @@ function ec_artist_shows_gather( $artist_term_id ) {
 		return $memo[ $artist_term_id ];
 	}
 
-	$empty = array(
-		'upcoming' => array(),
-		'past'     => array(),
+	$empty                   = array(
+		'term_slug' => '',
+		'upcoming'  => array(),
+		'past'      => array(),
 	);
 	$memo[ $artist_term_id ] = $empty;
 
-	// The events-by-term ability is registered ONLY on the events blog (where
-	// data-machine-events loads). switch_to_blog() does NOT load that plugin's
-	// PHP on the artist blog, so a direct wp_get_ability() lookup here fails
-	// (see data-machine-events#422) and the in-process cross-site REST path
-	// fails the same way. The ability IS exposed as a read-only REST route on
-	// the events blog, so reach it through the existing ec_cross_site_rest_request()
-	// seam — forcing its HTTP-loopback strategy, which boots a fresh worker on
-	// the events site where the ability resolves. Invent nothing: reuse the seam.
-	if ( ! function_exists( 'ec_cross_site_rest_request' ) ) {
+	$events_term_id = ec_artist_shows_resolve_events_term_id( $artist_term_id );
+	if ( $events_term_id <= 0 ) {
 		return $empty;
 	}
 
-	$slug = ec_artist_shows_resolve_slug( $artist_term_id );
-	if ( '' === $slug ) {
-		return $empty;
-	}
-
-	$route = '/wp-abilities/v1/abilities/data-machine-events/events-by-term/run';
-	$query = array(
-		'input' => array(
-			'taxonomy'  => 'artist',
-			'term_slug' => $slug,
-			'scope'     => 'all',
-			'limit'     => 12,
-		),
+	$result = ec_artist_shows_request_events(
+		array(
+			'taxonomy' => 'artist',
+			'term_id'  => $events_term_id,
+			'scope'    => 'all',
+			'limit'    => 12,
+		)
 	);
-
-	// Scope the loopback opt-in to this one call so the seam's global default
-	// (in-process) is unchanged for every other cross-site caller. Add/remove
-	// around the single dispatch.
-	$force_loopback = static function ( $enabled ) {
-		return true;
-	};
-	add_filter( 'ec_cross_site_use_http_loopback', $force_loopback, 10 );
-	$result = ec_cross_site_rest_request( 'events', 'GET', $route, array( 'query' => $query ) );
-	remove_filter( 'ec_cross_site_use_http_loopback', $force_loopback, 10 );
 
 	if ( is_wp_error( $result ) || ! is_array( $result ) ) {
 		return $empty;
 	}
 
-	if ( empty( $result['found'] ) ) {
+	if ( empty( $result['found'] ) || (int) ( $result['term_id'] ?? 0 ) !== $events_term_id ) {
 		return $empty;
 	}
 
-	$found = array(
-		'upcoming' => isset( $result['upcoming'] ) && is_array( $result['upcoming'] ) ? $result['upcoming'] : array(),
-		'past'     => isset( $result['past'] ) && is_array( $result['past'] ) ? $result['past'] : array(),
+	$found                   = array(
+		'term_slug' => isset( $result['term_slug'] ) ? (string) $result['term_slug'] : '',
+		'upcoming'  => isset( $result['upcoming'] ) && is_array( $result['upcoming'] ) ? $result['upcoming'] : array(),
+		'past'      => isset( $result['past'] ) && is_array( $result['past'] ) ? $result['past'] : array(),
 	);
 	$memo[ $artist_term_id ] = $found;
 	return $found;
@@ -266,10 +302,8 @@ function ec_render_artist_profile_shows_section( $artist_id, $artist_term_id = 0
 	}
 
 	// "View all shows" doorway to the full canonical artist events archive.
-	// Reuse the shared slug the ability keyed off. Guarded so a missing
-	// slug/blog no-ops cleanly (the section is already visibility-gated).
-	$slug        = ec_artist_shows_resolve_slug( $artist_term_id );
-	$archive_url = ec_artist_shows_archive_url( $slug );
+	// The Events owner returns its current slug after resolving the stable ID.
+	$archive_url = ec_artist_shows_archive_url( $shows['term_slug'] );
 	if ( '' !== $archive_url ) {
 		echo '<div class="artist-shows-view-all">';
 		printf(

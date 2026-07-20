@@ -63,6 +63,14 @@ function add_action() {
 	return true;
 }
 
+function add_filter() {
+	return true;
+}
+
+function remove_filter() {
+	return true;
+}
+
 function sanitize_text_field( $value ) {
 	return trim( $value );
 }
@@ -202,6 +210,22 @@ function update_option( $key, $value ) {
 	return true;
 }
 
+function ec_cross_site_rest_request( $site, $method, $route, $args = array() ) {
+	$GLOBALS['ec_test']['cross_site_requests'][] = array( $site, $method, $route, $args );
+	if ( ! empty( $GLOBALS['ec_test']['cross_site_results'] ) ) {
+		return array_shift( $GLOBALS['ec_test']['cross_site_results'] );
+	}
+	return $GLOBALS['ec_test']['cross_site_result'] ?? new WP_Error( 'missing_result', 'No test result configured.' );
+}
+
+function get_site_url( $blog_id ) {
+	return 'https://site-' . (int) $blog_id . '.example';
+}
+
+function trailingslashit( $value ) {
+	return rtrim( $value, '/' ) . '/';
+}
+
 function wp_get_attachment_url( $attachment_id ) {
 	return 'https://artist.example/media/' . $attachment_id . '.jpg';
 }
@@ -263,3 +287,4 @@ require_once dirname( __DIR__ ) . '/inc/core/filters/data.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-get.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/helpers.php';
 require_once dirname( __DIR__ ) . '/inc/core/artist-term-binding.php';
+require_once dirname( __DIR__ ) . '/inc/artist-profiles/frontend/shows-section.php';

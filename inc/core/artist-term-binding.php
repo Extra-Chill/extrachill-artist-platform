@@ -117,6 +117,45 @@ function ec_artist_binding_delete_term_meta( $term_id, $profile_id, $main_blog_i
 }
 
 /**
+ * Reconcile a resolver-discovered pair without changing an existing binding.
+ *
+ * Unlike the explicit binder, resolvers may only complete an unambiguous
+ * one-sided pair. They must never rebind either entity as a side effect of a
+ * lookup or slug fallback.
+ *
+ * @param int      $profile_id   Artist profile post ID.
+ * @param int      $term_id      Main-blog artist term ID.
+ * @param int|null $main_blog_id Optional resolved main blog ID.
+ * @return bool Whether the pair is reciprocal or was safely completed.
+ */
+function ec_reconcile_artist_profile_term_pair( $profile_id, $term_id, $main_blog_id = null ) {
+	$blog_ids = ec_artist_binding_blog_ids();
+	if ( empty( $blog_ids ) ) {
+		return false;
+	}
+
+	$main_blog_id = null === $main_blog_id ? $blog_ids['main'] : (int) $main_blog_id;
+	if ( $main_blog_id !== $blog_ids['main'] ) {
+		return false;
+	}
+
+	$profile = ec_artist_binding_read_profile( (int) $profile_id, $blog_ids['artist'] );
+	$term    = ec_artist_binding_read_term( (int) $term_id, $main_blog_id );
+	if ( empty( $profile ) || empty( $term ) ) {
+		return false;
+	}
+
+	if ( $profile['term_id'] > 0 && $profile['term_id'] !== (int) $term_id ) {
+		return false;
+	}
+	if ( $term['profile_id'] > 0 && $term['profile_id'] !== (int) $profile_id ) {
+		return false;
+	}
+
+	return ec_bind_artist_profile_to_term( (int) $profile_id, (int) $term_id, $main_blog_id );
+}
+
+/**
  * Persist a validated one-to-one profile <-> term binding.
  *
  * One-sided stale references are replaced. A reciprocal binding owned by a
@@ -200,7 +239,7 @@ function ec_get_artist_term_id( $profile_id ) {
 	}
 
 	if ( $profile['term_id'] > 0 ) {
-		if ( ec_bind_artist_profile_to_term( $profile_id, $profile['term_id'], $blog_ids['main'] ) ) {
+		if ( ec_reconcile_artist_profile_term_pair( $profile_id, $profile['term_id'], $blog_ids['main'] ) ) {
 			return $profile['term_id'];
 		}
 		ec_artist_binding_delete_profile_meta( $profile_id, $profile['term_id'], $blog_ids['artist'] );
@@ -221,7 +260,7 @@ function ec_get_artist_term_id( $profile_id ) {
 		restore_current_blog();
 	}
 
-	return $term_id > 0 && ec_bind_artist_profile_to_term( $profile_id, $term_id, $blog_ids['main'] ) ? $term_id : 0;
+	return $term_id > 0 && ec_reconcile_artist_profile_term_pair( $profile_id, $term_id, $blog_ids['main'] ) ? $term_id : 0;
 }
 
 /**
@@ -243,7 +282,7 @@ function ec_get_artist_profile_id( $term_id ) {
 	}
 
 	if ( $term['profile_id'] > 0 ) {
-		if ( ec_bind_artist_profile_to_term( $term['profile_id'], $term_id, $blog_ids['main'] ) ) {
+		if ( ec_reconcile_artist_profile_term_pair( $term['profile_id'], $term_id, $blog_ids['main'] ) ) {
 			return $term['profile_id'];
 		}
 		ec_artist_binding_delete_term_meta( $term_id, $term['profile_id'], $blog_ids['main'] );
@@ -273,7 +312,7 @@ function ec_get_artist_profile_id( $term_id ) {
 		restore_current_blog();
 	}
 
-	return $profile_id > 0 && ec_bind_artist_profile_to_term( $profile_id, $term_id, $blog_ids['main'] ) ? $profile_id : 0;
+	return $profile_id > 0 && ec_reconcile_artist_profile_term_pair( $profile_id, $term_id, $blog_ids['main'] ) ? $profile_id : 0;
 }
 
 /**
@@ -342,32 +381,8 @@ function ec_delete_artist_profile_term_binding( $profile_id ) {
 }
 add_action( 'before_delete_post', 'ec_delete_artist_profile_term_binding', 10, 1 );
 
-/**
- * Remove the reciprocal profile reference before a main-blog artist term is deleted.
- *
- * @param int    $term_id  Term ID being deleted.
- * @param string $taxonomy Taxonomy name.
- * @return void
- */
-function ec_delete_artist_term_profile_binding( $term_id, $taxonomy ) {
-	if ( 'artist' !== $taxonomy ) {
-		return;
-	}
-
-	$blog_ids = ec_artist_binding_blog_ids();
-	if ( empty( $blog_ids ) || get_current_blog_id() !== $blog_ids['main'] ) {
-		return;
-	}
-
-	$term = ec_artist_binding_read_term( (int) $term_id, $blog_ids['main'] );
-	if ( ! empty( $term ) && $term['profile_id'] > 0 ) {
-		$profile = ec_artist_binding_read_profile( $term['profile_id'], $blog_ids['artist'] );
-		if ( ! empty( $profile ) && $profile['term_id'] === (int) $term_id ) {
-			ec_artist_binding_delete_profile_meta( $term['profile_id'], (int) $term_id, $blog_ids['artist'] );
-		}
-	}
-}
-add_action( 'pre_delete_term', 'ec_delete_artist_term_profile_binding', 10, 2 );
+// Main-site term deletion is owned by the network-active runtime; see
+// Extra-Chill/extrachill-network#143. Resolvers remain fail-closed meanwhile.
 
 /**
  * Idempotent, run-once backfill of profile <-> term bindings.
@@ -375,8 +390,9 @@ add_action( 'pre_delete_term', 'ec_delete_artist_term_profile_binding', 10, 2 );
  * @return void
  */
 function ec_backfill_artist_term_bindings() {
-	$backfill_version = '1.0.0';
-	$stored           = get_option( 'extrachill_artist_platform_term_binding_backfill', '0' );
+	$backfill_version = '2.0.0';
+	$option_key       = 'extrachill_artist_platform_term_binding_integrity_backfill';
+	$stored           = get_option( $option_key, '0' );
 	if ( version_compare( $stored, $backfill_version, '>=' ) ) {
 		return;
 	}
@@ -405,6 +421,6 @@ function ec_backfill_artist_term_bindings() {
 		ec_get_artist_term_id( (int) $profile_id );
 	}
 
-	update_option( 'extrachill_artist_platform_term_binding_backfill', $backfill_version );
+	update_option( $option_key, $backfill_version );
 }
 add_action( 'admin_init', 'ec_backfill_artist_term_bindings' );

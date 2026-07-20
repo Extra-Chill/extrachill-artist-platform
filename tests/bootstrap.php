@@ -5,10 +5,12 @@ define( 'ABSPATH', __DIR__ . '/' );
 class WP_Error {
 	private $code;
 	private $message;
+	private $data;
 
-	public function __construct( $code, $message ) {
+	public function __construct( $code, $message, $data = null ) {
 		$this->code    = $code;
 		$this->message = $message;
+		$this->data    = $data;
 	}
 
 	public function get_error_code() {
@@ -69,6 +71,58 @@ function add_filter() {
 
 function remove_filter() {
 	return true;
+}
+
+function __return_true() {
+	return true;
+}
+
+class EcTestRegisteredAbility {
+	private $args;
+
+	public function __construct( $args ) {
+		$this->args = $args;
+	}
+
+	public function check_permissions( $input ) {
+		return call_user_func( $this->args['permission_callback'], $input );
+	}
+
+	public function get_meta() {
+		return $this->args['meta'];
+	}
+}
+
+function wp_register_ability( $name, $args ) {
+	$GLOBALS['ec_test']['abilities'][ $name ] = new EcTestRegisteredAbility( $args );
+}
+
+function wp_get_ability( $name ) {
+	return $GLOBALS['ec_test']['abilities'][ $name ] ?? null;
+}
+
+function absint( $value ) {
+	return abs( (int) $value );
+}
+
+function get_current_user_id() {
+	return $GLOBALS['ec_test']['current_user_id'] ?? 0;
+}
+
+function current_user_can( $capability ) {
+	return ! empty( $GLOBALS['ec_test']['capabilities'][ $capability ] );
+}
+
+function did_action( $hook_name ) {
+	return $GLOBALS['ec_test']['actions'][ $hook_name ] ?? 0;
+}
+
+function ec_can_manage_artist( $user_id, $artist_id ) {
+	if ( ! empty( $GLOBALS['ec_test']['capabilities']['manage_options'] ) ) {
+		return true;
+	}
+
+	return in_array( (int) $artist_id, $GLOBALS['ec_test']['managed_artists'][ (int) $user_id ] ?? array(), true );
 }
 
 function sanitize_text_field( $value ) {
@@ -285,3 +339,9 @@ require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-get.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/helpers.php';
 require_once dirname( __DIR__ ) . '/inc/core/artist-term-binding.php';
 require_once dirname( __DIR__ ) . '/inc/artist-profiles/frontend/shows-section.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/registry.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/handlers/update-artist.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/handlers/create-artist.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-link-page-links.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-social-links.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-export-subscribers.php';

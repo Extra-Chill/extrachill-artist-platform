@@ -138,6 +138,11 @@ function get_post_type( $post_id ) {
 	return $post->post_type ?? '';
 }
 
+function get_post_status( $post_id ) {
+	$post = get_post( $post_id );
+	return $post->post_status ?? false;
+}
+
 function get_post_meta( $post_id, $key = '', $single = false ) {
 	$blog_meta = ec_test_blog_store( 'post_meta' );
 	$meta      = $blog_meta[ $post_id ] ?? ( $GLOBALS['ec_test']['meta'][ $post_id ] ?? array() );
@@ -145,6 +150,9 @@ function get_post_meta( $post_id, $key = '', $single = false ) {
 		return $meta;
 	}
 	$value = $meta[ $key ] ?? ( $single ? '' : array() );
+	if ( $single && '_artist_member_ids' === $key ) {
+		return $value;
+	}
 	return $single && is_array( $value ) ? ( $value[0] ?? '' ) : $value;
 }
 
@@ -176,8 +184,30 @@ function get_post( $post_id ) {
 }
 
 function update_post_meta( $post_id, $key, $value ) {
+	if ( ! empty( $GLOBALS['ec_test']['fail_post_meta_update'] ) ) {
+		$GLOBALS['ec_test']['fail_post_meta_update'] = false;
+		return false;
+	}
 	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
 	$GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] = $value;
+	return true;
+}
+
+function get_user_meta( $user_id, $key = '', $single = false ) {
+	$meta = $GLOBALS['ec_test']['user_meta'][ $user_id ] ?? array();
+	if ( '' === $key ) {
+		return $meta;
+	}
+	$value = $meta[ $key ] ?? ( $single ? '' : array() );
+	return $single && is_array( $value ) && isset( $value[0] ) && is_array( $value[0] ) ? $value[0] : $value;
+}
+
+function update_user_meta( $user_id, $key, $value ) {
+	if ( ! empty( $GLOBALS['ec_test']['fail_user_meta_update'] ) ) {
+		$GLOBALS['ec_test']['fail_user_meta_update'] = false;
+		return false;
+	}
+	$GLOBALS['ec_test']['user_meta'][ $user_id ][ $key ] = $value;
 	return true;
 }
 
@@ -300,17 +330,14 @@ function ec_get_orphaned_artist_relationships() {
 }
 
 function get_userdata( $user_id ) {
-	return empty( $GLOBALS['ec_test']['missing_user'] ) ? (object) array( 'ID' => $user_id ) : false;
-}
-
-function ec_add_artist_membership( $user_id, $artist_id ) {
-	$GLOBALS['ec_test']['added'] = array( $user_id, $artist_id );
-	return $GLOBALS['ec_test']['add_result'] ?? true;
-}
-
-function ec_remove_artist_membership( $user_id, $artist_id ) {
-	$GLOBALS['ec_test']['removed'] = array( $user_id, $artist_id );
-	return true;
+	if ( ! empty( $GLOBALS['ec_test']['missing_user'] ) || ! $user_id ) {
+		return false;
+	}
+	return (object) array(
+		'ID'           => $user_id,
+		'user_login'   => 'user-' . $user_id,
+		'display_name' => 'User ' . $user_id,
+	);
 }
 
 function wp_unslash( $value ) {
@@ -333,6 +360,7 @@ function sanitize_hex_color( $color ) {
 	return null;
 }
 
+require_once dirname( __DIR__ ) . '/inc/artist-profiles/admin/membership.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/admin-list-artist-relationships.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/admin-link-artist-relationship.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/admin-unlink-artist-relationship.php';

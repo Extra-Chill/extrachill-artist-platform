@@ -92,7 +92,10 @@ function ec_provision_platform_artist() {
 		}
 
 		if ( ! ec_ensure_super_admin_linked( $artist_id ) ) {
-			wp_delete_post( $artist_id, true );
+			if ( ! wp_delete_post( $artist_id, true ) ) {
+				// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Actionable provisioning rollback failure.
+				error_log( sprintf( 'Artist platform provisioning rollback failed for artist %d.', $artist_id ) );
+			}
 			return false;
 		}
 
@@ -162,8 +165,13 @@ function ec_maybe_provision_platform_artist() {
 		return;
 	}
 
-	ec_provision_platform_artist();
-	set_site_transient( $transient_key, 1, DAY_IN_SECONDS );
+	if ( ec_provision_platform_artist() ) {
+		set_site_transient( $transient_key, 1, DAY_IN_SECONDS );
+		return;
+	}
+
+	// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Provisioning failure must remain visible and retryable.
+	error_log( 'Artist platform provisioning failed; success throttle was not set.' );
 }
 add_action( 'admin_init', 'ec_maybe_provision_platform_artist' );
 
@@ -171,6 +179,11 @@ add_action( 'admin_init', 'ec_maybe_provision_platform_artist' );
  * Run provisioning on plugin activation (suspenders).
  */
 function ec_activate_provision_platform_artist() {
-	ec_provision_platform_artist();
-	set_site_transient( 'ec_platform_artist_provisioned', 1, DAY_IN_SECONDS );
+	if ( ec_provision_platform_artist() ) {
+		set_site_transient( 'ec_platform_artist_provisioned', 1, DAY_IN_SECONDS );
+		return;
+	}
+
+	// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- Activation cannot throw, but failure must not be reported as success.
+	error_log( 'Artist platform activation provisioning failed; success throttle was not set.' );
 }

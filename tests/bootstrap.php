@@ -27,6 +27,28 @@ class WP_Error {
 	}
 }
 
+class EcTestWpdb {
+	public function prepare( $query, ...$args ) {
+		return array( 'query' => $query, 'args' => $args );
+	}
+
+	public function get_var( $prepared ) {
+		$query = $prepared['query'];
+		$name  = (string) ( $prepared['args'][0] ?? '' );
+		if ( str_contains( $query, 'GET_LOCK' ) ) {
+			if ( ! empty( $GLOBALS['ec_test']['db_locks'][ $name ] ) ) {
+				return '0';
+			}
+			$GLOBALS['ec_test']['db_locks'][ $name ] = true;
+			return '1';
+		}
+		unset( $GLOBALS['ec_test']['db_locks'][ $name ] );
+		return '1';
+	}
+}
+
+$GLOBALS['wpdb'] = new EcTestWpdb();
+
 function __( $text ) {
 	return $text;
 }
@@ -59,6 +81,9 @@ function restore_current_blog() {
 }
 
 function ec_get_blog_id( $site ) {
+	if ( 'artist' === $site && ! empty( $GLOBALS['ec_test']['artist_blog_unavailable'] ) ) {
+		return 0;
+	}
 	return array(
 		'main'   => 1,
 		'artist' => 4,
@@ -138,6 +163,26 @@ function sanitize_text_field( $value ) {
 	return trim( $value );
 }
 
+function sanitize_email( $value ) {
+	return strtolower( trim( $value ) );
+}
+
+function sanitize_key( $value ) {
+	return strtolower( preg_replace( '/[^a-z0-9_\-]/', '', $value ) );
+}
+
+function is_email( $value ) {
+	return false !== filter_var( $value, FILTER_VALIDATE_EMAIL );
+}
+
+function email_exists( $email ) {
+	return $GLOBALS['ec_test']['email_users'][ strtolower( $email ) ] ?? false;
+}
+
+function wp_generate_password( $length ) {
+	return substr( str_repeat( 'a', $length ), 0, $length );
+}
+
 function wp_kses_post( $value ) {
 	return $value;
 }
@@ -215,6 +260,10 @@ function add_post_meta( $post_id, $key, $value, $unique = false ) {
 
 function update_post_meta( $post_id, $key, $value, $previous = '' ) {
 	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
+	$GLOBALS['ec_test']['post_meta_update_calls'] = ( $GLOBALS['ec_test']['post_meta_update_calls'] ?? 0 ) + 1;
+	if ( isset( $GLOBALS['ec_test']['fail_post_meta_update_on_call'] ) && $GLOBALS['ec_test']['post_meta_update_calls'] === $GLOBALS['ec_test']['fail_post_meta_update_on_call'] ) {
+		return false;
+	}
 	if ( isset( $GLOBALS['ec_test']['post_meta_conflict'] ) ) {
 		$GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] = $GLOBALS['ec_test']['post_meta_conflict'];
 		unset( $GLOBALS['ec_test']['post_meta_conflict'] );
@@ -228,6 +277,11 @@ function update_post_meta( $post_id, $key, $value, $previous = '' ) {
 		return false;
 	}
 	$GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] = $value;
+	if ( isset( $GLOBALS['ec_test']['after_post_meta_update'] ) ) {
+		$callback = $GLOBALS['ec_test']['after_post_meta_update'];
+		unset( $GLOBALS['ec_test']['after_post_meta_update'] );
+		$callback();
+	}
 	return true;
 }
 
@@ -249,6 +303,11 @@ function add_user_meta( $user_id, $key, $value, $unique = false ) {
 		return false;
 	}
 	$GLOBALS['ec_test']['user_meta'][ $user_id ][ $key ] = $value;
+	if ( isset( $GLOBALS['ec_test']['after_user_meta_update'] ) ) {
+		$callback = $GLOBALS['ec_test']['after_user_meta_update'];
+		unset( $GLOBALS['ec_test']['after_user_meta_update'] );
+		$callback();
+	}
 	return true;
 }
 
@@ -266,6 +325,11 @@ function update_user_meta( $user_id, $key, $value, $previous = '' ) {
 		return false;
 	}
 	$GLOBALS['ec_test']['user_meta'][ $user_id ][ $key ] = $value;
+	if ( isset( $GLOBALS['ec_test']['after_user_meta_update'] ) ) {
+		$callback = $GLOBALS['ec_test']['after_user_meta_update'];
+		unset( $GLOBALS['ec_test']['after_user_meta_update'] );
+		$callback();
+	}
 	return true;
 }
 
@@ -284,6 +348,9 @@ function wp_insert_post( $post_data, $return_error = false ) {
 }
 
 function wp_delete_post( $post_id, $force_delete = false ) {
+	if ( ! empty( $GLOBALS['ec_test']['fail_post_delete'] ) ) {
+		return false;
+	}
 	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
 	$post    = $GLOBALS['ec_test']['blogs'][ $blog_id ]['posts'][ $post_id ] ?? null;
 	unset( $GLOBALS['ec_test']['blogs'][ $blog_id ]['posts'][ $post_id ], $GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ] );
@@ -387,6 +454,19 @@ function update_site_option( $key, $value ) {
 	return true;
 }
 
+function get_site_transient( $key ) {
+	return $GLOBALS['ec_test']['site_transients'][ $key ] ?? false;
+}
+
+function set_site_transient( $key, $value, $expiration = 0 ) {
+	$GLOBALS['ec_test']['site_transients'][ $key ] = $value;
+	return true;
+}
+
+function is_admin() {
+	return true;
+}
+
 function delete_site_option( $key ) {
 	unset( $GLOBALS['ec_test']['site_options'][ $key ] );
 	return true;
@@ -442,6 +522,7 @@ function get_userdata( $user_id ) {
 	return (object) array(
 		'ID'           => $user_id,
 		'user_login'   => 'user-' . $user_id,
+		'user_email'   => $GLOBALS['ec_test']['user_emails'][ $user_id ] ?? 'user-' . $user_id . '@example.com',
 		'display_name' => 'User ' . $user_id,
 	);
 }
@@ -481,6 +562,7 @@ require_once dirname( __DIR__ ) . '/inc/artist-profiles/frontend/shows-section.p
 require_once dirname( __DIR__ ) . '/inc/abilities/registry.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/update-artist.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/create-artist.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-invitation.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-link-page-links.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-social-links.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-export-subscribers.php';

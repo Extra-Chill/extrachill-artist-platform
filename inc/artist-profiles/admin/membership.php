@@ -18,42 +18,62 @@ defined( 'ABSPATH' ) || exit;
  * @return bool True when both sides contain the relationship, false on failure.
  */
 function ec_add_artist_membership( $user_id, $artist_id ) {
+	ec_set_artist_membership_failure();
 	$user_id   = absint( $user_id );
 	$artist_id = absint( $artist_id );
 
 	if ( ! $user_id || ! $artist_id || ! get_userdata( $user_id ) ) {
+		ec_set_artist_membership_failure( 'invalid_artist_membership', __( 'The artist membership target is invalid.', 'extrachill-artist-platform' ) );
 		return false;
 	}
 
 	$artist_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'artist' ) : null;
 	if ( ! $artist_blog_id ) {
+		ec_set_artist_membership_failure( 'artist_site_unavailable', __( 'The artist site is unavailable.', 'extrachill-artist-platform' ) );
 		return false;
 	}
 
-	switch_to_blog( $artist_blog_id );
-	try {
-		if ( 'artist_profile' !== get_post_type( $artist_id ) || 'publish' !== get_post_status( $artist_id ) ) {
-			return false;
-		}
-
-		if ( ! ec_update_artist_relationship_ids( 'post', $artist_id, '_artist_member_ids', $user_id, true ) ) {
-			return false;
-		}
-	} finally {
-		restore_current_blog();
+	if ( ! ec_acquire_artist_membership_lock( $user_id, $artist_id ) ) {
+		ec_set_artist_membership_failure( 'artist_membership_busy', __( 'The artist membership is being updated. Retry the operation.', 'extrachill-artist-platform' ) );
+		return false;
 	}
 
-	if ( ! ec_update_artist_relationship_ids( 'user', $user_id, '_artist_profile_ids', $artist_id, true ) ) {
+	try {
 		switch_to_blog( $artist_blog_id );
 		try {
-			ec_update_artist_relationship_ids( 'post', $artist_id, '_artist_member_ids', $user_id, false );
+			if ( 'artist_profile' !== get_post_type( $artist_id ) || 'publish' !== get_post_status( $artist_id ) ) {
+				ec_set_artist_membership_failure( 'invalid_artist_profile', __( 'The artist profile is unavailable.', 'extrachill-artist-platform' ) );
+				return false;
+			}
+
+			if ( ! ec_update_artist_relationship_ids( 'post', $artist_id, '_artist_member_ids', $user_id, true ) ) {
+				ec_set_artist_membership_failure( 'artist_roster_update_failed', __( 'The artist roster could not be updated.', 'extrachill-artist-platform' ) );
+				return false;
+			}
 		} finally {
 			restore_current_blog();
 		}
-		return false;
-	}
 
-	return true;
+		if ( ! ec_update_artist_relationship_ids( 'user', $user_id, '_artist_profile_ids', $artist_id, true ) ) {
+			switch_to_blog( $artist_blog_id );
+			try {
+				$rolled_back = ec_update_artist_relationship_ids( 'post', $artist_id, '_artist_member_ids', $user_id, false );
+			} finally {
+				restore_current_blog();
+			}
+			if ( ! $rolled_back ) {
+				ec_set_artist_membership_failure( 'artist_membership_rollback_failed', __( 'Artist membership rollback failed. Retry reconciliation before continuing.', 'extrachill-artist-platform' ) );
+			} else {
+				ec_set_artist_membership_failure( 'user_membership_update_failed', __( 'The user membership could not be updated; the artist roster was rolled back.', 'extrachill-artist-platform' ) );
+			}
+			return false;
+		}
+
+		ec_set_artist_membership_failure();
+		return true;
+	} finally {
+		ec_release_artist_membership_lock( $user_id, $artist_id );
+	}
 }
 
 /**
@@ -67,28 +87,97 @@ function ec_add_artist_membership( $user_id, $artist_id ) {
  * @return bool True on success, false on failure.
  */
 function ec_remove_artist_membership( $user_id, $artist_id ) {
+	ec_set_artist_membership_failure();
 	$user_id   = absint( $user_id );
 	$artist_id = absint( $artist_id );
 
 	if ( ! $user_id || ! $artist_id ) {
+		ec_set_artist_membership_failure( 'invalid_artist_membership', __( 'The artist membership target is invalid.', 'extrachill-artist-platform' ) );
 		return false;
 	}
-
-	$user_updated = ec_update_artist_relationship_ids( 'user', $user_id, '_artist_profile_ids', $artist_id, false );
 
 	$artist_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'artist' ) : null;
 	if ( ! $artist_blog_id ) {
+		ec_set_artist_membership_failure( 'artist_site_unavailable', __( 'The artist site is unavailable; no membership data was changed.', 'extrachill-artist-platform' ) );
 		return false;
 	}
 
-	switch_to_blog( $artist_blog_id );
-	try {
-		$artist_updated = ec_update_artist_relationship_ids( 'post', $artist_id, '_artist_member_ids', $user_id, false );
-	} finally {
-		restore_current_blog();
+	if ( ! ec_acquire_artist_membership_lock( $user_id, $artist_id ) ) {
+		ec_set_artist_membership_failure( 'artist_membership_busy', __( 'The artist membership is being updated. Retry the operation.', 'extrachill-artist-platform' ) );
+		return false;
 	}
 
-	return $user_updated && $artist_updated;
+	try {
+		$user_updated = ec_update_artist_relationship_ids( 'user', $user_id, '_artist_profile_ids', $artist_id, false );
+
+		switch_to_blog( $artist_blog_id );
+		try {
+			$artist_updated = ec_update_artist_relationship_ids( 'post', $artist_id, '_artist_member_ids', $user_id, false );
+		} finally {
+			restore_current_blog();
+		}
+
+		if ( ! $user_updated || ! $artist_updated ) {
+			ec_set_artist_membership_failure(
+				$user_updated !== $artist_updated ? 'artist_membership_partial_remove' : 'artist_membership_remove_failed',
+				$user_updated !== $artist_updated
+					? __( 'Artist membership removal was partial. Retry reconciliation before continuing.', 'extrachill-artist-platform' )
+					: __( 'Artist membership removal failed without changing the relationship.', 'extrachill-artist-platform' )
+			);
+			return false;
+		}
+
+		ec_set_artist_membership_failure();
+		return true;
+	} finally {
+		ec_release_artist_membership_lock( $user_id, $artist_id );
+	}
+}
+
+/**
+ * Store or clear the last actionable membership failure for this request.
+ *
+ * @param string $code    Error code, or empty to clear.
+ * @param string $message Error message.
+ * @param array  $data    Optional error data.
+ */
+function ec_set_artist_membership_failure( $code = '', $message = '', $data = array() ) {
+	$GLOBALS['ec_artist_membership_failure'] = $code ? new WP_Error( $code, $message, $data ) : null;
+}
+
+/**
+ * Get the last actionable membership failure.
+ *
+ * @return WP_Error|null Last failure, if any.
+ */
+function ec_get_artist_membership_failure() {
+	$failure = $GLOBALS['ec_artist_membership_failure'] ?? null;
+	return $failure instanceof WP_Error ? $failure : null;
+}
+
+/**
+ * Acquire the relationship-wide database advisory lock.
+ *
+ * @param int $user_id   User ID.
+ * @param int $artist_id Artist ID.
+ * @return bool Whether the lock was acquired.
+ */
+function ec_acquire_artist_membership_lock( $user_id, $artist_id ) {
+	global $wpdb;
+	$lock_name = sprintf( 'ec_artist_membership_%d_%d', $user_id, $artist_id );
+	return '1' === (string) $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, %d)', $lock_name, 5 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- MySQL advisory lock serializes two-table relationship writes, including absent rows.
+}
+
+/**
+ * Release the relationship-wide database advisory lock.
+ *
+ * @param int $user_id   User ID.
+ * @param int $artist_id Artist ID.
+ */
+function ec_release_artist_membership_lock( $user_id, $artist_id ) {
+	global $wpdb;
+	$lock_name = sprintf( 'ec_artist_membership_%d_%d', $user_id, $artist_id );
+	$wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_name ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Releases the relationship-scoped advisory lock acquired above.
 }
 
 /**

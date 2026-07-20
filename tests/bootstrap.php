@@ -25,6 +25,10 @@ class WP_Error {
 	public function get_error_message() {
 		return $this->message;
 	}
+
+	public function get_error_data() {
+		return $this->data;
+	}
 }
 
 class EcTestWpdb {
@@ -36,13 +40,16 @@ class EcTestWpdb {
 		$query = $prepared['query'];
 		$name  = (string) ( $prepared['args'][0] ?? '' );
 		if ( str_contains( $query, 'GET_LOCK' ) ) {
-			if ( ! empty( $GLOBALS['ec_test']['db_locks'][ $name ] ) ) {
-				return '0';
-			}
-			$GLOBALS['ec_test']['db_locks'][ $name ] = true;
+			$GLOBALS['ec_test']['db_lock_get_calls'][ $name ] = ( $GLOBALS['ec_test']['db_lock_get_calls'][ $name ] ?? 0 ) + 1;
+			$GLOBALS['ec_test']['db_locks'][ $name ] = ( $GLOBALS['ec_test']['db_locks'][ $name ] ?? 0 ) + 1;
 			return '1';
 		}
-		unset( $GLOBALS['ec_test']['db_locks'][ $name ] );
+		if ( isset( $GLOBALS['ec_test']['db_locks'][ $name ] ) ) {
+			--$GLOBALS['ec_test']['db_locks'][ $name ];
+			if ( $GLOBALS['ec_test']['db_locks'][ $name ] <= 0 ) {
+				unset( $GLOBALS['ec_test']['db_locks'][ $name ] );
+			}
+		}
 		return '1';
 	}
 }
@@ -261,6 +268,9 @@ function add_post_meta( $post_id, $key, $value, $unique = false ) {
 function update_post_meta( $post_id, $key, $value, $previous = '' ) {
 	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
 	$GLOBALS['ec_test']['post_meta_update_calls'] = ( $GLOBALS['ec_test']['post_meta_update_calls'] ?? 0 ) + 1;
+	if ( in_array( $GLOBALS['ec_test']['post_meta_update_calls'], $GLOBALS['ec_test']['fail_post_meta_update_on_calls'] ?? array(), true ) ) {
+		return false;
+	}
 	if ( isset( $GLOBALS['ec_test']['fail_post_meta_update_on_call'] ) && $GLOBALS['ec_test']['post_meta_update_calls'] === $GLOBALS['ec_test']['fail_post_meta_update_on_call'] ) {
 		return false;
 	}

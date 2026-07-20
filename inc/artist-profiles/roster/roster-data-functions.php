@@ -189,23 +189,40 @@ function ec_compare_and_swap_pending_invitations( $artist_id, $current, $updated
 function ec_accept_artist_membership_invitation( $user_id, $artist_id, $pending_invite_id ) {
 	if ( ! ec_add_artist_membership( $user_id, $artist_id ) ) {
 		$membership_failure = ec_get_artist_membership_failure();
-		$rolled_back = ec_remove_artist_membership( $user_id, $artist_id );
-		if ( ! $rolled_back ) {
-			$rollback_failure = ec_get_artist_membership_failure();
+		$failure_data       = $membership_failure ? $membership_failure->get_error_data() : array();
+		if ( is_array( $failure_data ) && ! empty( $failure_data['partial_state_created'] ) ) {
+			$rolled_back = ec_remove_artist_membership( $user_id, $artist_id );
+			if ( ! $rolled_back ) {
+				$rollback_failure = ec_get_artist_membership_failure();
+				return new WP_Error(
+					'artist_invitation_rollback_failed',
+					__( 'Artist invitation rollback failed. Manual reconciliation is required.', 'extrachill-artist-platform' ),
+					array(
+						'status'           => 500,
+						'membership_error' => $membership_failure ? $membership_failure->get_error_code() : 'unknown',
+						'rollback_error'   => $rollback_failure ? $rollback_failure->get_error_code() : 'unknown',
+						'retryable'        => false,
+					)
+				);
+			}
 			return new WP_Error(
-				'artist_invitation_rollback_failed',
-				__( 'Artist invitation rollback failed. Manual reconciliation is required before retrying.', 'extrachill-artist-platform' ),
+				'artist_membership_retry_required',
+				__( 'The partial membership was removed. The invitation remains available to retry.', 'extrachill-artist-platform' ),
 				array(
+					'status'           => 503,
 					'membership_error' => $membership_failure ? $membership_failure->get_error_code() : 'unknown',
-					'rollback_error'   => $rollback_failure ? $rollback_failure->get_error_code() : 'unknown',
-					'retryable'        => false,
+					'retryable'        => true,
 				)
 			);
 		}
+
+		if ( $membership_failure ) {
+			return $membership_failure;
+		}
 		return new WP_Error(
-			$membership_failure ? $membership_failure->get_error_code() : 'artist_membership_failed',
-			__( 'The artist invitation could not be applied. The invitation remains available to retry.', 'extrachill-artist-platform' ),
-			array( 'retryable' => true )
+			'artist_membership_failed',
+			__( 'The artist invitation could not be applied.', 'extrachill-artist-platform' ),
+			array( 'status' => 500, 'retryable' => false )
 		);
 	}
 
@@ -214,6 +231,7 @@ function ec_accept_artist_membership_invitation( $user_id, $artist_id, $pending_
 			'invitation_cleanup_failed',
 			__( 'The membership was applied, but invitation cleanup must be retried.', 'extrachill-artist-platform' ),
 			array(
+				'status'             => 503,
 				'membership_applied' => true,
 				'retryable'          => true,
 			)

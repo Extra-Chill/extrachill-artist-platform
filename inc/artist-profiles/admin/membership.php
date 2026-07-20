@@ -36,23 +36,21 @@ function ec_add_artist_membership( $user_id, $artist_id ) {
 			return false;
 		}
 
-		$member_ids = ec_normalize_artist_relationship_ids( get_post_meta( $artist_id, '_artist_member_ids', true ) );
-		if ( ! in_array( $user_id, $member_ids, true ) ) {
-			$member_ids[] = $user_id;
-			if ( ! update_post_meta( $artist_id, '_artist_member_ids', $member_ids ) ) {
-				return false;
-			}
+		if ( ! ec_update_artist_relationship_ids( 'post', $artist_id, '_artist_member_ids', $user_id, true ) ) {
+			return false;
 		}
 	} finally {
 		restore_current_blog();
 	}
 
-	$artist_ids = ec_normalize_artist_relationship_ids( get_user_meta( $user_id, '_artist_profile_ids', true ) );
-	if ( ! in_array( $artist_id, $artist_ids, true ) ) {
-		$artist_ids[] = $artist_id;
-		if ( ! update_user_meta( $user_id, '_artist_profile_ids', $artist_ids ) ) {
-			return false;
+	if ( ! ec_update_artist_relationship_ids( 'user', $user_id, '_artist_profile_ids', $artist_id, true ) ) {
+		switch_to_blog( $artist_blog_id );
+		try {
+			ec_update_artist_relationship_ids( 'post', $artist_id, '_artist_member_ids', $user_id, false );
+		} finally {
+			restore_current_blog();
 		}
+		return false;
 	}
 
 	return true;
@@ -76,31 +74,70 @@ function ec_remove_artist_membership( $user_id, $artist_id ) {
 		return false;
 	}
 
-	$user_updated = true;
-	$artist_ids   = ec_normalize_artist_relationship_ids( get_user_meta( $user_id, '_artist_profile_ids', true ) );
-	if ( in_array( $artist_id, $artist_ids, true ) ) {
-		$artist_ids   = array_values( array_diff( $artist_ids, array( $artist_id ) ) );
-		$user_updated = (bool) update_user_meta( $user_id, '_artist_profile_ids', $artist_ids );
-	}
+	$user_updated = ec_update_artist_relationship_ids( 'user', $user_id, '_artist_profile_ids', $artist_id, false );
 
 	$artist_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'artist' ) : null;
 	if ( ! $artist_blog_id ) {
 		return false;
 	}
 
-	$artist_updated = true;
 	switch_to_blog( $artist_blog_id );
 	try {
-		$member_ids = ec_normalize_artist_relationship_ids( get_post_meta( $artist_id, '_artist_member_ids', true ) );
-		if ( in_array( $user_id, $member_ids, true ) ) {
-			$member_ids     = array_values( array_diff( $member_ids, array( $user_id ) ) );
-			$artist_updated = (bool) update_post_meta( $artist_id, '_artist_member_ids', $member_ids );
-		}
+		$artist_updated = ec_update_artist_relationship_ids( 'post', $artist_id, '_artist_member_ids', $user_id, false );
 	} finally {
 		restore_current_blog();
 	}
 
 	return $user_updated && $artist_updated;
+}
+
+/**
+ * Compare-and-swap one side of an artist relationship with conflict retries.
+ *
+ * @param string $object_type Object type: user or post.
+ * @param int    $object_id   User or post ID.
+ * @param string $meta_key    Relationship meta key.
+ * @param int    $related_id  ID to add or remove.
+ * @param bool   $add         Whether to add the relationship.
+ * @return bool True when the requested state is stored.
+ */
+function ec_update_artist_relationship_ids( $object_type, $object_id, $meta_key, $related_id, $add ) {
+	$get_meta    = 'user' === $object_type ? 'get_user_meta' : 'get_post_meta';
+	$add_meta    = 'user' === $object_type ? 'add_user_meta' : 'add_post_meta';
+	$update_meta = 'user' === $object_type ? 'update_user_meta' : 'update_post_meta';
+
+	for ( $attempt = 0; $attempt < 5; ++$attempt ) {
+		$current = $get_meta( $object_id, $meta_key, true );
+		$ids     = ec_normalize_artist_relationship_ids( $current );
+		$has_id  = in_array( $related_id, $ids, true );
+		if ( $add === $has_id ) {
+			return true;
+		}
+
+		$next = $add
+			? array_values( array_unique( array_merge( $ids, array( $related_id ) ) ) )
+			: array_values( array_diff( $ids, array( $related_id ) ) );
+
+		if ( ! metadata_exists( $object_type, $object_id, $meta_key ) ) {
+			if ( $add_meta( $object_id, $meta_key, $next, true ) ) {
+				return true;
+			}
+			if ( metadata_exists( $object_type, $object_id, $meta_key ) ) {
+				continue;
+			}
+			return false;
+		}
+
+		if ( $update_meta( $object_id, $meta_key, $next, $current ) ) {
+			return true;
+		}
+
+		if ( maybe_serialize( $get_meta( $object_id, $meta_key, true ) ) === maybe_serialize( $current ) ) {
+			return false;
+		}
+	}
+
+	return false;
 }
 
 /**

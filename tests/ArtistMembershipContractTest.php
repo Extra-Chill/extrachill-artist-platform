@@ -53,9 +53,14 @@ final class ArtistMembershipContractTest extends TestCase {
 	}
 
 	public function test_partial_add_failure_is_truthful_and_retry_reconciles_it(): void {
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][20]['_artist_member_ids'] = array();
+		$GLOBALS['ec_test']['user_meta'][7]['_artist_profile_ids']             = array();
 		$GLOBALS['ec_test']['fail_user_meta_update'] = true;
 		$this->assertFalse( ec_add_artist_membership( 7, 20 ) );
 		$this->assertSame( array(), ec_get_linked_members( 20 ) );
+		switch_to_blog( 4 );
+		$this->assertSame( array(), get_post_meta( 20, '_artist_member_ids', true ) );
+		restore_current_blog();
 
 		$this->assertTrue( ec_add_artist_membership( 7, 20 ) );
 		$this->assertSame( array( 7 ), array_map( static fn( $user ) => $user->ID, ec_get_linked_members( 20 ) ) );
@@ -73,6 +78,85 @@ final class ArtistMembershipContractTest extends TestCase {
 		restore_current_blog();
 	}
 
+	public function test_add_retries_compare_and_swap_conflicts_without_losing_concurrent_members(): void {
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][20]['_artist_member_ids'] = array( 9 );
+		$GLOBALS['ec_test']['user_meta'][7]['_artist_profile_ids']             = array( 30 );
+		$GLOBALS['ec_test']['post_meta_conflict']                              = array( 9, 10 );
+		$GLOBALS['ec_test']['user_meta_conflict']                              = array( 30, 31 );
+
+		$this->assertTrue( ec_add_artist_membership( 7, 20 ) );
+		$this->assertSame( array( 30, 31, 20 ), get_user_meta( 7, '_artist_profile_ids', true ) );
+		switch_to_blog( 4 );
+		$this->assertSame( array( 9, 10, 7 ), get_post_meta( 20, '_artist_member_ids', true ) );
+		restore_current_blog();
+	}
+
+	public function test_remove_retries_compare_and_swap_conflicts_without_losing_concurrent_members(): void {
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][20]['_artist_member_ids'] = array( 7, 8 );
+		$GLOBALS['ec_test']['user_meta'][7]['_artist_profile_ids']             = array( 20, 30 );
+		$GLOBALS['ec_test']['post_meta_conflict']                              = array( 7, 8, 9 );
+		$GLOBALS['ec_test']['user_meta_conflict']                              = array( 20, 30, 31 );
+
+		$this->assertTrue( ec_remove_artist_membership( 7, 20 ) );
+		$this->assertSame( array( 30, 31 ), get_user_meta( 7, '_artist_profile_ids', true ) );
+		switch_to_blog( 4 );
+		$this->assertSame( array( 8, 9 ), get_post_meta( 20, '_artist_member_ids', true ) );
+		restore_current_blog();
+	}
+
+	public function test_invitation_failure_rolls_back_and_retains_retry_token(): void {
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][20]['_artist_member_ids'] = array();
+		$GLOBALS['ec_test']['user_meta'][7]['_artist_profile_ids']             = array();
+		$GLOBALS['ec_test']['blogs'][1]['post_meta'][20]['_pending_invitations'] = array( array( 'id' => 'invite-1' ) );
+		$GLOBALS['ec_test']['fail_user_meta_update'] = true;
+
+		$result = ec_accept_artist_membership_invitation( 7, 20, 'invite-1' );
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'artist_membership_failed', $result->get_error_code() );
+		$this->assertSame( array( array( 'id' => 'invite-1' ) ), get_post_meta( 20, '_pending_invitations', true ) );
+		$this->assertSame( array(), get_user_meta( 7, '_artist_profile_ids', true ) );
+	}
+
+	public function test_invitation_cleanup_failure_is_truthful_and_retryable(): void {
+		$GLOBALS['ec_test']['blogs'][1]['post_meta'][20]['_pending_invitations'] = array( array( 'id' => 'invite-1' ) );
+		$GLOBALS['ec_test']['fail_post_meta_update'] = true;
+
+		$result = ec_accept_artist_membership_invitation( 7, 20, 'invite-1' );
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'invitation_cleanup_failed', $result->get_error_code() );
+		$this->assertSame( array( 20 ), get_user_meta( 7, '_artist_profile_ids', true ) );
+		$this->assertSame( array( array( 'id' => 'invite-1' ) ), get_post_meta( 20, '_pending_invitations', true ) );
+
+		$this->assertTrue( ec_accept_artist_membership_invitation( 7, 20, 'invite-1' ) );
+		$this->assertSame( array(), get_post_meta( 20, '_pending_invitations', true ) );
+	}
+
+	public function test_profile_save_propagates_member_removal_failure(): void {
+		$GLOBALS['ec_test']['current_user_id'] = 99;
+		$GLOBALS['ec_test']['blogs'][1]['posts'][20] = (object) array(
+			'ID'          => 20,
+			'post_type'   => 'artist_profile',
+			'post_status' => 'publish',
+		);
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][20]['_artist_member_ids'] = array( 7 );
+		$GLOBALS['ec_test']['user_meta'][7]['_artist_profile_ids']             = array( 20 );
+		$GLOBALS['ec_test']['fail_post_meta_update']                           = true;
+
+		$result = ec_handle_artist_profile_save( 20, array( 'remove_member_ids' => '7' ) );
+		$this->assertInstanceOf( WP_Error::class, $result );
+		$this->assertSame( 'artist_member_removal_failed', $result->get_error_code() );
+	}
+
+	public function test_platform_artist_creation_rolls_back_when_membership_fails(): void {
+		$GLOBALS['ec_test']['blogs'][4]['posts'] = array();
+		$GLOBALS['ec_test']['fail_post_meta_add'] = true;
+
+		$this->assertFalse( ec_provision_platform_artist() );
+		$this->assertSame( array( 1 ), $GLOBALS['ec_test']['deleted_posts'] );
+		$this->assertSame( array(), $GLOBALS['ec_test']['blogs'][4]['posts'] );
+		$this->assertArrayNotHasKey( 'ec_platform_artist_id', $GLOBALS['ec_test']['site_options'] ?? array() );
+	}
+
 	public function test_reverse_roster_requires_reciprocal_membership_and_valid_artist(): void {
 		$GLOBALS['ec_test']['user_meta'][7]['_artist_profile_ids'] = array( 20 );
 		$GLOBALS['ec_test']['user_meta'][8]['_artist_profile_ids'] = array();
@@ -88,12 +172,16 @@ final class ArtistMembershipContractTest extends TestCase {
 
 	public function test_admin_handlers_report_partial_write_failures(): void {
 		$GLOBALS['ec_test']['capabilities']['manage_network_options'] = true;
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][20]['_artist_member_ids'] = array();
+		$GLOBALS['ec_test']['user_meta'][7]['_artist_profile_ids']             = array();
 		$GLOBALS['ec_test']['fail_user_meta_update']                  = true;
 		$result = extrachill_artist_platform_ability_admin_link_artist_relationship( array( 'user_id' => 7, 'artist_id' => 20 ) );
 		$this->assertInstanceOf( WP_Error::class, $result );
 		$this->assertSame( 'relationship_update_failed', $result->get_error_code() );
 
-		$GLOBALS['ec_test']['fail_post_meta_update'] = true;
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][20]['_artist_member_ids'] = array( 7 );
+		$GLOBALS['ec_test']['user_meta'][7]['_artist_profile_ids']             = array( 20 );
+		$GLOBALS['ec_test']['fail_post_meta_update']                           = true;
 		$result = extrachill_artist_platform_ability_admin_unlink_artist_relationship( array( 'user_id' => 7, 'artist_id' => 20 ) );
 		$this->assertInstanceOf( WP_Error::class, $result );
 		$this->assertSame( 'relationship_update_failed', $result->get_error_code() );

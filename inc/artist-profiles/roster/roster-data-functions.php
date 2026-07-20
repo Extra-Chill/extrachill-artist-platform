@@ -148,3 +148,35 @@ function ec_remove_pending_invitation( $artist_id, $pending_invite_id ) {
     }
     return false;
 }
+
+/**
+ * Apply a pending invitation without consuming its durable retry token early.
+ *
+ * @param int    $user_id           User accepting the invitation.
+ * @param int    $artist_id         Artist profile ID.
+ * @param string $pending_invite_id Pending invitation ID.
+ * @return true|WP_Error True on success, otherwise a retryable failure.
+ */
+function ec_accept_artist_membership_invitation( $user_id, $artist_id, $pending_invite_id ) {
+	if ( ! ec_add_artist_membership( $user_id, $artist_id ) ) {
+		$rolled_back = ec_remove_artist_membership( $user_id, $artist_id );
+		return new WP_Error(
+			$rolled_back ? 'artist_membership_failed' : 'artist_membership_repair_required',
+			__( 'The artist invitation could not be applied. The invitation remains available to retry.', 'extrachill-artist-platform' ),
+			array( 'retryable' => true )
+		);
+	}
+
+	if ( ! ec_remove_pending_invitation( $artist_id, $pending_invite_id ) ) {
+		return new WP_Error(
+			'invitation_cleanup_failed',
+			__( 'The membership was applied, but invitation cleanup must be retried.', 'extrachill-artist-platform' ),
+			array(
+				'membership_applied' => true,
+				'retryable'          => true,
+			)
+		);
+	}
+
+	return true;
+}

@@ -1,6 +1,11 @@
 <?php
 
 define( 'ABSPATH', __DIR__ . '/' );
+define( 'OBJECT', 'OBJECT' );
+
+function plugin_dir_path( $file ) {
+	return trailingslashit( dirname( $file ) );
+}
 
 class WP_Error {
 	private $code;
@@ -133,6 +138,10 @@ function sanitize_text_field( $value ) {
 	return trim( $value );
 }
 
+function wp_kses_post( $value ) {
+	return $value;
+}
+
 function get_post_type( $post_id ) {
 	$post = get_post( $post_id );
 	return $post->post_type ?? '';
@@ -150,7 +159,7 @@ function get_post_meta( $post_id, $key = '', $single = false ) {
 		return $meta;
 	}
 	$value = $meta[ $key ] ?? ( $single ? '' : array() );
-	if ( $single && '_artist_member_ids' === $key ) {
+	if ( $single && in_array( $key, array( '_artist_member_ids', '_pending_invitations' ), true ) ) {
 		return $value;
 	}
 	return $single && is_array( $value ) ? ( $value[0] ?? '' ) : $value;
@@ -183,12 +192,41 @@ function get_post( $post_id ) {
 	return $blog_posts[ $post_id ] ?? ( $GLOBALS['ec_test']['posts'][ $post_id ] ?? null );
 }
 
-function update_post_meta( $post_id, $key, $value ) {
+function metadata_exists( $object_type, $object_id, $key ) {
+	if ( 'user' === $object_type ) {
+		return array_key_exists( $key, $GLOBALS['ec_test']['user_meta'][ $object_id ] ?? array() );
+	}
+	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
+	return array_key_exists( $key, $GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $object_id ] ?? array() );
+}
+
+function add_post_meta( $post_id, $key, $value, $unique = false ) {
+	if ( $unique && metadata_exists( 'post', $post_id, $key ) ) {
+		return false;
+	}
+	if ( ! empty( $GLOBALS['ec_test']['fail_post_meta_add'] ) ) {
+		$GLOBALS['ec_test']['fail_post_meta_add'] = false;
+		return false;
+	}
+	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
+	$GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] = $value;
+	return true;
+}
+
+function update_post_meta( $post_id, $key, $value, $previous = '' ) {
+	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
+	if ( isset( $GLOBALS['ec_test']['post_meta_conflict'] ) ) {
+		$GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] = $GLOBALS['ec_test']['post_meta_conflict'];
+		unset( $GLOBALS['ec_test']['post_meta_conflict'] );
+		return false;
+	}
 	if ( ! empty( $GLOBALS['ec_test']['fail_post_meta_update'] ) ) {
 		$GLOBALS['ec_test']['fail_post_meta_update'] = false;
 		return false;
 	}
-	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
+	if ( func_num_args() >= 4 && maybe_serialize( get_post_meta( $post_id, $key, true ) ) !== maybe_serialize( $previous ) ) {
+		return false;
+	}
 	$GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] = $value;
 	return true;
 }
@@ -202,13 +240,55 @@ function get_user_meta( $user_id, $key = '', $single = false ) {
 	return $single && is_array( $value ) && isset( $value[0] ) && is_array( $value[0] ) ? $value[0] : $value;
 }
 
-function update_user_meta( $user_id, $key, $value ) {
-	if ( ! empty( $GLOBALS['ec_test']['fail_user_meta_update'] ) ) {
-		$GLOBALS['ec_test']['fail_user_meta_update'] = false;
+function add_user_meta( $user_id, $key, $value, $unique = false ) {
+	if ( $unique && metadata_exists( 'user', $user_id, $key ) ) {
+		return false;
+	}
+	if ( ! empty( $GLOBALS['ec_test']['fail_user_meta_add'] ) ) {
+		$GLOBALS['ec_test']['fail_user_meta_add'] = false;
 		return false;
 	}
 	$GLOBALS['ec_test']['user_meta'][ $user_id ][ $key ] = $value;
 	return true;
+}
+
+function update_user_meta( $user_id, $key, $value, $previous = '' ) {
+	if ( isset( $GLOBALS['ec_test']['user_meta_conflict'] ) ) {
+		$GLOBALS['ec_test']['user_meta'][ $user_id ][ $key ] = $GLOBALS['ec_test']['user_meta_conflict'];
+		unset( $GLOBALS['ec_test']['user_meta_conflict'] );
+		return false;
+	}
+	if ( ! empty( $GLOBALS['ec_test']['fail_user_meta_update'] ) ) {
+		$GLOBALS['ec_test']['fail_user_meta_update'] = false;
+		return false;
+	}
+	if ( func_num_args() >= 4 && maybe_serialize( get_user_meta( $user_id, $key, true ) ) !== maybe_serialize( $previous ) ) {
+		return false;
+	}
+	$GLOBALS['ec_test']['user_meta'][ $user_id ][ $key ] = $value;
+	return true;
+}
+
+function maybe_serialize( $value ) {
+	return serialize( $value );
+}
+
+function wp_insert_post( $post_data, $return_error = false ) {
+	if ( ! empty( $GLOBALS['ec_test']['fail_post_insert'] ) ) {
+		return $return_error ? new WP_Error( 'insert_failed', 'Insert failed.' ) : 0;
+	}
+	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
+	$post_id = empty( $GLOBALS['ec_test']['blogs'][ $blog_id ]['posts'] ) ? 1 : max( array_keys( $GLOBALS['ec_test']['blogs'][ $blog_id ]['posts'] ) ) + 1;
+	$GLOBALS['ec_test']['blogs'][ $blog_id ]['posts'][ $post_id ] = (object) array_merge( array( 'ID' => $post_id ), $post_data );
+	return $post_id;
+}
+
+function wp_delete_post( $post_id, $force_delete = false ) {
+	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
+	$post    = $GLOBALS['ec_test']['blogs'][ $blog_id ]['posts'][ $post_id ] ?? null;
+	unset( $GLOBALS['ec_test']['blogs'][ $blog_id ]['posts'][ $post_id ], $GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ] );
+	$GLOBALS['ec_test']['deleted_posts'][] = $post_id;
+	return $post;
 }
 
 function delete_post_meta( $post_id, $key, $value = '' ) {
@@ -298,6 +378,32 @@ function update_option( $key, $value ) {
 	return true;
 }
 
+function get_site_option( $key, $default = false ) {
+	return $GLOBALS['ec_test']['site_options'][ $key ] ?? $default;
+}
+
+function update_site_option( $key, $value ) {
+	$GLOBALS['ec_test']['site_options'][ $key ] = $value;
+	return true;
+}
+
+function delete_site_option( $key ) {
+	unset( $GLOBALS['ec_test']['site_options'][ $key ] );
+	return true;
+}
+
+function get_page_by_path() {
+	return null;
+}
+
+function get_super_admins() {
+	return array( 'admin' );
+}
+
+function get_user_by() {
+	return (object) array( 'ID' => 1 );
+}
+
 function ec_cross_site_rest_request( $site, $method, $route, $args = array() ) {
 	$GLOBALS['ec_test']['cross_site_requests'][] = array( $site, $method, $route, $args );
 	return $GLOBALS['ec_test']['cross_site_result'] ?? new WP_Error( 'missing_result', 'No test result configured.' );
@@ -361,6 +467,7 @@ function sanitize_hex_color( $color ) {
 }
 
 require_once dirname( __DIR__ ) . '/inc/artist-profiles/admin/membership.php';
+require_once dirname( __DIR__ ) . '/inc/artist-profiles/roster/roster-data-functions.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/admin-list-artist-relationships.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/admin-link-artist-relationship.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/admin-unlink-artist-relationship.php';
@@ -377,3 +484,5 @@ require_once dirname( __DIR__ ) . '/inc/abilities/handlers/create-artist.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-link-page-links.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-social-links.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-export-subscribers.php';
+require_once dirname( __DIR__ ) . '/inc/core/actions/save.php';
+require_once dirname( __DIR__ ) . '/inc/core/platform-artist-provisioning.php';

@@ -212,9 +212,6 @@ function update_option( $key, $value ) {
 
 function ec_cross_site_rest_request( $site, $method, $route, $args = array() ) {
 	$GLOBALS['ec_test']['cross_site_requests'][] = array( $site, $method, $route, $args );
-	if ( ! empty( $GLOBALS['ec_test']['cross_site_results'] ) ) {
-		return array_shift( $GLOBALS['ec_test']['cross_site_results'] );
-	}
 	return $GLOBALS['ec_test']['cross_site_result'] ?? new WP_Error( 'missing_result', 'No test result configured.' );
 }
 

@@ -378,28 +378,48 @@ function ec_delete_artist_profile_term_binding( $profile_id ) {
 
 	switch_to_blog( $blog_ids['main'] );
 	try {
-		$term_ids = get_terms(
-			array(
-				'taxonomy'   => 'artist',
-				'hide_empty' => false,
-				'fields'     => 'ids',
-				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Deletion must find every stale inverse reference.
-				'meta_query' => array(
-					array(
-						'key'     => '_artist_profile_id',
-						'value'   => (int) $profile_id,
-						'compare' => '=',
-						'type'    => 'NUMERIC',
+		$batch_size = 100;
+		$offset     = 0;
+		do {
+			$term_ids = get_terms(
+				array(
+					'taxonomy'               => 'artist',
+					'hide_empty'             => false,
+					'fields'                 => 'ids',
+					'number'                 => $batch_size,
+					'offset'                 => $offset,
+					'orderby'                => 'none',
+					'cache_results'          => false,
+					'update_term_meta_cache' => false,
+					// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Deletion must find every stale inverse reference.
+					'meta_query'             => array(
+						array(
+							'key'     => '_artist_profile_id',
+							'value'   => (int) $profile_id,
+							'compare' => '=',
+							'type'    => 'NUMERIC',
+						),
 					),
-				),
-			)
-		);
-
-		if ( ! is_wp_error( $term_ids ) ) {
-			foreach ( $term_ids as $term_id ) {
-				delete_term_meta( (int) $term_id, '_artist_profile_id', (int) $profile_id );
+				)
+			);
+			if ( is_wp_error( $term_ids ) || empty( $term_ids ) ) {
+				break;
 			}
-		}
+
+			$deleted = false;
+			foreach ( $term_ids as $term_id ) {
+				$stored_values = get_term_meta( (int) $term_id, '_artist_profile_id', false );
+				foreach ( $stored_values as $stored_value ) {
+					if ( is_numeric( $stored_value ) && (float) $stored_value === (float) $profile_id ) {
+						$deleted = delete_term_meta( (int) $term_id, '_artist_profile_id', $stored_value ) || $deleted;
+					}
+				}
+			}
+
+			if ( ! $deleted ) {
+				$offset += count( $term_ids );
+			}
+		} while ( true );
 	} finally {
 		restore_current_blog();
 	}

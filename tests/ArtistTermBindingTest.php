@@ -148,6 +148,52 @@ final class ArtistTermBindingTest extends TestCase {
 		$this->assertArrayNotHasKey( '_artist_profile_id', $GLOBALS['ec_test']['blogs'][1]['term_meta'][101] );
 	}
 
+	public function test_profile_deletion_cleans_noncanonical_numeric_term_references(): void {
+		$this->addProfile( 12, 'the-band' );
+		$this->addTerm( 101, 'stale-band', 12 );
+		$GLOBALS['ec_test']['blogs'][1]['term_meta'][101]['_artist_profile_id'] = '012';
+
+		ec_delete_artist_profile_term_binding( 12 );
+
+		$this->assertArrayNotHasKey( '_artist_profile_id', $GLOBALS['ec_test']['blogs'][1]['term_meta'][101] );
+	}
+
+	public function test_profile_deletion_uses_complete_bounded_uncached_batches(): void {
+		$this->addProfile( 12, 'the-band' );
+		for ( $term_id = 1000; $term_id < 1205; ++$term_id ) {
+			$this->addTerm( $term_id, 'stale-band-' . $term_id, 12 );
+		}
+
+		ec_delete_artist_profile_term_binding( 12 );
+
+		foreach ( range( 1000, 1204 ) as $term_id ) {
+			$this->assertArrayNotHasKey( '_artist_profile_id', $GLOBALS['ec_test']['blogs'][1]['term_meta'][ $term_id ] );
+		}
+		foreach ( $GLOBALS['ec_test']['get_terms_calls'] as $args ) {
+			$this->assertSame( 100, $args['number'] );
+			$this->assertSame( 'none', $args['orderby'] );
+			$this->assertFalse( $args['cache_results'] );
+			$this->assertFalse( $args['update_term_meta_cache'] );
+		}
+	}
+
+	public function test_profile_deletion_skips_malformed_numeric_cast_matches_without_looping(): void {
+		$this->addProfile( 12, 'the-band' );
+		$this->addTerm( 101, 'malformed-band', 12 );
+		$this->addTerm( 102, 'stale-band', 12 );
+		$this->addTerm( 103, 'different-numeric-band', 12 );
+		$GLOBALS['ec_test']['blogs'][1]['term_meta'][101]['_artist_profile_id'] = '12broken';
+		$GLOBALS['ec_test']['blogs'][1]['term_meta'][103]['_artist_profile_id'] = '12.5';
+
+		ec_delete_artist_profile_term_binding( 12 );
+
+		$this->assertSame( '12broken', $GLOBALS['ec_test']['blogs'][1]['term_meta'][101]['_artist_profile_id'] );
+		$this->assertArrayNotHasKey( '_artist_profile_id', $GLOBALS['ec_test']['blogs'][1]['term_meta'][102] );
+		$this->assertSame( '12.5', $GLOBALS['ec_test']['blogs'][1]['term_meta'][103]['_artist_profile_id'] );
+		$this->assertCount( 3, $GLOBALS['ec_test']['get_terms_calls'] );
+		$this->assertSame( 2, $GLOBALS['ec_test']['get_terms_calls'][2]['offset'] );
+	}
+
 	public function test_profile_deletion_does_not_mutate_wrong_taxonomy_or_unrelated_terms(): void {
 		$this->addProfile( 12, 'the-band', 101 );
 		$this->addTerm( 101, 'the-band', 12 );

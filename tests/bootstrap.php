@@ -433,6 +433,7 @@ function get_term_by( $field, $value, $taxonomy ) {
 }
 
 function get_terms( $args = array() ) {
+	$GLOBALS['ec_test']['get_terms_calls'][] = $args;
 	$term_ids   = array();
 	$meta_query = $args['meta_query'][0] ?? array();
 	foreach ( ec_test_blog_store( 'terms' ) as $term_id => $term ) {
@@ -452,13 +453,15 @@ function get_terms( $args = array() ) {
 		}
 		$term_ids[] = (int) $term_id;
 	}
-	return $term_ids;
+	return array_slice( $term_ids, (int) ( $args['offset'] ?? 0 ), $args['number'] ?? null );
 }
 
 function get_term_meta( $term_id, $key, $single = false ) {
-	$meta  = ec_test_blog_store( 'term_meta' );
-	$value = $meta[ $term_id ][ $key ] ?? ( $single ? '' : array() );
-	return $value;
+	$meta = ec_test_blog_store( 'term_meta' );
+	if ( ! array_key_exists( $key, $meta[ $term_id ] ?? array() ) ) {
+		return $single ? '' : array();
+	}
+	return $single ? $meta[ $term_id ][ $key ] : array( $meta[ $term_id ][ $key ] );
 }
 
 function update_term_meta( $term_id, $key, $value ) {

@@ -360,7 +360,7 @@ function ec_sync_artist_profile_term_binding( $profile_id ) {
 add_action( 'ec_artist_profile_save', 'ec_sync_artist_profile_term_binding', 5, 1 );
 
 /**
- * Remove the reciprocal term reference before an artist profile is deleted.
+ * Remove all term references before an artist profile is deleted.
  *
  * @param int $profile_id Post ID being deleted.
  * @return void
@@ -372,11 +372,36 @@ function ec_delete_artist_profile_term_binding( $profile_id ) {
 	}
 
 	$profile = ec_artist_binding_read_profile( (int) $profile_id, $blog_ids['artist'] );
-	if ( ! empty( $profile ) && $profile['term_id'] > 0 ) {
-		$term = ec_artist_binding_read_term( $profile['term_id'], $blog_ids['main'] );
-		if ( ! empty( $term ) && $term['profile_id'] === (int) $profile_id ) {
-			ec_artist_binding_delete_term_meta( $profile['term_id'], (int) $profile_id, $blog_ids['main'] );
+	if ( empty( $profile ) ) {
+		return;
+	}
+
+	switch_to_blog( $blog_ids['main'] );
+	try {
+		$term_ids = get_terms(
+			array(
+				'taxonomy'   => 'artist',
+				'hide_empty' => false,
+				'fields'     => 'ids',
+				// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Deletion must find every stale inverse reference.
+				'meta_query' => array(
+					array(
+						'key'     => '_artist_profile_id',
+						'value'   => (int) $profile_id,
+						'compare' => '=',
+						'type'    => 'NUMERIC',
+					),
+				),
+			)
+		);
+
+		if ( ! is_wp_error( $term_ids ) ) {
+			foreach ( $term_ids as $term_id ) {
+				delete_term_meta( (int) $term_id, '_artist_profile_id', (int) $profile_id );
+			}
 		}
+	} finally {
+		restore_current_blog();
 	}
 }
 add_action( 'before_delete_post', 'ec_delete_artist_profile_term_binding', 10, 1 );

@@ -37,10 +37,10 @@ final class ArtistTermBindingTest extends TestCase {
 		}
 	}
 
-	private function addTerm( $id, $slug, $profile_id = 0 ) {
+	private function addTerm( $id, $slug, $profile_id = 0, $taxonomy = 'artist' ) {
 		$GLOBALS['ec_test']['blogs'][1]['terms'][ $id ] = (object) array(
 			'term_id'  => $id,
-			'taxonomy' => 'artist',
+			'taxonomy' => $taxonomy,
 			'slug'     => $slug,
 		);
 		if ( $profile_id > 0 ) {
@@ -129,12 +129,64 @@ final class ArtistTermBindingTest extends TestCase {
 		$this->assertSame( 12, $GLOBALS['ec_test']['blogs'][1]['term_meta'][101]['_artist_profile_id'] );
 	}
 
-	public function test_profile_deletion_cleans_the_reciprocal_term_reference(): void {
+	public function test_profile_deletion_cleans_reciprocal_and_additional_stale_term_references(): void {
 		$this->addProfile( 12, 'the-band', 101 );
 		$this->addTerm( 101, 'the-band', 12 );
+		$this->addTerm( 102, 'stale-band', 12 );
 
 		ec_delete_artist_profile_term_binding( 12 );
 		$this->assertArrayNotHasKey( '_artist_profile_id', $GLOBALS['ec_test']['blogs'][1]['term_meta'][101] );
+		$this->assertArrayNotHasKey( '_artist_profile_id', $GLOBALS['ec_test']['blogs'][1]['term_meta'][102] );
+	}
+
+	public function test_profile_deletion_cleans_term_references_without_profile_metadata(): void {
+		$this->addProfile( 12, 'the-band' );
+		$this->addTerm( 101, 'stale-band', 12 );
+
+		ec_delete_artist_profile_term_binding( 12 );
+
+		$this->assertArrayNotHasKey( '_artist_profile_id', $GLOBALS['ec_test']['blogs'][1]['term_meta'][101] );
+	}
+
+	public function test_profile_deletion_does_not_mutate_wrong_taxonomy_or_unrelated_terms(): void {
+		$this->addProfile( 12, 'the-band', 101 );
+		$this->addTerm( 101, 'the-band', 12 );
+		$this->addTerm( 102, 'genre-term', 12, 'genre' );
+		$this->addTerm( 103, 'other-band', 13 );
+
+		ec_delete_artist_profile_term_binding( 12 );
+
+		$this->assertArrayNotHasKey( '_artist_profile_id', $GLOBALS['ec_test']['blogs'][1]['term_meta'][101] );
+		$this->assertSame( 12, $GLOBALS['ec_test']['blogs'][1]['term_meta'][102]['_artist_profile_id'] );
+		$this->assertSame( 13, $GLOBALS['ec_test']['blogs'][1]['term_meta'][103]['_artist_profile_id'] );
+	}
+
+	public function test_profile_deletion_does_not_mutate_a_colliding_main_blog_post(): void {
+		$this->addProfile( 12, 'the-band' );
+		$this->addTerm( 101, 'the-band', 12 );
+		$GLOBALS['ec_test']['blogs'][1]['posts'][12] = (object) array(
+			'ID'          => 12,
+			'post_type'   => 'post',
+			'post_status' => 'publish',
+			'post_title'  => 'Unrelated post',
+			'post_name'   => 'unrelated-post',
+		);
+		$GLOBALS['ec_test']['blogs'][1]['post_meta'][12]['_artist_profile_id'] = 'unchanged';
+
+		ec_delete_artist_profile_term_binding( 12 );
+
+		$this->assertArrayNotHasKey( '_artist_profile_id', $GLOBALS['ec_test']['blogs'][1]['term_meta'][101] );
+		$this->assertSame( 'unchanged', $GLOBALS['ec_test']['blogs'][1]['post_meta'][12]['_artist_profile_id'] );
+	}
+
+	public function test_profile_deletion_restores_the_callers_artist_blog(): void {
+		$this->addProfile( 12, 'the-band' );
+		$this->addTerm( 101, 'the-band', 12 );
+
+		ec_delete_artist_profile_term_binding( 12 );
+
+		$this->assertSame( 4, $GLOBALS['ec_test']['current_blog_id'] );
+		$this->assertSame( array(), $GLOBALS['ec_test']['blog_stack'] );
 	}
 
 	public function test_slug_renames_do_not_break_a_valid_id_binding(): void {

@@ -432,6 +432,29 @@ function get_term_by( $field, $value, $taxonomy ) {
 	return false;
 }
 
+function get_terms( $args = array() ) {
+	$term_ids   = array();
+	$meta_query = $args['meta_query'][0] ?? array();
+	foreach ( ec_test_blog_store( 'terms' ) as $term_id => $term ) {
+		if ( isset( $args['taxonomy'] ) && $term->taxonomy !== $args['taxonomy'] ) {
+			continue;
+		}
+		if ( ! empty( $meta_query ) ) {
+			$value = get_term_meta( $term_id, $meta_query['key'], true );
+			if ( 'NUMERIC' === ( $meta_query['type'] ?? '' ) ) {
+				$matches = (int) $value === (int) $meta_query['value'];
+			} else {
+				$matches = (string) $value === (string) $meta_query['value'];
+			}
+			if ( ! $matches ) {
+				continue;
+			}
+		}
+		$term_ids[] = (int) $term_id;
+	}
+	return $term_ids;
+}
+
 function get_term_meta( $term_id, $key, $single = false ) {
 	$meta  = ec_test_blog_store( 'term_meta' );
 	$value = $meta[ $term_id ][ $key ] ?? ( $single ? '' : array() );

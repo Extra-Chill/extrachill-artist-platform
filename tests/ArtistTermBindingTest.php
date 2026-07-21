@@ -158,23 +158,48 @@ final class ArtistTermBindingTest extends TestCase {
 		$this->assertArrayNotHasKey( '_artist_profile_id', $GLOBALS['ec_test']['blogs'][1]['term_meta'][101] );
 	}
 
-	public function test_profile_deletion_uses_complete_bounded_uncached_batches(): void {
+	public function test_profile_deletion_uses_stable_complete_bounded_uncached_batches(): void {
 		$this->addProfile( 12, 'the-band' );
-		for ( $term_id = 1000; $term_id < 1205; ++$term_id ) {
+		for ( $term_id = 1000; $term_id < 1100; ++$term_id ) {
+			$this->addTerm( $term_id, 'malformed-band-' . $term_id, 12 );
+			$GLOBALS['ec_test']['blogs'][1]['term_meta'][ $term_id ]['_artist_profile_id'] = '12broken';
+		}
+		for ( $term_id = 1100; $term_id < 1305; ++$term_id ) {
 			$this->addTerm( $term_id, 'stale-band-' . $term_id, 12 );
 		}
 
 		ec_delete_artist_profile_term_binding( 12 );
 
-		foreach ( range( 1000, 1204 ) as $term_id ) {
+		$this->assertSame( '12broken', $GLOBALS['ec_test']['blogs'][1]['term_meta'][1000]['_artist_profile_id'] );
+		$this->assertSame( '12broken', $GLOBALS['ec_test']['blogs'][1]['term_meta'][1099]['_artist_profile_id'] );
+		foreach ( range( 1100, 1304 ) as $term_id ) {
 			$this->assertArrayNotHasKey( '_artist_profile_id', $GLOBALS['ec_test']['blogs'][1]['term_meta'][ $term_id ] );
 		}
 		foreach ( $GLOBALS['ec_test']['get_terms_calls'] as $args ) {
 			$this->assertSame( 100, $args['number'] );
-			$this->assertSame( 'none', $args['orderby'] );
+			$this->assertSame( 'term_id', $args['orderby'] );
+			$this->assertSame( 'ASC', $args['order'] );
 			$this->assertFalse( $args['cache_results'] );
 			$this->assertFalse( $args['update_term_meta_cache'] );
 		}
+		$this->assertSame( array( 0, 100, 100, 100, 100 ), array_column( $GLOBALS['ec_test']['get_terms_calls'], 'offset' ) );
+	}
+
+	public function test_profile_deletion_keeps_adjacent_large_integer_references_distinct(): void {
+		$profile_id = 9007199254740993;
+		$this->addProfile( $profile_id, 'large-id-band' );
+		$this->addTerm( 101, 'large-id-band', $profile_id );
+		$GLOBALS['ec_test']['blogs'][1]['term_meta'][101]['_artist_profile_id'] = array(
+			'09007199254740993',
+			'9007199254740992',
+		);
+
+		ec_delete_artist_profile_term_binding( $profile_id );
+
+		$this->assertSame(
+			array( '9007199254740992' ),
+			$GLOBALS['ec_test']['blogs'][1]['term_meta'][101]['_artist_profile_id']
+		);
 	}
 
 	public function test_profile_deletion_skips_malformed_numeric_cast_matches_without_looping(): void {

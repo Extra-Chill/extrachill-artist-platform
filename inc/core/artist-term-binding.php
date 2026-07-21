@@ -378,8 +378,9 @@ function ec_delete_artist_profile_term_binding( $profile_id ) {
 
 	switch_to_blog( $blog_ids['main'] );
 	try {
-		$batch_size = 100;
-		$offset     = 0;
+		$batch_size        = 100;
+		$offset            = 0;
+		$profile_id_string = (string) (int) $profile_id;
 		do {
 			$term_ids = get_terms(
 				array(
@@ -388,7 +389,8 @@ function ec_delete_artist_profile_term_binding( $profile_id ) {
 					'fields'                 => 'ids',
 					'number'                 => $batch_size,
 					'offset'                 => $offset,
-					'orderby'                => 'none',
+					'orderby'                => 'term_id',
+					'order'                  => 'ASC',
 					'cache_results'          => false,
 					'update_term_meta_cache' => false,
 					// phpcs:ignore WordPress.DB.SlowDBQuery.slow_db_query_meta_query -- Deletion must find every stale inverse reference.
@@ -410,7 +412,16 @@ function ec_delete_artist_profile_term_binding( $profile_id ) {
 			foreach ( $term_ids as $term_id ) {
 				$stored_values = get_term_meta( (int) $term_id, '_artist_profile_id', false );
 				foreach ( $stored_values as $stored_value ) {
-					if ( is_numeric( $stored_value ) && (float) $stored_value === (float) $profile_id ) {
+					if ( ! is_int( $stored_value ) && ! is_string( $stored_value ) ) {
+						continue;
+					}
+					$stored_value_string = (string) $stored_value;
+					if ( 1 !== preg_match( '/^\+?\d+$/D', $stored_value_string ) ) {
+						continue;
+					}
+					$normalized_value = ltrim( ltrim( $stored_value_string, '+' ), '0' );
+					$normalized_value = '' === $normalized_value ? '0' : $normalized_value;
+					if ( $normalized_value === $profile_id_string ) {
 						$deleted = delete_term_meta( (int) $term_id, '_artist_profile_id', $stored_value ) || $deleted;
 					}
 				}

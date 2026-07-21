@@ -441,17 +441,28 @@ function get_terms( $args = array() ) {
 			continue;
 		}
 		if ( ! empty( $meta_query ) ) {
-			$value = get_term_meta( $term_id, $meta_query['key'], true );
-			if ( 'NUMERIC' === ( $meta_query['type'] ?? '' ) ) {
-				$matches = (int) $value === (int) $meta_query['value'];
-			} else {
-				$matches = (string) $value === (string) $meta_query['value'];
+			$matches = false;
+			foreach ( get_term_meta( $term_id, $meta_query['key'], false ) as $value ) {
+				if ( 'NUMERIC' === ( $meta_query['type'] ?? '' ) ) {
+					$matches = (int) $value === (int) $meta_query['value'];
+				} else {
+					$matches = (string) $value === (string) $meta_query['value'];
+				}
+				if ( $matches ) {
+					break;
+				}
 			}
 			if ( ! $matches ) {
 				continue;
 			}
 		}
 		$term_ids[] = (int) $term_id;
+	}
+	if ( 'term_id' === ( $args['orderby'] ?? '' ) ) {
+		sort( $term_ids, SORT_NUMERIC );
+		if ( 'DESC' === ( $args['order'] ?? 'ASC' ) ) {
+			$term_ids = array_reverse( $term_ids );
+		}
 	}
 	return array_slice( $term_ids, (int) ( $args['offset'] ?? 0 ), $args['number'] ?? null );
 }
@@ -461,7 +472,8 @@ function get_term_meta( $term_id, $key, $single = false ) {
 	if ( ! array_key_exists( $key, $meta[ $term_id ] ?? array() ) ) {
 		return $single ? '' : array();
 	}
-	return $single ? $meta[ $term_id ][ $key ] : array( $meta[ $term_id ][ $key ] );
+	$values = is_array( $meta[ $term_id ][ $key ] ) ? $meta[ $term_id ][ $key ] : array( $meta[ $term_id ][ $key ] );
+	return $single ? ( $values[0] ?? '' ) : $values;
 }
 
 function update_term_meta( $term_id, $key, $value ) {
@@ -473,6 +485,25 @@ function update_term_meta( $term_id, $key, $value ) {
 function delete_term_meta( $term_id, $key, $value = '' ) {
 	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
 	$current = $GLOBALS['ec_test']['blogs'][ $blog_id ]['term_meta'][ $term_id ][ $key ] ?? null;
+	if ( is_array( $current ) && '' !== $value ) {
+		$remaining = array_values(
+			array_filter(
+				$current,
+				static function ( $stored_value ) use ( $value ) {
+					return (string) $stored_value !== (string) $value;
+				}
+			)
+		);
+		if ( count( $remaining ) === count( $current ) ) {
+			return false;
+		}
+		if ( empty( $remaining ) ) {
+			unset( $GLOBALS['ec_test']['blogs'][ $blog_id ]['term_meta'][ $term_id ][ $key ] );
+		} else {
+			$GLOBALS['ec_test']['blogs'][ $blog_id ]['term_meta'][ $term_id ][ $key ] = $remaining;
+		}
+		return true;
+	}
 	if ( '' === $value || (string) $current === (string) $value ) {
 		unset( $GLOBALS['ec_test']['blogs'][ $blog_id ]['term_meta'][ $term_id ][ $key ] );
 		return true;

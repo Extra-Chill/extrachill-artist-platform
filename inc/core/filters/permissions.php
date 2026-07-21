@@ -87,7 +87,7 @@ function ec_get_artist_id_for_owned_object( $object_id ) {
 }
 
 /**
- * Check object access against the canonical reciprocal membership reader.
+ * Check object access against both sides of the reciprocal membership.
  *
  * @param int $user_id   User ID.
  * @param int $artist_id Artist profile ID.
@@ -98,11 +98,13 @@ function ec_user_can_manage_artist_object( $user_id, $artist_id ) {
 		return true;
 	}
 
-	if ( ! function_exists( 'ec_get_artists_for_user' ) ) {
-		return false;
-	}
+	$user_artist_ids = get_user_meta( $user_id, '_artist_profile_ids', true );
+	$artist_user_ids = get_post_meta( $artist_id, '_artist_member_ids', true );
 
-	return in_array( (int) $artist_id, ec_get_artists_for_user( $user_id ), true );
+	return is_array( $user_artist_ids )
+		&& is_array( $artist_user_ids )
+		&& in_array( (int) $artist_id, array_map( 'intval', $user_artist_ids ), true )
+		&& in_array( (int) $user_id, array_map( 'intval', $artist_user_ids ), true );
 }
 
 /**
@@ -166,6 +168,17 @@ function ec_filter_user_capabilities( $allcaps, $caps, $args, $user ) {
 		'add_post_meta',
 		'delete_post_meta',
 	);
+	$meta_caps = array(
+		'edit_post_meta',
+		'add_post_meta',
+		'delete_post_meta',
+	);
+	$meta_edit_caps = array(
+		'edit_artist_profiles',
+		'edit_others_artist_profiles',
+		'edit_private_artist_profiles',
+		'edit_published_artist_profiles',
+	);
 	$cap         = $args[0] ?? '';
 	$object_id   = isset( $args[2] ) ? absint( $args[2] ) : 0;
 	if ( in_array( $cap, $admin_caps, true ) && user_can( $user->ID, 'manage_options' ) ) {
@@ -183,7 +196,11 @@ function ec_filter_user_capabilities( $allcaps, $caps, $args, $user ) {
 	}
 
 	foreach ( $caps as $primitive_cap ) {
-		if ( 'do_not_allow' !== $primitive_cap ) {
+		if ( in_array( $cap, $meta_caps, true ) ) {
+			if ( in_array( $primitive_cap, $meta_edit_caps, true ) ) {
+				$allcaps[ $primitive_cap ] = true;
+			}
+		} elseif ( 'do_not_allow' !== $primitive_cap ) {
 			$allcaps[ $primitive_cap ] = true;
 		}
 	}

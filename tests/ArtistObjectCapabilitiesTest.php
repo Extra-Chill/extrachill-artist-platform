@@ -15,11 +15,33 @@ final class ArtistObjectCapabilitiesTest extends TestCase {
 							'post_type'   => 'artist_profile',
 							'post_status' => 'publish',
 						),
+						21 => (object) array(
+							'ID'          => 21,
+							'post_type'   => 'artist_profile',
+							'post_status' => 'draft',
+						),
+						22 => (object) array(
+							'ID'          => 22,
+							'post_type'   => 'artist_profile',
+							'post_status' => 'pending',
+						),
 						30 => (object) array(
 							'ID'          => 30,
 							'post_type'   => 'revision',
 							'post_status' => 'inherit',
 							'post_parent' => 20,
+						),
+						31 => (object) array(
+							'ID'          => 31,
+							'post_type'   => 'revision',
+							'post_status' => 'inherit',
+							'post_parent' => 21,
+						),
+						32 => (object) array(
+							'ID'          => 32,
+							'post_type'   => 'revision',
+							'post_status' => 'inherit',
+							'post_parent' => 22,
 						),
 						40 => (object) array(
 							'ID'          => 40,
@@ -29,16 +51,20 @@ final class ArtistObjectCapabilitiesTest extends TestCase {
 					),
 					'post_meta' => array(
 						20 => array( '_artist_member_ids' => array( 7 ) ),
+						21 => array( '_artist_member_ids' => array( 7 ) ),
+						22 => array( '_artist_member_ids' => array( 7 ) ),
 					),
 				),
 			),
 			'user_meta' => array(
-				7 => array( '_artist_profile_ids' => array( 20 ) ),
+				7 => array( '_artist_profile_ids' => array( 20, 21, 22 ) ),
 				8 => array( '_artist_profile_ids' => array( 20 ) ),
 			),
 			'mapped_caps' => array(
 				'delete_post' => array(
 					20 => array( 'delete_others_artist_profiles', 'delete_published_artist_profiles' ),
+					21 => array( 'delete_others_artist_profiles' ),
+					22 => array( 'delete_others_artist_profiles' ),
 				),
 			),
 		);
@@ -69,6 +95,31 @@ final class ArtistObjectCapabilitiesTest extends TestCase {
 		$this->assertTrue( $args['map_meta_cap'] );
 		$this->assertTrue( $args['show_in_rest'] );
 		$this->assertContains( 'revisions', $args['supports'] );
+	}
+
+	public function test_protected_meta_keeps_core_denial_while_nested_edit_caps_are_granted(): void {
+		$user = (object) array( 'ID' => 7 );
+		foreach ( array( 'edit_post_meta', 'add_post_meta', 'delete_post_meta' ) as $requested ) {
+			$required = array( 'edit_others_artist_profiles', 'edit_published_artist_profiles', $requested );
+			$allcaps  = ec_filter_user_capabilities( array(), $required, array( $requested, 7, 20, '_artist_member_ids' ), $user );
+
+			$this->assertTrue( $allcaps['edit_others_artist_profiles'] );
+			$this->assertTrue( $allcaps['edit_published_artist_profiles'] );
+			$this->assertArrayNotHasKey( $requested, $allcaps );
+		}
+	}
+
+	public function test_unprotected_meta_receives_only_nested_artist_edit_caps(): void {
+		$required = array( 'edit_others_artist_profiles', 'edit_published_artist_profiles' );
+		$allcaps  = ec_filter_user_capabilities( array(), $required, array( 'edit_post_meta', 7, 20, 'public_key' ), (object) array( 'ID' => 7 ) );
+
+		$this->assertSame(
+			array(
+				'edit_others_artist_profiles'    => true,
+				'edit_published_artist_profiles' => true,
+			),
+			$allcaps
+		);
 	}
 
 	public function test_one_sided_membership_and_generic_editor_caps_do_not_grant_access(): void {
@@ -121,6 +172,33 @@ final class ArtistObjectCapabilitiesTest extends TestCase {
 		$allcaps = ec_filter_user_capabilities( array(), $mapped, array( 'delete_post', 7, 30 ), (object) array( 'ID' => 7 ) );
 		$this->assertTrue( $allcaps['delete_others_artist_profiles'] );
 		$this->assertTrue( $allcaps['delete_published_artist_profiles'] );
+	}
+
+	public function test_draft_and_pending_profiles_keep_crud_revision_and_autosave_access(): void {
+		$user = (object) array( 'ID' => 7 );
+
+		foreach ( array( 21 => 31, 22 => 32 ) as $artist_id => $revision_id ) {
+			$this->assertTrue( ec_user_can_manage_artist_object( 7, $artist_id ) );
+			$this->assertSame( $artist_id, ec_get_artist_id_for_owned_object( $revision_id ) );
+
+			foreach ( array( 'read_post', 'edit_post' ) as $requested ) {
+				$required = array( 'edit_others_artist_profiles' );
+				$allcaps  = ec_filter_user_capabilities( array(), $required, array( $requested, 7, $artist_id ), $user );
+				$this->assertTrue( $allcaps['edit_others_artist_profiles'] );
+
+				$revision_caps = ec_filter_user_capabilities( array(), $required, array( $requested, 7, $revision_id ), $user );
+				$this->assertTrue( $revision_caps['edit_others_artist_profiles'] );
+			}
+
+			$delete_caps   = map_meta_cap( 'delete_post', 7, $artist_id );
+			$parent_delete = ec_filter_user_capabilities( array(), $delete_caps, array( 'delete_post', 7, $artist_id ), $user );
+			$this->assertTrue( $parent_delete['delete_others_artist_profiles'] );
+
+			$revision_delete_caps = ec_map_artist_object_capabilities( array( 'do_not_allow' ), 'delete_post', 7, array( $revision_id ) );
+			$this->assertSame( array( 'delete_others_artist_profiles' ), $revision_delete_caps );
+			$revision_delete = ec_filter_user_capabilities( array(), $revision_delete_caps, array( 'delete_post', 7, $revision_id ), $user );
+			$this->assertTrue( $revision_delete['delete_others_artist_profiles'] );
+		}
 	}
 
 	public function test_non_artist_objects_are_untouched(): void {

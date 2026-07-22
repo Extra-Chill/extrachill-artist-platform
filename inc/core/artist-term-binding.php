@@ -61,7 +61,7 @@ function ec_artist_binding_read_profile( $profile_id, $artist_blog_id ) {
  *
  * @param int $term_id      Artist term ID.
  * @param int $main_blog_id Main blog ID.
- * @return array{id:int,profile_id:int,slug:string}|array{}
+ * @return array{id:int,profile_id:int,slug:string,count:int}|array{}
  */
 function ec_artist_binding_read_term( $term_id, $main_blog_id ) {
 	$artist_term = array();
@@ -73,6 +73,7 @@ function ec_artist_binding_read_term( $term_id, $main_blog_id ) {
 				'id'         => (int) $term->term_id,
 				'profile_id' => (int) get_term_meta( $term_id, '_artist_profile_id', true ),
 				'slug'       => (string) $term->slug,
+				'count'      => (int) ( $term->count ?? 0 ),
 			);
 		}
 	} finally {
@@ -196,12 +197,39 @@ function ec_bind_artist_profile_to_term( $profile_id, $term_id, $main_blog_id = 
 		ec_artist_binding_delete_term_meta( $term_id, $term['profile_id'], $main_blog_id );
 	}
 
+	$old_reciprocal_term_id = 0;
 	if ( $profile['term_id'] > 0 && $profile['term_id'] !== $term_id ) {
 		$old_term = ec_artist_binding_read_term( $profile['term_id'], $main_blog_id );
 		if ( ! empty( $old_term ) && $old_term['profile_id'] === $profile_id ) {
+			$old_reciprocal_term_id = (int) $profile['term_id'];
 			ec_artist_binding_delete_term_meta( $profile['term_id'], $profile_id, $main_blog_id );
+			$old_term = ec_artist_binding_read_term( $profile['term_id'], $main_blog_id );
+			if ( ! empty( $old_term ) && $old_term['profile_id'] === $profile_id ) {
+				return false;
+			}
 		}
 	}
+	$profile = ec_artist_binding_read_profile( $profile_id, $artist_blog_id );
+	$term    = ec_artist_binding_read_term( $term_id, $main_blog_id );
+	if ( empty( $profile ) || empty( $term ) ) {
+		if ( $old_reciprocal_term_id > 0 ) {
+			for ( $attempt = 0; $attempt < 3; ++$attempt ) {
+				switch_to_blog( $main_blog_id );
+				try {
+					update_term_meta( $old_reciprocal_term_id, '_artist_profile_id', $profile_id );
+				} finally {
+					restore_current_blog();
+				}
+				$old_term = ec_artist_binding_read_term( $old_reciprocal_term_id, $main_blog_id );
+				if ( ! empty( $old_term ) && $old_term['profile_id'] === $profile_id ) {
+					break;
+				}
+			}
+		}
+		return false;
+	}
+	$previous_term_id    = (int) $profile['term_id'];
+	$previous_profile_id = (int) $term['profile_id'];
 
 	switch_to_blog( $artist_blog_id );
 	try {
@@ -217,7 +245,65 @@ function ec_bind_artist_profile_to_term( $profile_id, $term_id, $main_blog_id = 
 		restore_current_blog();
 	}
 
-	return true;
+	$bound_profile = ec_artist_binding_read_profile( $profile_id, $artist_blog_id );
+	$bound_term    = ec_artist_binding_read_term( $term_id, $main_blog_id );
+	if ( ! empty( $bound_profile ) && ! empty( $bound_term ) && $bound_profile['term_id'] === $term_id && $bound_term['profile_id'] === $profile_id ) {
+		switch_to_blog( $main_blog_id );
+		try {
+			delete_term_meta( $term_id, '_ec_artist_binding_recoverable' );
+		} finally {
+			restore_current_blog();
+		}
+		return true;
+	}
+
+	if ( ! empty( $bound_profile ) && $bound_profile['term_id'] === $term_id ) {
+		for ( $attempt = 0; $attempt < 3; ++$attempt ) {
+			switch_to_blog( $artist_blog_id );
+			try {
+				if ( $previous_term_id > 0 ) {
+					update_post_meta( $profile_id, '_artist_term_id', $previous_term_id );
+				} else {
+					delete_post_meta( $profile_id, '_artist_term_id', $term_id );
+				}
+			} finally {
+				restore_current_blog();
+			}
+			$rolled_profile = ec_artist_binding_read_profile( $profile_id, $artist_blog_id );
+			if ( ! empty( $rolled_profile ) && $rolled_profile['term_id'] === $previous_term_id ) {
+				break;
+			}
+		}
+	}
+	if ( ! empty( $bound_term ) && $bound_term['profile_id'] === $profile_id ) {
+		for ( $attempt = 0; $attempt < 3; ++$attempt ) {
+			switch_to_blog( $main_blog_id );
+			try {
+				if ( $previous_profile_id > 0 ) {
+					update_term_meta( $term_id, '_artist_profile_id', $previous_profile_id );
+				} else {
+					delete_term_meta( $term_id, '_artist_profile_id', $profile_id );
+				}
+			} finally {
+				restore_current_blog();
+			}
+			$rolled_term = ec_artist_binding_read_term( $term_id, $main_blog_id );
+			if ( ! empty( $rolled_term ) && $rolled_term['profile_id'] === $previous_profile_id ) {
+				break;
+			}
+		}
+	}
+	$rolled_profile = ec_artist_binding_read_profile( $profile_id, $artist_blog_id );
+	if ( $old_reciprocal_term_id > 0 && ! empty( $rolled_profile ) && $rolled_profile['term_id'] === $old_reciprocal_term_id ) {
+		switch_to_blog( $main_blog_id );
+		try {
+			update_term_meta( $old_reciprocal_term_id, '_artist_profile_id', $profile_id );
+		} finally {
+			restore_current_blog();
+		}
+	}
+
+	return false;
 }
 
 /**
@@ -319,25 +405,30 @@ function ec_get_artist_profile_id( $term_id ) {
  * Ensure an artist profile is bound to a matching main-blog artist term.
  *
  * @param int $profile_id Artist profile post ID.
- * @return void
+ * @return int|WP_Error Bound artist term ID, or an actionable failure.
  */
 function ec_sync_artist_profile_term_binding( $profile_id ) {
 	$profile_id = (int) $profile_id;
 	$blog_ids   = ec_artist_binding_blog_ids();
 	if ( $profile_id <= 0 || empty( $blog_ids ) ) {
-		return;
+		return new WP_Error( 'artist_identity_unavailable', __( 'Artist identity binding is unavailable.', 'extrachill-artist-platform' ) );
 	}
 
 	$profile = ec_artist_binding_read_profile( $profile_id, $blog_ids['artist'] );
-	if ( empty( $profile ) || ec_get_artist_term_id( $profile_id ) > 0 ) {
-		return;
+	if ( empty( $profile ) ) {
+		return new WP_Error( 'invalid_artist_profile', __( 'The artist profile is unavailable.', 'extrachill-artist-platform' ) );
+	}
+	$existing_term_id = ec_get_artist_term_id( $profile_id );
+	if ( $existing_term_id > 0 ) {
+		return $existing_term_id;
 	}
 
 	if ( '' === $profile['title'] || '' === $profile['slug'] ) {
-		return;
+		return new WP_Error( 'invalid_artist_identity', __( 'The artist profile needs a title and slug before binding.', 'extrachill-artist-platform' ) );
 	}
 
 	$new_term_id = 0;
+	$term_created = false;
 	switch_to_blog( $blog_ids['main'] );
 	try {
 		$existing = get_term_by( 'slug', $profile['slug'], 'artist' );
@@ -346,16 +437,49 @@ function ec_sync_artist_profile_term_binding( $profile_id ) {
 		} else {
 			$inserted = wp_insert_term( $profile['title'], 'artist', array( 'slug' => $profile['slug'] ) );
 			if ( ! is_wp_error( $inserted ) && ! empty( $inserted['term_id'] ) ) {
-				$new_term_id = (int) $inserted['term_id'];
+				$new_term_id  = (int) $inserted['term_id'];
+				$term_created = true;
 			}
 		}
 	} finally {
 		restore_current_blog();
 	}
 
-	if ( $new_term_id > 0 ) {
-		ec_bind_artist_profile_to_term( $profile_id, $new_term_id, $blog_ids['main'] );
+	if ( $new_term_id <= 0 ) {
+		return new WP_Error( 'artist_term_creation_failed', __( 'The canonical artist term could not be created.', 'extrachill-artist-platform' ), array( 'retryable' => true ) );
 	}
+	if ( ec_bind_artist_profile_to_term( $profile_id, $new_term_id, $blog_ids['main'] ) ) {
+		return $new_term_id;
+	}
+
+	if ( $term_created ) {
+		$deleted = false;
+		$recoverable = false;
+		switch_to_blog( $blog_ids['main'] );
+		try {
+			$created_term = get_term( $new_term_id, 'artist' );
+			$bound_profile_id = (int) get_term_meta( $new_term_id, '_artist_profile_id', true );
+			if ( $created_term && ! is_wp_error( $created_term ) && 0 === (int) ( $created_term->count ?? 0 ) && 0 === $bound_profile_id ) {
+				$delete_result = wp_delete_term( $new_term_id, 'artist' );
+				$deleted       = ! is_wp_error( $delete_result ) && (bool) $delete_result;
+				if ( ! $deleted ) {
+					$created_term = get_term( $new_term_id, 'artist' );
+					$bound_profile_id = (int) get_term_meta( $new_term_id, '_artist_profile_id', true );
+					if ( $created_term && ! is_wp_error( $created_term ) && 0 === (int) ( $created_term->count ?? 0 ) && 0 === $bound_profile_id ) {
+						update_term_meta( $new_term_id, '_ec_artist_binding_recoverable', $profile['slug'] );
+						$recoverable = $profile['slug'] === (string) get_term_meta( $new_term_id, '_ec_artist_binding_recoverable', true );
+					}
+				}
+			}
+		} finally {
+			restore_current_blog();
+		}
+		if ( ! $deleted && ! $recoverable ) {
+			return new WP_Error( 'artist_term_binding_rollback_failed', __( 'Canonical artist binding failed and its new empty term could not be removed.', 'extrachill-artist-platform' ), array( 'term_id' => $new_term_id ) );
+		}
+	}
+
+	return new WP_Error( 'artist_term_binding_failed', __( 'The artist profile could not be bound to its canonical artist term.', 'extrachill-artist-platform' ), array( 'retryable' => true ) );
 }
 add_action( 'ec_artist_profile_save', 'ec_sync_artist_profile_term_binding', 5, 1 );
 

@@ -3,6 +3,7 @@
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'OBJECT', 'OBJECT' );
 define( 'MINUTE_IN_SECONDS', 60 );
+define( 'DAY_IN_SECONDS', 86400 );
 define( 'EC_ANALYTICS_EVENT_ARTIST_PROFILE_CREATED', 'artist_profile_created' );
 
 function plugin_dir_path( $file ) {
@@ -154,6 +155,14 @@ class EcTestRegisteredAbility {
 
 	public function get_meta() {
 		return $this->args['meta'];
+	}
+
+	public function get_input_schema() {
+		return $this->args['input_schema'] ?? array();
+	}
+
+	public function get_output_schema() {
+		return $this->args['output_schema'] ?? array();
 	}
 }
 
@@ -336,6 +345,10 @@ function add_post_meta( $post_id, $key, $value, $unique = false ) {
 function update_post_meta( $post_id, $key, $value, $previous = '' ) {
 	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
 	$GLOBALS['ec_test']['post_meta_update_calls'] = ( $GLOBALS['ec_test']['post_meta_update_calls'] ?? 0 ) + 1;
+	if ( ! empty( $GLOBALS['ec_test']['fail_post_meta_update_keys'][ $key ] ) ) {
+		--$GLOBALS['ec_test']['fail_post_meta_update_keys'][ $key ];
+		return false;
+	}
 	if ( in_array( $GLOBALS['ec_test']['post_meta_update_calls'], $GLOBALS['ec_test']['fail_post_meta_update_on_calls'] ?? array(), true ) ) {
 		return false;
 	}
@@ -427,6 +440,10 @@ function wp_insert_post( $post_data, $return_error = false ) {
 	$GLOBALS['ec_test']['blogs'][ $blog_id ]['posts'][ $post_id ] = (object) array_merge( array( 'ID' => $post_id ), $post_data );
 	if ( ! empty( $post_data['meta_input'] ) ) {
 		foreach ( $post_data['meta_input'] as $key => $value ) {
+			if ( ! empty( $GLOBALS['ec_test']['fail_meta_input_keys'][ $key ] ) ) {
+				--$GLOBALS['ec_test']['fail_meta_input_keys'][ $key ];
+				continue;
+			}
 			$GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] = $value;
 		}
 	}
@@ -446,6 +463,10 @@ function wp_delete_post( $post_id, $force_delete = false ) {
 
 function delete_post_meta( $post_id, $key, $value = '' ) {
 	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
+	if ( ! empty( $GLOBALS['ec_test']['fail_post_meta_delete_keys'][ $key ] ) ) {
+		--$GLOBALS['ec_test']['fail_post_meta_delete_keys'][ $key ];
+		return false;
+	}
 	$current = $GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] ?? null;
 	if ( '' === $value || (string) $current === (string) $value ) {
 		unset( $GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] );
@@ -518,12 +539,20 @@ function get_term_meta( $term_id, $key, $single = false ) {
 
 function update_term_meta( $term_id, $key, $value ) {
 	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
+	if ( ! empty( $GLOBALS['ec_test']['fail_term_meta_update_keys'][ $key ] ) ) {
+		--$GLOBALS['ec_test']['fail_term_meta_update_keys'][ $key ];
+		return false;
+	}
 	$GLOBALS['ec_test']['blogs'][ $blog_id ]['term_meta'][ $term_id ][ $key ] = $value;
 	return true;
 }
 
 function delete_term_meta( $term_id, $key, $value = '' ) {
 	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
+	if ( ! empty( $GLOBALS['ec_test']['fail_term_meta_delete_keys'][ $key ] ) ) {
+		--$GLOBALS['ec_test']['fail_term_meta_delete_keys'][ $key ];
+		return false;
+	}
 	$current = $GLOBALS['ec_test']['blogs'][ $blog_id ]['term_meta'][ $term_id ][ $key ] ?? null;
 	if ( is_array( $current ) && '' !== $value ) {
 		$remaining = array_values(
@@ -563,6 +592,9 @@ function get_posts( $args ) {
 		if ( isset( $args['post_status'] ) && 'any' !== $args['post_status'] && $post->post_status !== $args['post_status'] ) {
 			continue;
 		}
+		if ( isset( $args['meta_key'] ) && (string) get_post_meta( $post_id, $args['meta_key'], true ) !== (string) ( $args['meta_value'] ?? '' ) ) {
+			continue;
+		}
 		$ids[] = (int) $post_id;
 	}
 	return $ids;
@@ -575,8 +607,20 @@ function wp_insert_term( $title, $taxonomy, $args = array() ) {
 		'term_id'  => $term_id,
 		'taxonomy' => $taxonomy,
 		'slug'     => $args['slug'] ?? $title,
+		'count'    => 0,
 	);
 	return array( 'term_id' => $term_id );
+}
+
+function wp_delete_term( $term_id, $taxonomy ) {
+	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
+	$term    = $GLOBALS['ec_test']['blogs'][ $blog_id ]['terms'][ $term_id ] ?? null;
+	if ( ! $term || $term->taxonomy !== $taxonomy || ! empty( $GLOBALS['ec_test']['fail_term_delete'] ) ) {
+		return false;
+	}
+	unset( $GLOBALS['ec_test']['blogs'][ $blog_id ]['terms'][ $term_id ], $GLOBALS['ec_test']['blogs'][ $blog_id ]['term_meta'][ $term_id ] );
+	$GLOBALS['ec_test']['deleted_terms'][] = $term_id;
+	return true;
 }
 
 function get_option( $key, $default = false ) {
@@ -706,7 +750,22 @@ function ec_artist_platform_emit_funnel_event() {
 }
 
 function ec_get_link_page_id( $artist_id ) {
-	return (int) get_post_meta( $artist_id, '_extrch_link_page_id', true );
+	if ( 'artist_link_page' === get_post_type( $artist_id ) ) {
+		return (int) $artist_id;
+	}
+	if ( 'artist_profile' !== get_post_type( $artist_id ) ) {
+		return 0;
+	}
+	$link_pages = get_posts(
+		array(
+			'post_type'      => 'artist_link_page',
+			'meta_key'       => '_associated_artist_profile_id',
+			'meta_value'     => (string) $artist_id,
+			'posts_per_page' => 1,
+			'fields'         => 'ids',
+		)
+	);
+	return empty( $link_pages ) ? 0 : (int) $link_pages[0];
 }
 
 function ec_get_link_page_defaults_for() {

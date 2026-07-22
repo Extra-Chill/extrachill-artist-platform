@@ -119,6 +119,30 @@ final class ArtistTermBindingTest extends TestCase {
 		$this->assertArrayNotHasKey( '_artist_profile_id', $GLOBALS['ec_test']['blogs'][1]['term_meta'][101] );
 	}
 
+	public function test_failed_rebinding_restores_the_previous_reciprocal_pair(): void {
+		$this->addProfile( 12, 'the-band', 101 );
+		$this->addTerm( 101, 'old-name', 12 );
+		$this->addTerm( 102, 'new-name' );
+		$GLOBALS['ec_test']['fail_term_meta_update_keys']['_artist_profile_id'] = 1;
+
+		$this->assertFalse( ec_bind_artist_profile_to_term( 12, 102 ) );
+		$this->assertSame( 101, $GLOBALS['ec_test']['blogs'][4]['post_meta'][12]['_artist_term_id'] );
+		$this->assertSame( 12, $GLOBALS['ec_test']['blogs'][1]['term_meta'][101]['_artist_profile_id'] );
+		$this->assertArrayNotHasKey( 102, $GLOBALS['ec_test']['blogs'][1]['term_meta'] );
+	}
+
+	public function test_rebinding_stops_when_old_inverse_cannot_be_removed(): void {
+		$this->addProfile( 12, 'the-band', 101 );
+		$this->addTerm( 101, 'old-name', 12 );
+		$this->addTerm( 102, 'new-name' );
+		$GLOBALS['ec_test']['fail_term_meta_delete_keys']['_artist_profile_id'] = 1;
+
+		$this->assertFalse( ec_bind_artist_profile_to_term( 12, 102 ) );
+		$this->assertSame( 101, $GLOBALS['ec_test']['blogs'][4]['post_meta'][12]['_artist_term_id'] );
+		$this->assertSame( 12, $GLOBALS['ec_test']['blogs'][1]['term_meta'][101]['_artist_profile_id'] );
+		$this->assertArrayNotHasKey( 102, $GLOBALS['ec_test']['blogs'][1]['term_meta'] );
+	}
+
 	public function test_deleting_a_colliding_main_blog_post_does_not_unbind_the_profile(): void {
 		$this->addProfile( 12, 'the-band', 101 );
 		$this->addTerm( 101, 'the-band', 12 );

@@ -118,18 +118,69 @@ function extrachill_artist_platform_register_abilities() {
 				'additionalProperties' => false,
 			),
 			'output_schema'       => array(
-				'type'       => 'object',
-				'properties' => array(
+				'type'                 => 'object',
+				'required'             => array( 'outcome', 'user', 'artist', 'membership', 'claim', 'link_page', 'source', 'return_url', 'next_action' ),
+				'properties'           => array(
 					'outcome'     => array( 'type' => 'string', 'enum' => array( 'account_claim_required', 'authentication_required', 'artist_consent_required', 'membership_request_required', 'managed_artist', 'artist_created' ) ),
-					'user'        => array( 'type' => 'object' ),
-					'artist'      => array( 'type' => 'object' ),
-					'membership'  => array( 'type' => 'object' ),
-					'claim'       => array( 'type' => 'object' ),
-					'link_page'   => array( 'type' => 'object' ),
-					'source'      => array( 'type' => 'object' ),
+					'user'        => array(
+						'type'                 => 'object',
+						'required'             => array( 'id', 'state', 'created' ),
+						'properties'           => array(
+							'id'      => array( 'type' => 'integer', 'minimum' => 1 ),
+							'state'   => array( 'type' => 'string', 'enum' => array( 'unclaimed', 'created', 'existing' ) ),
+							'created' => array( 'type' => 'boolean' ),
+						),
+						'additionalProperties' => false,
+					),
+					'artist'      => array(
+						'type'                 => 'object',
+						'required'             => array( 'name', 'profile_id', 'term_id', 'state' ),
+						'properties'           => array(
+							'name'               => array( 'type' => 'string' ),
+							'profile_id'         => array( 'type' => array( 'integer', 'null' ) ),
+							'term_id'            => array( 'type' => array( 'integer', 'null' ) ),
+							'state'              => array( 'type' => 'string', 'enum' => array( 'existing_profile', 'existing_canonical_identity', 'new_eligible', 'eligible_after_claim_and_consent', 'eligible_after_authentication_and_consent', 'eligible_after_consent', 'created' ) ),
+							'disclosure_version' => array( 'type' => 'string' ),
+						),
+						'additionalProperties' => false,
+					),
+					'membership'  => array(
+						'type'                 => 'object',
+						'required'             => array( 'state' ),
+						'properties'           => array( 'state' => array( 'type' => 'string', 'enum' => array( 'managed', 'request_required', 'not_applicable' ) ) ),
+						'additionalProperties' => false,
+					),
+					'claim'       => array(
+						'type'                 => 'object',
+						'required'             => array( 'required', 'delivery' ),
+						'properties'           => array(
+							'required' => array( 'type' => 'boolean' ),
+							'delivery' => array( 'type' => 'string', 'enum' => array( 'not_required', 'previously_provisioned', 'sent', 'previously_sent', 'pending', 'busy', 'failed', 'sent_unconfirmed' ) ),
+						),
+						'additionalProperties' => false,
+					),
+					'link_page'   => array(
+						'type'                 => 'object',
+						'required'             => array( 'state', 'id' ),
+						'properties'           => array(
+							'state' => array( 'type' => 'string', 'enum' => array( 'unavailable', 'offered', 'existing', 'created' ) ),
+							'id'    => array( 'type' => array( 'integer', 'null' ) ),
+						),
+						'additionalProperties' => false,
+					),
+					'source'      => array(
+						'type'                 => 'object',
+						'required'             => array( 'type', 'id' ),
+						'properties'           => array(
+							'type' => array( 'type' => 'string' ),
+							'id'   => array( 'type' => 'string' ),
+						),
+						'additionalProperties' => false,
+					),
 					'return_url'  => array( 'type' => 'string' ),
-					'next_action' => array( 'type' => 'string' ),
+					'next_action' => array( 'type' => 'string', 'enum' => array( 'none', 'claim_account', 'request_membership', 'authenticate', 'confirm_profile_creation', 'manage_artist' ) ),
 				),
+				'additionalProperties' => false,
 			),
 			'execute_callback'    => 'extrachill_artist_platform_ability_onboard_external_artist',
 			'permission_callback' => '__return_true',

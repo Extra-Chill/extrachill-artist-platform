@@ -58,6 +58,18 @@ function extrachill_artist_platform_resolve_external_artist( $name, $profile_id 
 			restore_current_blog();
 		}
 	}
+	if ( $term_id && ! $profile_id && 0 === (int) ( $term['profile_id'] ?? 0 ) && 0 === (int) ( $term['count'] ?? 0 ) ) {
+		switch_to_blog( $blog_ids['main'] );
+		try {
+			$recoverable_slug = (string) get_term_meta( $term_id, '_ec_artist_binding_recoverable', true );
+		} finally {
+			restore_current_blog();
+		}
+		if ( $slug === $recoverable_slug ) {
+			$term_id = 0;
+			$term    = array();
+		}
+	}
 
 	if ( ! $profile_id && $term_id ) {
 		$profile_id = (int) ( $term['profile_id'] ?? 0 );
@@ -209,7 +221,8 @@ function extrachill_artist_platform_ability_onboard_external_artist( $input ) {
 		return $identity;
 	}
 
-	$user = $user_id ? get_userdata( $user_id ) : false;
+	$existing_user_id = 0;
+	$user             = $user_id ? get_userdata( $user_id ) : false;
 	if ( $user_id && ! $user ) {
 		return new WP_Error( 'invalid_submitter_user', __( 'The supplied submitter user does not exist.', 'extrachill-artist-platform' ) );
 	}
@@ -268,7 +281,10 @@ function extrachill_artist_platform_ability_onboard_external_artist( $input ) {
 				$claim_record = get_user_meta( $user_id, '_ec_artist_onboarding_claim_delivery', true );
 				$claim_state  = is_array( $claim_record ) ? ( $claim_record['state'] ?? '' ) : $claim_record;
 				$claim_started = is_array( $claim_record ) ? absint( $claim_record['started_at'] ?? 0 ) : 0;
-				if ( 'sent' === $claim_state || 1 === $claim_state || '1' === $claim_state ) {
+				$claim_sent_at = is_array( $claim_record ) ? absint( $claim_record['sent_at'] ?? 0 ) : 0;
+				$claim_lifetime = (int) apply_filters( 'password_reset_expiration', DAY_IN_SECONDS );
+				$active_sent = 'sent' === $claim_state && $claim_sent_at > time() - $claim_lifetime;
+				if ( $active_sent ) {
 					$claim_delivery = 'previously_sent';
 				} elseif ( 'pending' === $claim_state && $claim_started > time() - ( 15 * MINUTE_IN_SECONDS ) ) {
 					$claim_delivery = 'pending';
@@ -442,22 +458,25 @@ function extrachill_artist_platform_ability_onboard_external_artist( $input ) {
 				return new WP_Error( 'artist_onboarding_source_failed', __( 'Artist onboarding provenance could not be stored.', 'extrachill-artist-platform' ), array( 'retryable' => true ) );
 			}
 			if ( ! $term_id ) {
-				ec_sync_artist_profile_term_binding( $profile_id );
-				$term_id                     = ec_get_artist_term_id( $profile_id );
-				$context['artist']['term_id'] = $term_id ?: null;
-				if ( ! $term_id ) {
+				$binding_result = ec_sync_artist_profile_term_binding( $profile_id );
+				if ( is_wp_error( $binding_result ) ) {
 					if ( $artist_created ) {
 						$membership_removed = ec_remove_artist_membership( $user_id, $profile_id );
 						$profile_removed    = $membership_removed ? wp_delete_post( $profile_id, true ) : false;
 						if ( ! $membership_removed || ! $profile_removed ) {
-							return new WP_Error( 'artist_onboarding_rollback_failed', __( 'Canonical artist binding and rollback both failed. Manual reconciliation is required.', 'extrachill-artist-platform' ) );
+							return new WP_Error( 'artist_onboarding_rollback_failed', __( 'Canonical artist binding and profile rollback both failed. Manual reconciliation is required.', 'extrachill-artist-platform' ) );
 						}
 					}
-					return new WP_Error( 'artist_identity_binding_failed', __( 'The artist profile could not be bound to its canonical artist identity.', 'extrachill-artist-platform' ), array( 'retryable' => true ) );
+					return $binding_result;
 				}
+				$term_id                     = (int) $binding_result;
+				$context['artist']['term_id'] = $term_id;
 			}
 
-			$existing_link_id = function_exists( 'ec_get_link_page_id' ) ? (int) ec_get_link_page_id( $profile_id ) : 0;
+			$existing_link_id = function_exists( 'ec_get_reciprocal_link_page_id' ) ? ec_get_reciprocal_link_page_id( $profile_id ) : 0;
+			if ( is_wp_error( $existing_link_id ) ) {
+				return $existing_link_id;
+			}
 			if ( $existing_link_id ) {
 				$context['link_page'] = array( 'state' => 'existing', 'id' => $existing_link_id );
 			} elseif ( $link_consent ) {

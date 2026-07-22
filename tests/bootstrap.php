@@ -456,6 +456,14 @@ function wp_delete_post( $post_id, $force_delete = false ) {
 	}
 	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
 	$post    = $GLOBALS['ec_test']['blogs'][ $blog_id ]['posts'][ $post_id ] ?? null;
+	if ( isset( $GLOBALS['ec_test']['before_post_delete'] ) ) {
+		$callback = $GLOBALS['ec_test']['before_post_delete'];
+		unset( $GLOBALS['ec_test']['before_post_delete'] );
+		$callback( $post_id, $post );
+	}
+	if ( $post && 'artist_profile' === $post->post_type && function_exists( 'ec_delete_artist_profile_term_binding' ) ) {
+		ec_delete_artist_profile_term_binding( $post_id );
+	}
 	unset( $GLOBALS['ec_test']['blogs'][ $blog_id ]['posts'][ $post_id ], $GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ] );
 	$GLOBALS['ec_test']['deleted_posts'][] = $post_id;
 	return $post;
@@ -618,6 +626,9 @@ function wp_delete_term( $term_id, $taxonomy ) {
 	if ( ! $term || $term->taxonomy !== $taxonomy || ! empty( $GLOBALS['ec_test']['fail_term_delete'] ) ) {
 		return false;
 	}
+	if ( ! empty( $GLOBALS['ec_test']['report_term_delete_success_without_delete'] ) ) {
+		return true;
+	}
 	unset( $GLOBALS['ec_test']['blogs'][ $blog_id ]['terms'][ $term_id ], $GLOBALS['ec_test']['blogs'][ $blog_id ]['term_meta'][ $term_id ] );
 	$GLOBALS['ec_test']['deleted_terms'][] = $term_id;
 	return true;
@@ -728,6 +739,9 @@ function get_userdata( $user_id ) {
 }
 
 function apply_filters( $hook_name, $value, ...$args ) {
+	if ( 'extrachill_allow_external_artist_onboarding' === $hook_name ) {
+		return ! empty( $GLOBALS['ec_test']['allow_external_artist_onboarding'] );
+	}
 	if ( 'ec_get_artist_id' === $hook_name && is_array( $value ) ) {
 		return (int) ( $value['artist_id'] ?? 0 );
 	}

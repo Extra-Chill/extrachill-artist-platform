@@ -497,6 +497,7 @@ final class ExternalArtistOnboardingTest extends TestCase {
 	public function test_registered_output_contract_requires_nested_response_shape(): void {
 		$ability = wp_get_ability( 'extrachill/onboard-external-artist' );
 		$schema  = $ability->get_output_schema();
+		$GLOBALS['ec_test']['allow_external_artist_onboarding'] = true;
 		$result  = $ability->execute( $this->input() );
 
 		$this->assertSame(
@@ -506,6 +507,18 @@ final class ExternalArtistOnboardingTest extends TestCase {
 		$this->assertRequiredSchemaShape( $schema, $result );
 		$this->assertSame( array( 'id', 'state', 'created' ), $schema['properties']['user']['required'] );
 		$this->assertSame( array( 'name', 'profile_id', 'term_id', 'state' ), $schema['properties']['artist']['required'] );
+	}
+
+	public function test_external_onboarding_ability_requires_explicit_internal_caller_opt_in(): void {
+		$ability = wp_get_ability( 'extrachill/onboard-external-artist' );
+
+		$denied = $ability->execute( $this->input() );
+		$this->assertSame( 'ability_permission_denied', $denied->get_error_code() );
+		$this->assertSame( array(), $GLOBALS['ec_test']['users'] );
+
+		$GLOBALS['ec_test']['allow_external_artist_onboarding'] = true;
+		$allowed = $ability->execute( $this->input() );
+		$this->assertSame( 'account_claim_required', $allowed['outcome'] );
 	}
 
 	public function test_inverse_only_link_page_association_is_repaired_and_reused(): void {
@@ -609,5 +622,127 @@ final class ExternalArtistOnboardingTest extends TestCase {
 		$this->assertSame( 30, (int) get_post_meta( 20, '_extrch_link_page_id', true ) );
 		$this->assertSame( 20, (int) get_post_meta( 30, '_associated_artist_profile_id', true ) );
 		$this->assertCount( 2, $GLOBALS['ec_test']['blogs'][4]['posts'] );
+	}
+
+	public function test_persistent_profile_pointer_rollback_failure_keeps_new_page_for_manual_repair(): void {
+		$this->addProfile( 20 );
+		$GLOBALS['ec_test']['fail_meta_input_keys']['_associated_artist_profile_id'] = 1;
+		$GLOBALS['ec_test']['fail_post_meta_delete_keys']['_extrch_link_page_id'] = 5;
+
+		$result = ec_create_link_page( 20 );
+
+		$this->assertSame( 'link_page_association_compensation_failed', $result->get_error_code() );
+		$this->assertFalse( $result->get_error_data()['retryable'] );
+		$new_link_id = (int) get_post_meta( 20, '_extrch_link_page_id', true );
+		$this->assertGreaterThan( 0, $new_link_id );
+		$this->assertSame( 'artist_link_page', get_post_type( $new_link_id ) );
+		$this->assertEmpty( get_post_meta( $new_link_id, '_associated_artist_profile_id', true ) );
+	}
+
+	public function test_persistent_page_inverse_rollback_failure_keeps_page_for_manual_repair(): void {
+		$this->addProfile( 20 );
+		$GLOBALS['ec_test']['fail_post_meta_update_keys']['_extrch_link_page_id'] = 1;
+		$GLOBALS['ec_test']['fail_post_meta_delete_keys']['_associated_artist_profile_id'] = 5;
+
+		$result = ec_create_link_page( 20 );
+
+		$this->assertSame( 'link_page_association_compensation_failed', $result->get_error_code() );
+		$this->assertFalse( $result->get_error_data()['retryable'] );
+		$this->assertEmpty( get_post_meta( 20, '_extrch_link_page_id', true ) );
+		$this->assertCount( 2, $GLOBALS['ec_test']['blogs'][4]['posts'] );
+		$this->assertSame( 20, (int) get_post_meta( 21, '_associated_artist_profile_id', true ) );
+	}
+
+	public function test_page_delete_failure_after_safe_metadata_compensation_requires_manual_repair(): void {
+		$this->addProfile( 20 );
+		$GLOBALS['ec_test']['fail_meta_input_keys']['_associated_artist_profile_id'] = 1;
+		$GLOBALS['ec_test']['fail_post_delete'] = true;
+
+		$result = ec_create_link_page( 20 );
+
+		$this->assertSame( 'link_page_association_compensation_failed', $result->get_error_code() );
+		$this->assertFalse( $result->get_error_data()['retryable'] );
+		$this->assertEmpty( get_post_meta( 20, '_extrch_link_page_id', true ) );
+		$this->assertSame( 'artist_link_page', get_post_type( 21 ) );
+	}
+
+	public function test_link_default_snapshot_is_optional_because_reads_merge_runtime_defaults(): void {
+		$this->addProfile( 20 );
+		$GLOBALS['ec_test']['fail_post_meta_update_keys']['_link_page_custom_css_vars'] = 5;
+
+		$link_page_id = ec_create_link_page( 20 );
+		$this->assertIsInt( $link_page_id );
+		$this->assertEmpty( get_post_meta( $link_page_id, '_link_page_custom_css_vars', true ) );
+
+		$data = ec_get_link_page_data( 20, $link_page_id );
+		$this->assertSame( '#fff', $data['css_vars']['--link-page-card-bg-color'] );
+		$this->assertSame( '#000', $data['css_vars']['--link-page-link-text-color'] );
+	}
+
+	public function test_manual_binding_compensation_failure_preserves_profile_for_reconciliation(): void {
+		$this->addUser( 7, 'artist@example.com' );
+		$GLOBALS['ec_test']['current_user_id'] = 7;
+		$GLOBALS['ec_test']['fail_post_meta_update_keys']['_artist_term_id'] = 1;
+		$GLOBALS['ec_test']['fail_term_meta_delete_keys']['_artist_profile_id'] = 5;
+		$input = $this->input(
+			array(
+				'consent' => array( 'profile_creation' => true, 'disclosure_version' => 'artist-offer-v1' ),
+			)
+		);
+
+		$result = extrachill_artist_platform_ability_onboard_external_artist( $input );
+
+		$this->assertSame( 'artist_binding_compensation_failed', $result->get_error_code() );
+		$this->assertFalse( $result->get_error_data()['retryable'] );
+		$this->assertCount( 1, $GLOBALS['ec_test']['blogs'][4]['posts'] );
+		$this->assertNotEmpty( get_user_meta( 7, '_artist_profile_ids', true ) );
+		$this->assertSame( 1, $GLOBALS['ec_test']['blogs'][1]['term_meta'][1]['_artist_profile_id'] );
+	}
+
+	public function test_term_delete_success_without_final_deletion_is_manual_failure(): void {
+		$this->addUser( 7, 'artist@example.com' );
+		$GLOBALS['ec_test']['current_user_id'] = 7;
+		$GLOBALS['ec_test']['fail_term_meta_update_keys']['_artist_profile_id'] = 1;
+		$GLOBALS['ec_test']['report_term_delete_success_without_delete'] = true;
+		$input = $this->input(
+			array(
+				'consent' => array( 'profile_creation' => true, 'disclosure_version' => 'artist-offer-v1' ),
+			)
+		);
+
+		$result = extrachill_artist_platform_ability_onboard_external_artist( $input );
+
+		$this->assertSame( 'artist_term_binding_rollback_failed', $result->get_error_code() );
+		$this->assertFalse( $result->get_error_data()['retryable'] );
+		$this->assertCount( 1, $GLOBALS['ec_test']['blogs'][4]['posts'] );
+		$this->assertCount( 1, $GLOBALS['ec_test']['blogs'][1]['terms'] );
+	}
+
+	public function test_persistent_term_reference_after_profile_delete_is_manual_failure(): void {
+		$this->addUser( 7, 'artist@example.com' );
+		$GLOBALS['ec_test']['current_user_id'] = 7;
+		$GLOBALS['ec_test']['fail_term_meta_update_keys']['_artist_profile_id'] = 1;
+		$GLOBALS['ec_test']['fail_term_meta_delete_keys']['_artist_profile_id'] = 10;
+		$GLOBALS['ec_test']['before_post_delete'] = function ( $profile_id ) {
+			$GLOBALS['ec_test']['blogs'][1]['terms'][99] = (object) array(
+				'term_id'  => 99,
+				'taxonomy' => 'artist',
+				'slug'     => 'stale-reference',
+				'count'    => 0,
+			);
+			$GLOBALS['ec_test']['blogs'][1]['term_meta'][99]['_artist_profile_id'] = $profile_id;
+		};
+		$input = $this->input(
+			array(
+				'consent' => array( 'profile_creation' => true, 'disclosure_version' => 'artist-offer-v1' ),
+			)
+		);
+
+		$result = extrachill_artist_platform_ability_onboard_external_artist( $input );
+
+		$this->assertSame( 'artist_onboarding_rollback_failed', $result->get_error_code() );
+		$this->assertFalse( $result->get_error_data()['retryable'] );
+		$this->assertSame( array(), $GLOBALS['ec_test']['blogs'][4]['posts'] );
+		$this->assertSame( 1, $GLOBALS['ec_test']['blogs'][1]['term_meta'][99]['_artist_profile_id'] );
 	}
 }

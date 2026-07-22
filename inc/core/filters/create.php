@@ -50,6 +50,53 @@ function ec_get_reciprocal_link_page_id( $artist_id, $repair = true ) {
 }
 
 /**
+ * Roll back a link page created by the current operation.
+ *
+ * The page is deleted only after both metadata directions match the captured
+ * pre-operation state. Unsafe partial state is left intact for reconciliation.
+ *
+ * @param int $artist_id            Artist profile ID.
+ * @param int $new_link_page_id     Newly created link page ID.
+ * @param int $previous_link_page_id Previously reciprocal link page ID, or 0.
+ * @return true|WP_Error True when rollback completed, otherwise a manual repair error.
+ */
+function ec_rollback_created_link_page( $artist_id, $new_link_page_id, $previous_link_page_id = 0 ) {
+	delete_post_meta( $artist_id, '_extrch_link_page_id', $new_link_page_id );
+	if ( $previous_link_page_id ) {
+		update_post_meta( $artist_id, '_extrch_link_page_id', $previous_link_page_id );
+	}
+	delete_post_meta( $new_link_page_id, '_associated_artist_profile_id', $artist_id );
+
+	$profile_link_id      = (int) get_post_meta( $artist_id, '_extrch_link_page_id', true );
+	$new_associated_id    = (int) get_post_meta( $new_link_page_id, '_associated_artist_profile_id', true );
+	$previous_associated_id = $previous_link_page_id ? (int) get_post_meta( $previous_link_page_id, '_associated_artist_profile_id', true ) : 0;
+	$metadata_restored    = $profile_link_id === (int) $previous_link_page_id
+		&& $new_associated_id !== (int) $artist_id
+		&& ( ! $previous_link_page_id || $previous_associated_id === (int) $artist_id );
+	if ( ! $metadata_restored ) {
+		return new WP_Error(
+			'link_page_association_compensation_failed',
+			'Link page association compensation failed. Manual reconciliation is required.',
+			array(
+				'artist_id'            => (int) $artist_id,
+				'link_page_id'         => (int) $new_link_page_id,
+				'previous_link_page_id' => (int) $previous_link_page_id,
+				'retryable'            => false,
+			)
+		);
+	}
+	if ( ! wp_delete_post( $new_link_page_id, true ) ) {
+		return new WP_Error(
+			'link_page_association_compensation_failed',
+			'Link page metadata was restored, but the new page could not be removed. Manual reconciliation is required.',
+			array( 'link_page_id' => (int) $new_link_page_id, 'retryable' => false )
+		);
+	}
+
+	return true;
+}
+
+/**
  * Create a link page for an artist profile (centralized creation logic)
  * 
  * @param int  $artist_id The artist profile ID to create a link page for
@@ -109,18 +156,9 @@ function ec_create_link_page( $artist_id, $force = false ) {
 	$profile_link_id      = (int) get_post_meta( $artist_id, '_extrch_link_page_id', true );
 	$associated_artist_id = (int) get_post_meta( $new_link_page_id, '_associated_artist_profile_id', true );
 	if ( (int) $new_link_page_id !== $profile_link_id || $artist_id !== $associated_artist_id ) {
-		delete_post_meta( $artist_id, '_extrch_link_page_id', $new_link_page_id );
-		$previous_restored = true;
-		if ( $force && $previous_link_page_id ) {
-			update_post_meta( $artist_id, '_extrch_link_page_id', $previous_link_page_id );
-			$previous_restored = (int) get_post_meta( $artist_id, '_extrch_link_page_id', true ) === $previous_link_page_id;
-		}
-		if ( ! wp_delete_post( $new_link_page_id, true ) || ! $previous_restored ) {
-			return new WP_Error(
-				'link_page_association_rollback_failed',
-				'Link page association and rollback both failed. Manual reconciliation is required.',
-				array( 'link_page_id' => (int) $new_link_page_id )
-			);
+		$rollback = ec_rollback_created_link_page( $artist_id, $new_link_page_id, $force ? $previous_link_page_id : 0 );
+		if ( is_wp_error( $rollback ) ) {
+			return $rollback;
 		}
 		return new WP_Error(
 			'link_page_association_failed',
@@ -131,15 +169,9 @@ function ec_create_link_page( $artist_id, $force = false ) {
 	if ( $force && $previous_link_page_id && $previous_link_page_id !== (int) $new_link_page_id ) {
 		delete_post_meta( $previous_link_page_id, '_associated_artist_profile_id', $artist_id );
 		if ( $artist_id === (int) get_post_meta( $previous_link_page_id, '_associated_artist_profile_id', true ) ) {
-			delete_post_meta( $artist_id, '_extrch_link_page_id', $new_link_page_id );
-			update_post_meta( $artist_id, '_extrch_link_page_id', $previous_link_page_id );
-			$previous_restored = (int) get_post_meta( $artist_id, '_extrch_link_page_id', true ) === $previous_link_page_id;
-			if ( ! wp_delete_post( $new_link_page_id, true ) || ! $previous_restored ) {
-				return new WP_Error(
-					'link_page_association_rollback_failed',
-					'Link page replacement cleanup and rollback both failed. Manual reconciliation is required.',
-					array( 'link_page_id' => (int) $new_link_page_id )
-				);
+			$rollback = ec_rollback_created_link_page( $artist_id, $new_link_page_id, $previous_link_page_id );
+			if ( is_wp_error( $rollback ) ) {
+				return $rollback;
 			}
 			return new WP_Error(
 				'link_page_previous_detach_failed',
@@ -170,7 +202,12 @@ function ec_create_link_page( $artist_id, $force = false ) {
 }
 
 /**
- * Set up default data for a newly created link page
+ * Snapshot optional default styles for a newly created link page.
+ *
+ * This write is an optimization, not a provisioning invariant. The canonical
+ * read path merges ec_get_link_page_defaults_for( 'styles' ) whenever stored
+ * custom styles are absent, so a published page remains complete and valid if
+ * this best-effort snapshot cannot be persisted.
  *
  * @param int $link_page_id The link page ID
  * @param int $artist_id    The associated artist profile ID

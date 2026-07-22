@@ -180,6 +180,27 @@ function extrachill_artist_platform_external_onboarding_response( $outcome, $con
 }
 
 /**
+ * Authorize internal callers of the external onboarding contract.
+ *
+ * Anonymous product flows must explicitly opt in through the filter after
+ * enforcing their own request validation and anti-abuse controls. The ability
+ * remains unavailable through the generic REST ability transport.
+ *
+ * @param array $input Ability input.
+ * @return bool
+ */
+function extrachill_artist_platform_ability_external_onboarding_permission( $input ) {
+	if ( ( defined( 'WP_CLI' ) && WP_CLI ) || current_user_can( 'manage_options' ) || current_user_can( 'manage_network_options' ) ) {
+		return true;
+	}
+	if ( class_exists( 'ActionScheduler' ) && did_action( 'action_scheduler_before_execute' ) ) {
+		return true;
+	}
+
+	return (bool) apply_filters( 'extrachill_allow_external_artist_onboarding', false, $input );
+}
+
+/**
  * Provision a claimable artist lead from a generic external product flow.
  *
  * Account creation and claim delivery remain owned by extrachill-users. Artist
@@ -393,6 +414,10 @@ function extrachill_artist_platform_ability_onboard_external_artist( $input ) {
 			return extrachill_artist_platform_external_onboarding_response( 'membership_request_required', $context );
 		}
 		if ( $profile_id && $term_id && ! ec_reconcile_artist_profile_term_pair( $profile_id, $term_id ) ) {
+			$binding_failure = ec_get_artist_binding_failure();
+			if ( $binding_failure ) {
+				return $binding_failure;
+			}
 			return new WP_Error( 'conflicting_artist_identity', __( 'The artist profile and term could not be safely bound.', 'extrachill-artist-platform' ) );
 		}
 
@@ -452,7 +477,7 @@ function extrachill_artist_platform_ability_onboard_external_artist( $input ) {
 					$membership_removed = ec_remove_artist_membership( $user_id, $profile_id );
 					$profile_removed    = $membership_removed ? wp_delete_post( $profile_id, true ) : false;
 					if ( ! $membership_removed || ! $profile_removed ) {
-						return new WP_Error( 'artist_onboarding_rollback_failed', __( 'Artist onboarding provenance and rollback both failed. Manual reconciliation is required.', 'extrachill-artist-platform' ) );
+						return new WP_Error( 'artist_onboarding_rollback_failed', __( 'Artist onboarding provenance and rollback both failed. Manual reconciliation is required.', 'extrachill-artist-platform' ), array( 'retryable' => false ) );
 					}
 				}
 				return new WP_Error( 'artist_onboarding_source_failed', __( 'Artist onboarding provenance could not be stored.', 'extrachill-artist-platform' ), array( 'retryable' => true ) );
@@ -460,11 +485,43 @@ function extrachill_artist_platform_ability_onboard_external_artist( $input ) {
 			if ( ! $term_id ) {
 				$binding_result = ec_sync_artist_profile_term_binding( $profile_id );
 				if ( is_wp_error( $binding_result ) ) {
+					if ( in_array( $binding_result->get_error_code(), array( 'artist_binding_compensation_failed', 'artist_term_binding_rollback_failed' ), true ) ) {
+						return $binding_result;
+					}
 					if ( $artist_created ) {
 						$membership_removed = ec_remove_artist_membership( $user_id, $profile_id );
 						$profile_removed    = $membership_removed ? wp_delete_post( $profile_id, true ) : false;
 						if ( ! $membership_removed || ! $profile_removed ) {
-							return new WP_Error( 'artist_onboarding_rollback_failed', __( 'Canonical artist binding and profile rollback both failed. Manual reconciliation is required.', 'extrachill-artist-platform' ) );
+							return new WP_Error( 'artist_onboarding_rollback_failed', __( 'Canonical artist binding and profile rollback both failed. Manual reconciliation is required.', 'extrachill-artist-platform' ), array( 'retryable' => false ) );
+						}
+						$main_blog_id = ec_get_blog_id( 'main' );
+						switch_to_blog( $main_blog_id );
+						try {
+							$remaining_terms = get_terms(
+								array(
+									'taxonomy'   => 'artist',
+									'hide_empty' => false,
+									'fields'     => 'ids',
+									'number'     => 1,
+									'meta_query' => array(
+										array(
+											'key'     => '_artist_profile_id',
+											'value'   => $profile_id,
+											'compare' => '=',
+											'type'    => 'NUMERIC',
+										),
+									),
+								)
+							);
+						} finally {
+							restore_current_blog();
+						}
+						if ( is_wp_error( $remaining_terms ) || ! empty( $remaining_terms ) ) {
+							return new WP_Error(
+								'artist_onboarding_rollback_failed',
+								__( 'The profile was removed, but canonical artist references remain. Manual reconciliation is required.', 'extrachill-artist-platform' ),
+								array( 'profile_id' => $profile_id, 'retryable' => false )
+							);
 						}
 					}
 					return $binding_result;

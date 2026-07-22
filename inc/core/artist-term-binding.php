@@ -157,6 +157,26 @@ function ec_reconcile_artist_profile_term_pair( $profile_id, $term_id, $main_blo
 }
 
 /**
+ * Store or clear the current request's canonical binding failure.
+ *
+ * @param WP_Error|null $failure Failure to store, or null to clear.
+ * @return void
+ */
+function ec_set_artist_binding_failure( $failure = null ) {
+	$GLOBALS['ec_artist_binding_failure'] = $failure instanceof WP_Error ? $failure : null;
+}
+
+/**
+ * Return the current request's canonical binding failure.
+ *
+ * @return WP_Error|null
+ */
+function ec_get_artist_binding_failure() {
+	$failure = $GLOBALS['ec_artist_binding_failure'] ?? null;
+	return $failure instanceof WP_Error ? $failure : null;
+}
+
+/**
  * Persist a validated one-to-one profile <-> term binding.
  *
  * One-sided stale references are replaced. A reciprocal binding owned by a
@@ -168,6 +188,7 @@ function ec_reconcile_artist_profile_term_pair( $profile_id, $term_id, $main_blo
  * @return bool Whether the requested binding is valid and persisted.
  */
 function ec_bind_artist_profile_to_term( $profile_id, $term_id, $main_blog_id = null ) {
+	ec_set_artist_binding_failure();
 	$profile_id = (int) $profile_id;
 	$term_id    = (int) $term_id;
 	$blog_ids   = ec_artist_binding_blog_ids();
@@ -225,6 +246,16 @@ function ec_bind_artist_profile_to_term( $profile_id, $term_id, $main_blog_id = 
 					break;
 				}
 			}
+			$restored_old_term = ec_artist_binding_read_term( $old_reciprocal_term_id, $main_blog_id );
+			if ( empty( $restored_old_term ) || $restored_old_term['profile_id'] !== $profile_id ) {
+				ec_set_artist_binding_failure(
+					new WP_Error(
+						'artist_binding_compensation_failed',
+						__( 'Canonical artist binding compensation failed. Manual reconciliation is required.', 'extrachill-artist-platform' ),
+						array( 'profile_id' => $profile_id, 'term_id' => $term_id, 'previous_term_id' => $old_reciprocal_term_id, 'retryable' => false )
+					)
+				);
+			}
 		}
 		return false;
 	}
@@ -254,6 +285,7 @@ function ec_bind_artist_profile_to_term( $profile_id, $term_id, $main_blog_id = 
 		} finally {
 			restore_current_blog();
 		}
+		ec_set_artist_binding_failure();
 		return true;
 	}
 
@@ -303,6 +335,27 @@ function ec_bind_artist_profile_to_term( $profile_id, $term_id, $main_blog_id = 
 		}
 	}
 
+	$final_profile = ec_artist_binding_read_profile( $profile_id, $artist_blog_id );
+	$final_term    = ec_artist_binding_read_term( $term_id, $main_blog_id );
+	$final_old_term = $old_reciprocal_term_id > 0 ? ec_artist_binding_read_term( $old_reciprocal_term_id, $main_blog_id ) : array();
+	$profile_restored = ! empty( $final_profile ) && $final_profile['term_id'] === $previous_term_id;
+	$term_restored    = ! empty( $final_term ) && $final_term['profile_id'] === $previous_profile_id;
+	$old_term_restored = 0 === $old_reciprocal_term_id || ( ! empty( $final_old_term ) && $final_old_term['profile_id'] === $profile_id );
+	if ( ! $profile_restored || ! $term_restored || ! $old_term_restored ) {
+		ec_set_artist_binding_failure(
+			new WP_Error(
+				'artist_binding_compensation_failed',
+				__( 'Canonical artist binding compensation failed. Manual reconciliation is required.', 'extrachill-artist-platform' ),
+				array(
+					'profile_id'       => $profile_id,
+					'term_id'          => $term_id,
+					'previous_term_id' => $previous_term_id,
+					'retryable'        => false,
+				)
+			)
+		);
+	}
+
 	return false;
 }
 
@@ -313,6 +366,7 @@ function ec_bind_artist_profile_to_term( $profile_id, $term_id, $main_blog_id = 
  * @return int Main-blog artist term ID, or 0.
  */
 function ec_get_artist_term_id( $profile_id ) {
+	ec_set_artist_binding_failure();
 	$profile_id = (int) $profile_id;
 	$blog_ids   = ec_artist_binding_blog_ids();
 	if ( $profile_id <= 0 || empty( $blog_ids ) ) {
@@ -327,6 +381,9 @@ function ec_get_artist_term_id( $profile_id ) {
 	if ( $profile['term_id'] > 0 ) {
 		if ( ec_reconcile_artist_profile_term_pair( $profile_id, $profile['term_id'], $blog_ids['main'] ) ) {
 			return $profile['term_id'];
+		}
+		if ( ec_get_artist_binding_failure() ) {
+			return 0;
 		}
 		ec_artist_binding_delete_profile_meta( $profile_id, $profile['term_id'], $blog_ids['artist'] );
 	}
@@ -346,7 +403,10 @@ function ec_get_artist_term_id( $profile_id ) {
 		restore_current_blog();
 	}
 
-	return $term_id > 0 && ec_reconcile_artist_profile_term_pair( $profile_id, $term_id, $blog_ids['main'] ) ? $term_id : 0;
+	if ( $term_id > 0 && ec_reconcile_artist_profile_term_pair( $profile_id, $term_id, $blog_ids['main'] ) ) {
+		return $term_id;
+	}
+	return 0;
 }
 
 /**
@@ -356,6 +416,7 @@ function ec_get_artist_term_id( $profile_id ) {
  * @return int Artist profile post ID, or 0.
  */
 function ec_get_artist_profile_id( $term_id ) {
+	ec_set_artist_binding_failure();
 	$term_id  = (int) $term_id;
 	$blog_ids = ec_artist_binding_blog_ids();
 	if ( $term_id <= 0 || empty( $blog_ids ) ) {
@@ -370,6 +431,9 @@ function ec_get_artist_profile_id( $term_id ) {
 	if ( $term['profile_id'] > 0 ) {
 		if ( ec_reconcile_artist_profile_term_pair( $term['profile_id'], $term_id, $blog_ids['main'] ) ) {
 			return $term['profile_id'];
+		}
+		if ( ec_get_artist_binding_failure() ) {
+			return 0;
 		}
 		ec_artist_binding_delete_term_meta( $term_id, $term['profile_id'], $blog_ids['main'] );
 	}
@@ -398,7 +462,10 @@ function ec_get_artist_profile_id( $term_id ) {
 		restore_current_blog();
 	}
 
-	return $profile_id > 0 && ec_reconcile_artist_profile_term_pair( $profile_id, $term_id, $blog_ids['main'] ) ? $profile_id : 0;
+	if ( $profile_id > 0 && ec_reconcile_artist_profile_term_pair( $profile_id, $term_id, $blog_ids['main'] ) ) {
+		return $profile_id;
+	}
+	return 0;
 }
 
 /**
@@ -419,6 +486,10 @@ function ec_sync_artist_profile_term_binding( $profile_id ) {
 		return new WP_Error( 'invalid_artist_profile', __( 'The artist profile is unavailable.', 'extrachill-artist-platform' ) );
 	}
 	$existing_term_id = ec_get_artist_term_id( $profile_id );
+	$binding_failure  = ec_get_artist_binding_failure();
+	if ( $binding_failure ) {
+		return $binding_failure;
+	}
 	if ( $existing_term_id > 0 ) {
 		return $existing_term_id;
 	}
@@ -451,18 +522,26 @@ function ec_sync_artist_profile_term_binding( $profile_id ) {
 	if ( ec_bind_artist_profile_to_term( $profile_id, $new_term_id, $blog_ids['main'] ) ) {
 		return $new_term_id;
 	}
+	$binding_failure = ec_get_artist_binding_failure();
+	if ( $binding_failure ) {
+		return $binding_failure;
+	}
 
 	if ( $term_created ) {
 		$deleted = false;
 		$recoverable = false;
+		$delete_state_mismatch = false;
 		switch_to_blog( $blog_ids['main'] );
 		try {
 			$created_term = get_term( $new_term_id, 'artist' );
 			$bound_profile_id = (int) get_term_meta( $new_term_id, '_artist_profile_id', true );
 			if ( $created_term && ! is_wp_error( $created_term ) && 0 === (int) ( $created_term->count ?? 0 ) && 0 === $bound_profile_id ) {
 				$delete_result = wp_delete_term( $new_term_id, 'artist' );
-				$deleted       = ! is_wp_error( $delete_result ) && (bool) $delete_result;
-				if ( ! $deleted ) {
+				$delete_reported = ! is_wp_error( $delete_result ) && (bool) $delete_result;
+				$deleted_term    = get_term( $new_term_id, 'artist' );
+				$deleted         = $delete_reported && ( ! $deleted_term || is_wp_error( $deleted_term ) );
+				$delete_state_mismatch = $delete_reported && ! $deleted;
+				if ( ! $deleted && ! $delete_state_mismatch ) {
 					$created_term = get_term( $new_term_id, 'artist' );
 					$bound_profile_id = (int) get_term_meta( $new_term_id, '_artist_profile_id', true );
 					if ( $created_term && ! is_wp_error( $created_term ) && 0 === (int) ( $created_term->count ?? 0 ) && 0 === $bound_profile_id ) {
@@ -474,8 +553,11 @@ function ec_sync_artist_profile_term_binding( $profile_id ) {
 		} finally {
 			restore_current_blog();
 		}
+		if ( $delete_state_mismatch ) {
+			return new WP_Error( 'artist_term_binding_rollback_failed', __( 'Canonical term deletion reported success without removing the term. Manual reconciliation is required.', 'extrachill-artist-platform' ), array( 'term_id' => $new_term_id, 'retryable' => false ) );
+		}
 		if ( ! $deleted && ! $recoverable ) {
-			return new WP_Error( 'artist_term_binding_rollback_failed', __( 'Canonical artist binding failed and its new empty term could not be removed.', 'extrachill-artist-platform' ), array( 'term_id' => $new_term_id ) );
+			return new WP_Error( 'artist_term_binding_rollback_failed', __( 'Canonical artist binding failed and its new empty term could not be removed.', 'extrachill-artist-platform' ), array( 'term_id' => $new_term_id, 'retryable' => false ) );
 		}
 	}
 

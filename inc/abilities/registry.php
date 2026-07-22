@@ -183,7 +183,7 @@ function extrachill_artist_platform_register_abilities() {
 				'additionalProperties' => false,
 			),
 			'execute_callback'    => 'extrachill_artist_platform_ability_onboard_external_artist',
-			'permission_callback' => '__return_true',
+			'permission_callback' => 'extrachill_artist_platform_ability_external_onboarding_permission',
 			'meta'                => array(
 				'show_in_rest' => false,
 				'annotations'  => array(

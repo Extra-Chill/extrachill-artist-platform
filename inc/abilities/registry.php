@@ -88,6 +88,63 @@ function extrachill_artist_platform_register_abilities() {
 	// --- Write abilities ---
 
 	wp_register_ability(
+		'extrachill/onboard-external-artist',
+		array(
+			'label'               => __( 'Onboard External Artist', 'extrachill-artist-platform' ),
+			'description'         => __( 'Resolve or provision a consent-aware artist onboarding offer from a generic external source.', 'extrachill-artist-platform' ),
+			'category'            => 'extrachill-artist-platform',
+			'input_schema'        => array(
+				'type'                 => 'object',
+				'required'             => array( 'artist_name', 'source_type', 'source_id' ),
+				'properties'           => array(
+					'submitter_user_id' => array( 'type' => 'integer', 'minimum' => 1 ),
+					'submitter_email'   => array( 'type' => 'string', 'format' => 'email' ),
+					'artist_name'       => array( 'type' => 'string', 'minLength' => 1 ),
+					'artist_term_id'    => array( 'type' => 'integer', 'minimum' => 1 ),
+					'artist_profile_id' => array( 'type' => 'integer', 'minimum' => 1 ),
+					'source_type'       => array( 'type' => 'string', 'minLength' => 1 ),
+					'source_id'         => array( 'type' => 'string', 'minLength' => 1 ),
+					'return_url'        => array( 'type' => 'string', 'format' => 'uri' ),
+					'consent'           => array(
+						'type'                 => 'object',
+						'properties'           => array(
+							'profile_creation'  => array( 'type' => 'boolean' ),
+							'link_page'          => array( 'type' => 'boolean' ),
+							'disclosure_version' => array( 'type' => 'string' ),
+						),
+						'additionalProperties' => false,
+					),
+				),
+				'additionalProperties' => false,
+			),
+			'output_schema'       => array(
+				'type'       => 'object',
+				'properties' => array(
+					'outcome'     => array( 'type' => 'string', 'enum' => array( 'account_claim_required', 'authentication_required', 'artist_consent_required', 'membership_request_required', 'managed_artist', 'artist_created' ) ),
+					'user'        => array( 'type' => 'object' ),
+					'artist'      => array( 'type' => 'object' ),
+					'membership'  => array( 'type' => 'object' ),
+					'claim'       => array( 'type' => 'object' ),
+					'link_page'   => array( 'type' => 'object' ),
+					'source'      => array( 'type' => 'object' ),
+					'return_url'  => array( 'type' => 'string' ),
+					'next_action' => array( 'type' => 'string' ),
+				),
+			),
+			'execute_callback'    => 'extrachill_artist_platform_ability_onboard_external_artist',
+			'permission_callback' => '__return_true',
+			'meta'                => array(
+				'show_in_rest' => false,
+				'annotations'  => array(
+					'readonly'    => false,
+					'idempotent'  => true,
+					'destructive' => false,
+				),
+			),
+		)
+	);
+
+	wp_register_ability(
 		'extrachill/artist-invitation',
 		array(
 			'label'               => __( 'Artist Invitation', 'extrachill-artist-platform' ),

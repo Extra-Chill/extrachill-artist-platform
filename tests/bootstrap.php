@@ -2,6 +2,8 @@
 
 define( 'ABSPATH', __DIR__ . '/' );
 define( 'OBJECT', 'OBJECT' );
+define( 'MINUTE_IN_SECONDS', 60 );
+define( 'EC_ANALYTICS_EVENT_ARTIST_PROFILE_CREATED', 'artist_profile_created' );
 
 function plugin_dir_path( $file ) {
 	return trailingslashit( dirname( $file ) );
@@ -42,6 +44,11 @@ class EcTestWpdb {
 		if ( str_contains( $query, 'GET_LOCK' ) ) {
 			$GLOBALS['ec_test']['db_lock_get_calls'][ $name ] = ( $GLOBALS['ec_test']['db_lock_get_calls'][ $name ] ?? 0 ) + 1;
 			$GLOBALS['ec_test']['db_locks'][ $name ] = ( $GLOBALS['ec_test']['db_locks'][ $name ] ?? 0 ) + 1;
+			if ( isset( $GLOBALS['ec_test']['after_external_artist_lock'] ) ) {
+				$callback = $GLOBALS['ec_test']['after_external_artist_lock'];
+				unset( $GLOBALS['ec_test']['after_external_artist_lock'] );
+				$callback();
+			}
 			return '1';
 		}
 		if ( isset( $GLOBALS['ec_test']['db_locks'][ $name ] ) ) {
@@ -138,6 +145,13 @@ class EcTestRegisteredAbility {
 		return call_user_func( $this->args['permission_callback'], $input );
 	}
 
+	public function execute( $input ) {
+		if ( ! $this->check_permissions( $input ) ) {
+			return new WP_Error( 'ability_permission_denied', 'Ability permission denied.' );
+		}
+		return call_user_func( $this->args['execute_callback'], $input );
+	}
+
 	public function get_meta() {
 		return $this->args['meta'];
 	}
@@ -214,12 +228,30 @@ function sanitize_key( $value ) {
 	return strtolower( preg_replace( '/[^a-z0-9_\-]/', '', $value ) );
 }
 
+function sanitize_title( $value ) {
+	$value = strtolower( trim( $value ) );
+	return trim( preg_replace( '/[^a-z0-9]+/', '-', $value ), '-' );
+}
+
+function esc_url_raw( $value ) {
+	return filter_var( $value, FILTER_VALIDATE_URL ) ? $value : '';
+}
+
 function is_email( $value ) {
 	return false !== filter_var( $value, FILTER_VALIDATE_EMAIL );
 }
 
 function email_exists( $email ) {
 	return $GLOBALS['ec_test']['email_users'][ strtolower( $email ) ] ?? false;
+}
+
+function ec_generate_username_from_email( $email ) {
+	return sanitize_title( strstr( $email, '@', true ) ?: 'user' );
+}
+
+function retrieve_password( $login ) {
+	$GLOBALS['ec_test']['claim_deliveries'][] = $login;
+	return empty( $GLOBALS['ec_test']['fail_claim_delivery'] ) ? true : new WP_Error( 'claim_delivery_failed', 'Claim delivery failed.' );
 }
 
 function wp_generate_password( $length ) {
@@ -247,7 +279,7 @@ function get_post_meta( $post_id, $key = '', $single = false ) {
 		return $meta;
 	}
 	$value = $meta[ $key ] ?? ( $single ? '' : array() );
-	if ( $single && in_array( $key, array( '_artist_member_ids', '_pending_invitations' ), true ) ) {
+	if ( $single && in_array( $key, array( '_artist_member_ids', '_pending_invitations', '_ec_external_onboarding_sources' ), true ) ) {
 		return $value;
 	}
 	return $single && is_array( $value ) ? ( $value[0] ?? '' ) : $value;
@@ -389,7 +421,15 @@ function wp_insert_post( $post_data, $return_error = false ) {
 	}
 	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
 	$post_id = empty( $GLOBALS['ec_test']['blogs'][ $blog_id ]['posts'] ) ? 1 : max( array_keys( $GLOBALS['ec_test']['blogs'][ $blog_id ]['posts'] ) ) + 1;
+	if ( empty( $post_data['post_name'] ) && ! empty( $post_data['post_title'] ) ) {
+		$post_data['post_name'] = sanitize_title( $post_data['post_title'] );
+	}
 	$GLOBALS['ec_test']['blogs'][ $blog_id ]['posts'][ $post_id ] = (object) array_merge( array( 'ID' => $post_id ), $post_data );
+	if ( ! empty( $post_data['meta_input'] ) ) {
+		foreach ( $post_data['meta_input'] as $key => $value ) {
+			$GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] = $value;
+		}
+	}
 	return $post_id;
 }
 
@@ -583,7 +623,14 @@ function get_super_admins() {
 	return array( 'admin' );
 }
 
-function get_user_by() {
+function get_user_by( $field = '', $value = '' ) {
+	if ( 'email' === $field ) {
+		$user_id = email_exists( $value );
+		return $user_id ? get_userdata( $user_id ) : false;
+	}
+	if ( 'id' === $field ) {
+		return get_userdata( $value );
+	}
 	return (object) array( 'ID' => 1 );
 }
 
@@ -622,11 +669,60 @@ function get_userdata( $user_id ) {
 	if ( ! empty( $GLOBALS['ec_test']['missing_user'] ) || ! $user_id ) {
 		return false;
 	}
+	if ( isset( $GLOBALS['ec_test']['users'] ) && ! isset( $GLOBALS['ec_test']['users'][ $user_id ] ) ) {
+		return false;
+	}
+	if ( isset( $GLOBALS['ec_test']['users'][ $user_id ] ) ) {
+		return $GLOBALS['ec_test']['users'][ $user_id ];
+	}
 	return (object) array(
 		'ID'           => $user_id,
 		'user_login'   => 'user-' . $user_id,
 		'user_email'   => $GLOBALS['ec_test']['user_emails'][ $user_id ] ?? 'user-' . $user_id . '@example.com',
 		'display_name' => 'User ' . $user_id,
+	);
+}
+
+function apply_filters( $hook_name, $value, ...$args ) {
+	if ( 'ec_get_artist_id' === $hook_name && is_array( $value ) ) {
+		return (int) ( $value['artist_id'] ?? 0 );
+	}
+	if ( 'ec_get_link_page_id' === $hook_name ) {
+		if ( isset( $GLOBALS['ec_test']['link_page_id'] ) ) {
+			return (int) $GLOBALS['ec_test']['link_page_id'];
+		}
+		$artist_id = empty( $args ) ? (int) $value : (int) end( $args );
+		return ec_get_link_page_id( $artist_id );
+	}
+	return $value;
+}
+
+function do_action() {
+	return true;
+}
+
+function ec_artist_platform_emit_funnel_event() {
+	return true;
+}
+
+function ec_get_link_page_id( $artist_id ) {
+	return (int) get_post_meta( $artist_id, '_extrch_link_page_id', true );
+}
+
+function ec_get_link_page_defaults_for() {
+	return array(
+		'--link-page-card-bg-color'        => '#fff',
+		'--link-page-link-text-color'       => '#000',
+		'--link-page-title-font-family'     => 'sans-serif',
+		'--link-page-body-font-family'      => 'sans-serif',
+		'--link-page-background-type'       => 'color',
+		'--link-page-background-color'      => '#fff',
+		'--link-page-button-hover-bg-color' => '#000',
+		'--link-page-button-border-color'   => '#000',
+		'--link-page-button-bg-color'       => '#fff',
+		'--link-page-muted-text-color'      => '#555',
+		'--link-page-input-bg'              => '#fff',
+		'--link-page-button-radius'         => '4px',
 	);
 }
 
@@ -667,7 +763,9 @@ require_once dirname( __DIR__ ) . '/inc/artist-profiles/frontend/shows-section.p
 require_once dirname( __DIR__ ) . '/inc/abilities/registry.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/update-artist.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/create-artist.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/handlers/onboard-external-artist.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-invitation.php';
+require_once dirname( __DIR__ ) . '/inc/core/filters/create.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-link-page-links.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-social-links.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-export-subscribers.php';

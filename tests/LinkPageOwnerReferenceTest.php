@@ -4,6 +4,7 @@ use PHPUnit\Framework\TestCase;
 
 final class LinkPageOwnerReferenceTest extends TestCase {
 	protected function setUp(): void {
+		$this->resetProviders();
 		$GLOBALS['ec_test'] = array(
 			'current_blog_id' => 4,
 			'blog_stack'      => array(),
@@ -16,6 +17,15 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 		extrachill_register_artist_link_page_cpt();
 		$this->addPost( 4, 20, 'artist_profile', 'test-artist' );
 		$this->addTerm( 7, 30, 'place' );
+	}
+
+	protected function tearDown(): void {
+		$this->resetProviders();
+	}
+
+	private function resetProviders(): void {
+		$GLOBALS['ec_link_page_owner_compatibility_providers'] = array();
+		ec_register_link_page_owner_compatibility_provider( 'artist-platform', 'ec_artist_link_page_owner_compatibility_provider' );
 	}
 
 	private function addPost( $blog_id, $post_id, $post_type, $slug ): void {
@@ -157,38 +167,107 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 		$canonical_owner = ec_get_link_page_id_for_owner( $this->postOwner( 21 ) );
 
 		$this->assertSame( 'link_page_owner_divergence', $legacy_owner->get_error_code() );
-		$this->assertSame( 'link_page_owner_divergence', $canonical_owner->get_error_code() );
+		$this->assertSame( 40, $canonical_owner );
 	}
 
-	public function test_malformed_earlier_compatibility_provider_fails_closed(): void {
-		$GLOBALS['ec_test']['filter_callbacks']['ec_link_page_legacy_owner_candidates'][] = array(
-			'priority' => 5,
-			'callback' => static function () {
-				return 'malformed';
+	public function test_later_provider_cannot_suppress_earlier_error(): void {
+		ec_register_link_page_owner_compatibility_provider(
+			'error-provider',
+			static function () {
+				return new WP_Error( 'provider_blocked', 'Provider blocked.' );
 			},
+			5
+		);
+		ec_register_link_page_owner_compatibility_provider(
+			'later-provider',
+			static function () {
+				$GLOBALS['ec_test']['later_provider_called'] = true;
+				return array();
+			},
+			20
 		);
 
 		$result = ec_get_link_page_id_for_owner( $this->postOwner() );
 
-		$this->assertSame( 'invalid_link_page_owner_candidates', $result->get_error_code() );
+		$this->assertSame( 'provider_blocked', $result->get_error_code() );
+		$this->assertTrue( $GLOBALS['ec_test']['later_provider_called'] );
 	}
 
-	public function test_later_compatibility_provider_candidates_are_validated_in_current_context(): void {
-		$this->addPost( 4, 40, 'artist_link_page', 'legacy' );
+	public function test_later_provider_cannot_erase_earlier_candidates(): void {
+		$this->addPost( 4, 40, 'artist_link_page', 'first' );
+		$this->addPost( 4, 41, 'artist_link_page', 'second' );
 		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40]['_associated_artist_profile_id'] = 20;
-		$GLOBALS['ec_test']['filter_callbacks']['ec_link_page_legacy_owner_candidates'][] = array(
-			'priority' => 20,
-			'callback' => static function ( $candidate_ids ) {
-				$GLOBALS['ec_test']['later_provider_received'] = $candidate_ids;
-				$candidate_ids[] = 20;
-				return $candidate_ids;
-			},
-		);
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][41]['_associated_artist_profile_id'] = 20;
+		ec_register_link_page_owner_compatibility_provider( 'empty-provider', static function () { return array(); }, 20 );
 
 		$result = ec_get_link_page_id_for_owner( $this->postOwner() );
 
-		$this->assertSame( array( 40 ), $GLOBALS['ec_test']['later_provider_received'] );
-		$this->assertSame( 'invalid_link_page_owner_candidate', $result->get_error_code() );
+		$this->assertSame( 'duplicate_link_pages_for_owner', $result->get_error_code() );
+	}
+
+	public function test_provider_cannot_claim_page_canonically_owned_by_another_reference(): void {
+		$this->addPost( 4, 21, 'artist_profile', 'other-artist' );
+		$this->addPost( 4, 40, 'artist_link_page', 'other-owner' );
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40][ EC_LINK_PAGE_OWNER_META_KEY ] = 'post:4:artist_profile:21';
+		ec_register_link_page_owner_compatibility_provider(
+			'wrong-owner-provider',
+			static function ( $operation, $context ) {
+				return 'owner_pages' === $operation
+					? array( array( 'link_page_id' => 40, 'owner_reference' => $context['owner_reference'] ) )
+					: array();
+			}
+		);
+
+		$result = ec_get_link_page_id_for_owner( $this->postOwner( 20 ) );
+
+		$this->assertSame( 'link_page_owner_divergence', $result->get_error_code() );
+	}
+
+	public function test_distinct_page_owner_claims_fail_closed(): void {
+		$this->addPost( 4, 40, 'artist_link_page', 'multiple-owners' );
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40]['_associated_artist_profile_id'] = 20;
+		ec_register_link_page_owner_compatibility_provider(
+			'term-provider',
+			static function ( $operation ) {
+				return 'page_owner' === $operation
+					? array( array( 'link_page_id' => 40, 'owner_reference' => 'term:7:place:30' ) )
+					: array();
+			}
+		);
+
+		$result = ec_get_link_page_owner( 40 );
+
+		$this->assertSame( 'multiple_link_page_owner_claims', $result->get_error_code() );
+	}
+
+	public function test_duplicate_and_wrong_owner_claims_fail_closed(): void {
+		$this->addPost( 4, 21, 'artist_profile', 'other-artist' );
+		$this->addPost( 4, 40, 'artist_link_page', 'claimed' );
+		$duplicate_claim = static function ( $operation, $context ) {
+			return 'owner_pages' === $operation
+				? array( array( 'link_page_id' => 40, 'owner_reference' => $context['owner_reference'] ) )
+				: array();
+		};
+		ec_register_link_page_owner_compatibility_provider( 'duplicate-one', $duplicate_claim );
+		ec_register_link_page_owner_compatibility_provider( 'duplicate-two', $duplicate_claim );
+
+		$duplicate = ec_get_link_page_id_for_owner( $this->postOwner( 20 ) );
+
+		$this->assertSame( 'duplicate_link_page_owner_claim', $duplicate->get_error_code() );
+
+		$this->resetProviders();
+		ec_register_link_page_owner_compatibility_provider(
+			'wrong-reference',
+			static function ( $operation ) {
+				return 'owner_pages' === $operation
+					? array( array( 'link_page_id' => 40, 'owner_reference' => 'post:4:artist_profile:21' ) )
+					: array();
+			}
+		);
+
+		$wrong_owner = ec_get_link_page_id_for_owner( $this->postOwner( 20 ) );
+
+		$this->assertSame( 'link_page_owner_claim_mismatch', $wrong_owner->get_error_code() );
 	}
 
 	/**
@@ -198,17 +277,67 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 		if ( $setup ) {
 			$setup( $this );
 		}
-		$GLOBALS['ec_test']['filter_callbacks']['ec_link_page_legacy_owner_candidates'][] = array(
-			'priority' => 20,
-			'callback' => static function ( $candidate_ids ) use ( $candidate_id ) {
-				$candidate_ids[] = $candidate_id;
-				return $candidate_ids;
-			},
+		ec_register_link_page_owner_compatibility_provider(
+			'invalid-candidate-provider',
+			static function ( $operation, $context ) use ( $candidate_id ) {
+				return 'owner_pages' === $operation
+					? array( array( 'link_page_id' => $candidate_id, 'owner_reference' => $context['owner_reference'] ) )
+					: array();
+			}
 		);
 
 		$result = ec_get_link_page_id_for_owner( $this->postOwner() );
 
 		$this->assertSame( 'invalid_link_page_owner_candidate', $result->get_error_code() );
+	}
+
+	public function test_malformed_provider_registration_and_duplicate_name_fail(): void {
+		$invalid_name = ec_register_link_page_owner_compatibility_provider( 'Bad Name', '__return_true' );
+		$invalid_callback = ec_register_link_page_owner_compatibility_provider( 'bad-callback', 'missing_callback' );
+		$invalid_priority = ec_register_link_page_owner_compatibility_provider( 'bad-priority', '__return_true', '10' );
+		$duplicate = ec_register_link_page_owner_compatibility_provider( 'artist-platform', '__return_true' );
+
+		$this->assertSame( 'invalid_link_page_owner_provider', $invalid_name->get_error_code() );
+		$this->assertSame( 'invalid_link_page_owner_provider', $invalid_callback->get_error_code() );
+		$this->assertSame( 'invalid_link_page_owner_provider', $invalid_priority->get_error_code() );
+		$this->assertSame( 'duplicate_link_page_owner_provider', $duplicate->get_error_code() );
+	}
+
+	/**
+	 * @dataProvider malformedProviderResultProvider
+	 */
+	public function test_malformed_provider_results_and_claims_fail_closed( $provider, $error_code ): void {
+		ec_register_link_page_owner_compatibility_provider( 'malformed-provider', $provider );
+
+		$result = ec_get_link_page_id_for_owner( $this->postOwner() );
+
+		$this->assertSame( $error_code, $result->get_error_code() );
+	}
+
+	public function malformedProviderResultProvider(): array {
+		return array(
+			'invalid result' => array( static function () { return 'invalid'; }, 'invalid_link_page_owner_provider_result' ),
+			'exception'      => array( static function () { throw new RuntimeException( 'failed' ); }, 'link_page_owner_provider_exception' ),
+			'malformed claim' => array( static function () { return array( array( 'link_page_id' => 40 ) ); }, 'invalid_link_page_owner_claim' ),
+		);
+	}
+
+	public function test_provider_order_is_deterministic_without_affecting_result(): void {
+		foreach ( array( array( 'z-provider', 20 ), array( 'b-provider', 5 ), array( 'a-provider', 5 ) ) as $provider ) {
+			ec_register_link_page_owner_compatibility_provider(
+				$provider[0],
+				static function () use ( $provider ) {
+					$GLOBALS['ec_test']['provider_order'][] = $provider[0];
+					return array();
+				},
+				$provider[1]
+			);
+		}
+
+		$result = ec_get_link_page_id_for_owner( $this->postOwner() );
+
+		$this->assertSame( 0, $result );
+		$this->assertSame( array( 'a-provider', 'b-provider', 'z-provider' ), $GLOBALS['ec_test']['provider_order'] );
 	}
 
 	public function invalidCompatibilityCandidateProvider(): array {

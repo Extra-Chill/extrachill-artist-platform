@@ -10,6 +10,47 @@ defined( 'ABSPATH' ) || exit;
 const EC_LINK_PAGE_OWNER_META_KEY = '_ec_link_page_owner_reference';
 
 /**
+ * Register an append-only owner compatibility provider.
+ *
+ * @param string   $name     Stable provider name.
+ * @param callable $callback Provider callback.
+ * @param int      $priority Provider ordering priority.
+ * @return true|WP_Error
+ */
+function ec_register_link_page_owner_compatibility_provider( $name, $callback, $priority = 10 ) {
+	if ( ! is_string( $name ) || 1 !== preg_match( '/^[a-z0-9][a-z0-9_-]*$/', $name ) || ! is_callable( $callback ) || ! is_int( $priority ) ) {
+		return new WP_Error( 'invalid_link_page_owner_provider', 'The Link Page owner compatibility provider registration is invalid.' );
+	}
+	if ( isset( $GLOBALS['ec_link_page_owner_compatibility_providers'][ $name ] ) ) {
+		return new WP_Error( 'duplicate_link_page_owner_provider', 'The Link Page owner compatibility provider is already registered.' );
+	}
+
+	$GLOBALS['ec_link_page_owner_compatibility_providers'][ $name ] = array(
+		'name'     => $name,
+		'callback' => $callback,
+		'priority' => $priority,
+	);
+	return true;
+}
+
+/**
+ * Return providers in deterministic priority and name order.
+ *
+ * @return array
+ */
+function ec_get_link_page_owner_compatibility_providers() {
+	$providers = array_values( $GLOBALS['ec_link_page_owner_compatibility_providers'] ?? array() );
+	usort(
+		$providers,
+		static function ( $left, $right ) {
+			$priority = (int) $left['priority'] <=> (int) $right['priority'];
+			return 0 !== $priority ? $priority : strcmp( $left['name'], $right['name'] );
+		}
+	);
+	return $providers;
+}
+
+/**
  * Parse an opaque owner reference without resolving its object.
  *
  * @param string $reference Owner reference in kind:blog:subtype:id form.
@@ -110,6 +151,100 @@ function ec_get_stored_link_page_owner_references( $link_page_id ) {
 }
 
 /**
+ * Validate one structured compatibility claim.
+ *
+ * @param mixed  $claim     Provider claim.
+ * @param string $operation Compatibility operation.
+ * @param array  $context   Operation context.
+ * @return array{link_page_id:int,owner_reference:string}|WP_Error
+ */
+function ec_validate_link_page_owner_compatibility_claim( $claim, $operation, $context ) {
+	if ( ! is_array( $claim ) || ! isset( $claim['link_page_id'], $claim['owner_reference'] ) || 2 !== count( $claim ) ) {
+		return new WP_Error( 'invalid_link_page_owner_claim', 'A Link Page owner compatibility provider returned a malformed claim.' );
+	}
+	$link_page_id = $claim['link_page_id'];
+	if ( ! is_int( $link_page_id ) || $link_page_id <= 0 || EC_LINK_PAGE_POST_TYPE !== get_post_type( $link_page_id ) ) {
+		return new WP_Error( 'invalid_link_page_owner_candidate', 'A Link Page owner compatibility provider returned an invalid storage candidate.' );
+	}
+	$reference = ec_normalize_link_page_owner_reference( $claim['owner_reference'] );
+	if ( is_wp_error( $reference ) ) {
+		return $reference;
+	}
+	if ( 'page_owner' === $operation && (int) $context['link_page_id'] !== $link_page_id ) {
+		return new WP_Error( 'invalid_link_page_owner_claim', 'A compatibility provider claimed the wrong Link Page.' );
+	}
+	if ( 'owner_pages' === $operation && $context['owner_reference'] !== $reference ) {
+		return new WP_Error( 'link_page_owner_claim_mismatch', 'A compatibility provider returned a claim for a different owner.' );
+	}
+
+	$stored = ec_get_stored_link_page_owner_references( $link_page_id );
+	if ( count( $stored ) > 1 ) {
+		return new WP_Error( 'duplicate_link_page_owner_references', 'A claimed Link Page has duplicate canonical owner references.' );
+	}
+	if ( ! empty( $stored ) ) {
+		$canonical = ec_normalize_link_page_owner_reference( $stored[0] );
+		if ( is_wp_error( $canonical ) ) {
+			return $canonical;
+		}
+		if ( $canonical !== $reference ) {
+			return new WP_Error( 'link_page_owner_divergence', 'A compatibility claim conflicts with the canonical Link Page owner.' );
+		}
+	}
+
+	return array(
+		'link_page_id'    => $link_page_id,
+		'owner_reference' => $reference,
+	);
+}
+
+/**
+ * Collect immutable claims from every registered compatibility provider.
+ *
+ * @param string $operation Compatibility operation.
+ * @param array  $context   Operation context.
+ * @return array|WP_Error
+ */
+function ec_collect_link_page_owner_compatibility_claims( $operation, $context ) {
+	if ( ! in_array( $operation, array( 'page_owner', 'owner_pages' ), true ) || ! is_array( $context ) ) {
+		return new WP_Error( 'invalid_link_page_owner_provider_context', 'The Link Page owner provider context is invalid.' );
+	}
+
+	$claims = array();
+	$errors = array();
+	foreach ( ec_get_link_page_owner_compatibility_providers() as $provider ) {
+		try {
+			$result = call_user_func( $provider['callback'], $operation, $context );
+		} catch ( Throwable $throwable ) {
+			$errors[] = new WP_Error( 'link_page_owner_provider_exception', 'A Link Page owner compatibility provider failed.' );
+			continue;
+		}
+		if ( is_wp_error( $result ) ) {
+			$errors[] = $result;
+			continue;
+		}
+		if ( ! is_array( $result ) ) {
+			$errors[] = new WP_Error( 'invalid_link_page_owner_provider_result', 'A Link Page owner compatibility provider returned an invalid result.' );
+			continue;
+		}
+		foreach ( $result as $claim ) {
+			$claim = ec_validate_link_page_owner_compatibility_claim( $claim, $operation, $context );
+			if ( is_wp_error( $claim ) ) {
+				$errors[] = $claim;
+				continue;
+			}
+			$key = $claim['link_page_id'] . '|' . $claim['owner_reference'];
+			if ( isset( $claims[ $key ] ) ) {
+				$errors[] = new WP_Error( 'duplicate_link_page_owner_claim', 'Multiple compatibility providers returned the same owner claim.' );
+				continue;
+			}
+			$claims[ $key ] = $claim;
+		}
+	}
+
+	return empty( $errors ) ? array_values( $claims ) : $errors[0];
+}
+
+/**
  * Resolve the normalized owner fields for a Link Page.
  *
  * @param int $link_page_id Link Page post ID on the current blog.
@@ -126,21 +261,30 @@ function ec_get_link_page_owner( $link_page_id ) {
 		return new WP_Error( 'duplicate_link_page_owner_references', 'The Link Page has duplicate stored owner references.' );
 	}
 
-	if ( empty( $stored ) ) {
-		$reference = apply_filters( 'ec_link_page_legacy_owner_reference', '', $link_page_id );
-		if ( ! is_string( $reference ) || '' === $reference ) {
-			return new WP_Error( 'link_page_owner_not_found', 'The Link Page has no owner association.' );
+	$references = array();
+	if ( ! empty( $stored ) ) {
+		$normalized = ec_normalize_link_page_owner_reference( $stored[0] );
+		if ( is_wp_error( $normalized ) ) {
+			return $normalized;
 		}
-	} else {
-		$reference = $stored[0];
+		$references[] = $normalized;
+	}
+	$claims = ec_collect_link_page_owner_compatibility_claims( 'page_owner', array( 'link_page_id' => $link_page_id ) );
+	if ( is_wp_error( $claims ) ) {
+		return $claims;
+	}
+	foreach ( $claims as $claim ) {
+		$references[] = $claim['owner_reference'];
+	}
+	$references = array_values( array_unique( $references ) );
+	if ( empty( $references ) ) {
+		return new WP_Error( 'link_page_owner_not_found', 'The Link Page has no owner association.' );
+	}
+	if ( count( $references ) > 1 ) {
+		return new WP_Error( 'multiple_link_page_owner_claims', 'Multiple owners are claimed for the Link Page.' );
 	}
 
-	$normalized = ec_normalize_link_page_owner_reference( $reference );
-	if ( is_wp_error( $normalized ) ) {
-		return $normalized;
-	}
-
-	return ec_parse_link_page_owner_reference( $normalized );
+	return ec_parse_link_page_owner_reference( $references[0] );
 }
 
 /**
@@ -171,12 +315,13 @@ function ec_get_link_page_id_for_owner( $owner, $allowed_link_pages = array() ) 
 		)
 	);
 	// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key,WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-	$compatibility_ids = apply_filters( 'ec_link_page_legacy_owner_candidates', $link_page_ids, $reference );
-	if ( is_wp_error( $compatibility_ids ) ) {
-		return $compatibility_ids;
+	$claims = ec_collect_link_page_owner_compatibility_claims( 'owner_pages', array( 'owner_reference' => $reference ) );
+	if ( is_wp_error( $claims ) ) {
+		return $claims;
 	}
-	if ( ! is_array( $compatibility_ids ) ) {
-		return new WP_Error( 'invalid_link_page_owner_candidates', 'A Link Page owner compatibility provider returned invalid candidates.' );
+	$compatibility_ids = array();
+	foreach ( $claims as $claim ) {
+		$compatibility_ids[] = $claim['link_page_id'];
 	}
 	$candidate_ids = ec_validate_link_page_owner_candidate_ids( array_merge( $link_page_ids, $compatibility_ids ) );
 	if ( is_wp_error( $candidate_ids ) ) {

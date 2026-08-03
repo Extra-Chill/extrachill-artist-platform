@@ -1009,32 +1009,6 @@ function apply_filters( $hook_name, $value, ...$args ) {
 		$producer = (string) ( $args[0] ?? '' );
 		return in_array( $producer, $GLOBALS['ec_test']['authorized_local_support_producers'] ?? array(), true );
 	}
-	if ( 'ec_link_page_legacy_owner_reference' === $hook_name ) {
-		return ec_artist_link_page_legacy_owner_reference( $value, (int) ( $args[0] ?? 0 ) );
-	}
-	if ( 'ec_link_page_legacy_owner_candidates' === $hook_name ) {
-		$callbacks = $GLOBALS['ec_test']['filter_callbacks'][ $hook_name ] ?? array();
-		usort(
-			$callbacks,
-			static function ( $left, $right ) {
-				return (int) $left['priority'] <=> (int) $right['priority'];
-			}
-		);
-		foreach ( $callbacks as $callback ) {
-			if ( (int) $callback['priority'] >= 10 ) {
-				continue;
-			}
-			$value = $callback['callback']( $value, ...$args );
-		}
-		$value = ec_artist_link_page_legacy_owner_candidates( $value, (string) ( $args[0] ?? '' ) );
-		foreach ( $callbacks as $callback ) {
-			if ( (int) $callback['priority'] < 10 ) {
-				continue;
-			}
-			$value = $callback['callback']( $value, ...$args );
-		}
-		return $value;
-	}
 	return $value;
 }
 

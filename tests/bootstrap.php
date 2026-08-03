@@ -170,6 +170,38 @@ function get_current_blog_id() {
 	return $GLOBALS['ec_test']['current_blog_id'] ?? 4;
 }
 
+function get_site( $blog_id = null ) {
+	$blog_id = $blog_id ?: get_current_blog_id();
+	if ( ! isset( $GLOBALS['ec_test']['blogs'][ $blog_id ] ) ) {
+		return null;
+	}
+	return (object) array_merge(
+		array( 'blog_id' => (int) $blog_id, 'deleted' => '0', 'archived' => '0', 'spam' => '0' ),
+		$GLOBALS['ec_test']['sites'][ $blog_id ] ?? array()
+	);
+}
+
+function post_type_exists( $post_type ) {
+	if ( isset( $GLOBALS['ec_test']['registered_post_types'][ $post_type ] ) ) {
+		return true;
+	}
+	foreach ( ec_test_blog_store( 'posts' ) as $post ) {
+		if ( $post_type === $post->post_type ) {
+			return true;
+		}
+	}
+	return false;
+}
+
+function taxonomy_exists( $taxonomy ) {
+	foreach ( ec_test_blog_store( 'terms' ) as $term ) {
+		if ( $taxonomy === $term->taxonomy ) {
+			return true;
+		}
+	}
+	return false;
+}
+
 function add_action() {
 	return true;
 }
@@ -690,7 +722,15 @@ function get_posts( $args ) {
 		}
 		$ids[] = (int) $post_id;
 	}
-	return $ids;
+	if ( 'ID' === ( $args['orderby'] ?? '' ) ) {
+		sort( $ids, SORT_NUMERIC );
+		if ( 'DESC' === ( $args['order'] ?? 'ASC' ) ) {
+			$ids = array_reverse( $ids );
+		}
+	}
+	$offset = (int) ( $args['offset'] ?? 0 );
+	$limit  = isset( $args['posts_per_page'] ) && $args['posts_per_page'] >= 0 ? (int) $args['posts_per_page'] : null;
+	return array_slice( $ids, $offset, $limit );
 }
 
 function wp_insert_term( $title, $taxonomy, $args = array() ) {
@@ -976,6 +1016,7 @@ require_once dirname( __DIR__ ) . '/inc/abilities/handlers/update-artist.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/create-artist.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/onboard-external-artist.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-invitation.php';
+require_once dirname( __DIR__ ) . '/inc/link-pages/owner-reference.php';
 require_once dirname( __DIR__ ) . '/inc/core/filters/create.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-link-page-links.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-link-page-styles.php';

@@ -448,7 +448,16 @@ function metadata_exists( $object_type, $object_id, $key ) {
 }
 
 function add_post_meta( $post_id, $key, $value, $unique = false ) {
+	if ( isset( $GLOBALS['ec_test']['before_post_meta_add'] ) ) {
+		$callback = $GLOBALS['ec_test']['before_post_meta_add'];
+		unset( $GLOBALS['ec_test']['before_post_meta_add'] );
+		$callback( $post_id, $key, $value );
+	}
 	if ( $unique && metadata_exists( 'post', $post_id, $key ) ) {
+		return false;
+	}
+	if ( ! empty( $GLOBALS['ec_test']['fail_post_meta_add_keys'][ $key ] ) ) {
+		--$GLOBALS['ec_test']['fail_post_meta_add_keys'][ $key ];
 		return false;
 	}
 	if ( ! empty( $GLOBALS['ec_test']['fail_post_meta_add'] ) ) {
@@ -457,6 +466,67 @@ function add_post_meta( $post_id, $key, $value, $unique = false ) {
 	}
 	$blog_id = $GLOBALS['ec_test']['current_blog_id'];
 	$GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] = $value;
+	$meta_id = ( $GLOBALS['ec_test']['next_post_meta_id'] ?? 0 ) + 1;
+	$GLOBALS['ec_test']['next_post_meta_id'] = $meta_id;
+	$GLOBALS['ec_test']['post_meta_rows'][ $meta_id ] = array(
+		'blog_id'    => $blog_id,
+		'post_id'    => (int) $post_id,
+		'meta_key'   => $key,
+		'meta_value' => $value,
+	);
+	if ( isset( $GLOBALS['ec_test']['after_post_meta_add'] ) ) {
+		$callback = $GLOBALS['ec_test']['after_post_meta_add'];
+		unset( $GLOBALS['ec_test']['after_post_meta_add'] );
+		$callback( $meta_id, $post_id, $key, $value );
+	}
+	return $meta_id;
+}
+
+function get_metadata_by_mid( $meta_type, $meta_id ) {
+	if ( 'post' !== $meta_type || ! isset( $GLOBALS['ec_test']['post_meta_rows'][ $meta_id ] ) ) {
+		return false;
+	}
+	$row     = $GLOBALS['ec_test']['post_meta_rows'][ $meta_id ];
+	$current = $GLOBALS['ec_test']['blogs'][ $row['blog_id'] ]['post_meta'][ $row['post_id'] ][ $row['meta_key'] ] ?? null;
+	if ( null === $current || ( is_array( $current ) && ! in_array( $row['meta_value'], $current, true ) ) ) {
+		unset( $GLOBALS['ec_test']['post_meta_rows'][ $meta_id ] );
+		return false;
+	}
+	if ( ! is_array( $current ) ) {
+		$row['meta_value'] = $current;
+	}
+	return (object) $row;
+}
+
+function delete_metadata_by_mid( $meta_type, $meta_id ) {
+	$row = get_metadata_by_mid( $meta_type, $meta_id );
+	if ( ! $row || ! empty( $GLOBALS['ec_test']['fail_metadata_delete_by_mid'] ) ) {
+		return false;
+	}
+	$current = $GLOBALS['ec_test']['blogs'][ $row->blog_id ]['post_meta'][ $row->post_id ][ $row->meta_key ];
+	if ( is_array( $current ) ) {
+		$removed = false;
+		$current = array_values(
+			array_filter(
+				$current,
+				static function ( $stored_value ) use ( $row, &$removed ) {
+					if ( ! $removed && $stored_value === $row->meta_value ) {
+						$removed = true;
+						return false;
+					}
+					return true;
+				}
+			)
+		);
+		if ( empty( $current ) ) {
+			unset( $GLOBALS['ec_test']['blogs'][ $row->blog_id ]['post_meta'][ $row->post_id ][ $row->meta_key ] );
+		} else {
+			$GLOBALS['ec_test']['blogs'][ $row->blog_id ]['post_meta'][ $row->post_id ][ $row->meta_key ] = $current;
+		}
+	} else {
+		unset( $GLOBALS['ec_test']['blogs'][ $row->blog_id ]['post_meta'][ $row->post_id ][ $row->meta_key ] );
+	}
+	unset( $GLOBALS['ec_test']['post_meta_rows'][ $meta_id ] );
 	return true;
 }
 
@@ -943,7 +1013,27 @@ function apply_filters( $hook_name, $value, ...$args ) {
 		return ec_artist_link_page_legacy_owner_reference( $value, (int) ( $args[0] ?? 0 ) );
 	}
 	if ( 'ec_link_page_legacy_owner_candidates' === $hook_name ) {
-		return ec_artist_link_page_legacy_owner_candidates( $value, (string) ( $args[0] ?? '' ) );
+		$callbacks = $GLOBALS['ec_test']['filter_callbacks'][ $hook_name ] ?? array();
+		usort(
+			$callbacks,
+			static function ( $left, $right ) {
+				return (int) $left['priority'] <=> (int) $right['priority'];
+			}
+		);
+		foreach ( $callbacks as $callback ) {
+			if ( (int) $callback['priority'] >= 10 ) {
+				continue;
+			}
+			$value = $callback['callback']( $value, ...$args );
+		}
+		$value = ec_artist_link_page_legacy_owner_candidates( $value, (string) ( $args[0] ?? '' ) );
+		foreach ( $callbacks as $callback ) {
+			if ( (int) $callback['priority'] < 10 ) {
+				continue;
+			}
+			$value = $callback['callback']( $value, ...$args );
+		}
+		return $value;
 	}
 	return $value;
 }

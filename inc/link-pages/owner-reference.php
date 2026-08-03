@@ -171,13 +171,18 @@ function ec_get_link_page_id_for_owner( $owner, $allowed_link_pages = array() ) 
 		)
 	);
 	// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key,WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-	$compatibility_ids = apply_filters( 'ec_link_page_legacy_owner_candidates', array(), $reference );
+	$compatibility_ids = apply_filters( 'ec_link_page_legacy_owner_candidates', $link_page_ids, $reference );
+	if ( is_wp_error( $compatibility_ids ) ) {
+		return $compatibility_ids;
+	}
 	if ( ! is_array( $compatibility_ids ) ) {
 		return new WP_Error( 'invalid_link_page_owner_candidates', 'A Link Page owner compatibility provider returned invalid candidates.' );
 	}
-	$candidate_ids      = array_values( array_unique( array_map( 'absint', array_merge( $link_page_ids, $compatibility_ids ) ) ) );
+	$candidate_ids = ec_validate_link_page_owner_candidate_ids( array_merge( $link_page_ids, $compatibility_ids ) );
+	if ( is_wp_error( $candidate_ids ) ) {
+		return $candidate_ids;
+	}
 	$allowed_link_pages = array_values( array_unique( array_map( 'absint', $allowed_link_pages ) ) );
-	$candidate_ids      = array_values( array_filter( $candidate_ids ) );
 	$allowed_link_pages = array_values( array_filter( $allowed_link_pages ) );
 	sort( $candidate_ids, SORT_NUMERIC );
 	sort( $allowed_link_pages, SORT_NUMERIC );
@@ -186,6 +191,24 @@ function ec_get_link_page_id_for_owner( $owner, $allowed_link_pages = array() ) 
 	}
 
 	return empty( $candidate_ids ) ? 0 : (int) $candidate_ids[0];
+}
+
+/**
+ * Validate candidate IDs against the current Link Page storage context.
+ *
+ * @param array $candidate_ids Candidate IDs returned by canonical queries and providers.
+ * @return int[]|WP_Error
+ */
+function ec_validate_link_page_owner_candidate_ids( $candidate_ids ) {
+	$validated = array();
+	foreach ( $candidate_ids as $candidate_id ) {
+		if ( ! is_int( $candidate_id ) || $candidate_id <= 0 || EC_LINK_PAGE_POST_TYPE !== get_post_type( $candidate_id ) ) {
+			return new WP_Error( 'invalid_link_page_owner_candidate', 'A Link Page owner provider returned an invalid storage candidate.' );
+		}
+		$validated[] = $candidate_id;
+	}
+
+	return array_values( array_unique( $validated ) );
 }
 
 /**
@@ -227,19 +250,32 @@ function ec_assign_link_page_owner( $link_page_id, $owner, $replace_link_page_id
 		return true;
 	}
 
-	update_post_meta( $link_page_id, EC_LINK_PAGE_OWNER_META_KEY, $reference );
+	$owner_meta_id = add_post_meta( $link_page_id, EC_LINK_PAGE_OWNER_META_KEY, $reference, true );
+	if ( ! $owner_meta_id ) {
+		$stored = ec_get_stored_link_page_owner_references( $link_page_id );
+		if ( 1 === count( $stored ) && $reference === $stored[0] ) {
+			$persisted_link_page_id = ec_get_link_page_id_for_owner( $reference, $allowed_link_pages );
+			return is_wp_error( $persisted_link_page_id ) ? $persisted_link_page_id : true;
+		}
+		if ( ! empty( $stored ) ) {
+			return new WP_Error( 'link_page_owner_conflict', 'A different owner was assigned before this Link Page could be claimed.' );
+		}
+		return new WP_Error( 'link_page_owner_assignment_failed', 'The Link Page owner could not be persisted.' );
+	}
+
 	$stored = ec_get_stored_link_page_owner_references( $link_page_id );
 	if ( 1 !== count( $stored ) || $reference !== $stored[0] ) {
 		return ec_compensate_link_page_owner_assignment(
 			$link_page_id,
 			$reference,
+			$owner_meta_id,
 			new WP_Error( 'link_page_owner_assignment_failed', 'The Link Page owner could not be persisted.' )
 		);
 	}
 
 	$persisted_link_page_id = ec_get_link_page_id_for_owner( $reference, $allowed_link_pages );
 	if ( is_wp_error( $persisted_link_page_id ) ) {
-		return ec_compensate_link_page_owner_assignment( $link_page_id, $reference, $persisted_link_page_id );
+		return ec_compensate_link_page_owner_assignment( $link_page_id, $reference, $owner_meta_id, $persisted_link_page_id );
 	}
 
 	return true;
@@ -250,13 +286,24 @@ function ec_assign_link_page_owner( $link_page_id, $owner, $replace_link_page_id
  *
  * @param int      $link_page_id Link Page post ID.
  * @param string   $reference    Attempted owner reference.
- * @param WP_Error $error        Assignment error to return after compensation.
+ * @param int      $owner_meta_id Metadata row created by this assignment.
+ * @param WP_Error $error         Assignment error to return after compensation.
  * @return WP_Error
  */
-function ec_compensate_link_page_owner_assignment( $link_page_id, $reference, $error ) {
-	delete_post_meta( $link_page_id, EC_LINK_PAGE_OWNER_META_KEY, $reference );
-	$remaining = ec_get_stored_link_page_owner_references( $link_page_id );
-	if ( in_array( $reference, $remaining, true ) ) {
+function ec_compensate_link_page_owner_assignment( $link_page_id, $reference, $owner_meta_id, $error ) {
+	$metadata = get_metadata_by_mid( 'post', $owner_meta_id );
+	if ( ! $metadata ) {
+		return $error;
+	}
+	if ( (int) $metadata->post_id !== (int) $link_page_id || EC_LINK_PAGE_OWNER_META_KEY !== $metadata->meta_key || $reference !== $metadata->meta_value ) {
+		return new WP_Error(
+			'link_page_owner_compensation_failed',
+			'The metadata created by a failed owner assignment changed before compensation. Manual reconciliation is required.',
+			array( 'retryable' => false )
+		);
+	}
+	delete_metadata_by_mid( 'post', $owner_meta_id );
+	if ( get_metadata_by_mid( 'post', $owner_meta_id ) ) {
 		return new WP_Error(
 			'link_page_owner_compensation_failed',
 			'A failed owner assignment could not be compensated. Manual reconciliation is required.',
@@ -265,6 +312,23 @@ function ec_compensate_link_page_owner_assignment( $link_page_id, $reference, $e
 	}
 
 	return $error;
+}
+
+/**
+ * Return a halted backfill result without advancing past the hazardous record.
+ *
+ * @param array  $result       Current backfill result.
+ * @param int    $link_page_id Hazardous Link Page ID.
+ * @param string $error_code   Ownership error code.
+ * @param int    $offset       Starting backfill offset.
+ * @return array
+ */
+function ec_halt_link_page_owner_backfill( $result, $link_page_id, $error_code, $offset ) {
+	$result['errors'][ (int) $link_page_id ] = $error_code;
+	return array_merge(
+		$result,
+		array( 'next_offset' => $offset + $result['processed'] - 1 )
+	);
 }
 
 /**
@@ -302,8 +366,12 @@ function ec_backfill_link_page_owner_references( $limit = 100, $offset = 0 ) {
 		if ( ! empty( $stored ) ) {
 			$owner = ec_get_link_page_owner( $link_page_id );
 			if ( is_wp_error( $owner ) ) {
-				$result['errors'][ (int) $link_page_id ] = $owner->get_error_code();
-				continue;
+				return ec_halt_link_page_owner_backfill( $result, $link_page_id, $owner->get_error_code(), $offset );
+			}
+			$resolved_link_page_id = ec_get_link_page_id_for_owner( $owner );
+			if ( is_wp_error( $resolved_link_page_id ) || (int) $link_page_id !== (int) $resolved_link_page_id ) {
+				$error_code = is_wp_error( $resolved_link_page_id ) ? $resolved_link_page_id->get_error_code() : 'link_page_owner_resolution_failed';
+				return ec_halt_link_page_owner_backfill( $result, $link_page_id, $error_code, $offset );
 			}
 			++$result['skipped'];
 			continue;
@@ -311,17 +379,12 @@ function ec_backfill_link_page_owner_references( $limit = 100, $offset = 0 ) {
 
 		$owner = ec_get_link_page_owner( $link_page_id );
 		if ( is_wp_error( $owner ) ) {
-			$result['errors'][ (int) $link_page_id ] = $owner->get_error_code();
-			continue;
+			return ec_halt_link_page_owner_backfill( $result, $link_page_id, $owner->get_error_code(), $offset );
 		}
 
 		$assigned = ec_assign_link_page_owner( $link_page_id, $owner );
 		if ( is_wp_error( $assigned ) ) {
-			$result['errors'][ (int) $link_page_id ] = $assigned->get_error_code();
-			if ( 'link_page_owner_compensation_failed' === $assigned->get_error_code() ) {
-				break;
-			}
-			continue;
+			return ec_halt_link_page_owner_backfill( $result, $link_page_id, $assigned->get_error_code(), $offset );
 		}
 		++$result['updated'];
 	}

@@ -147,6 +147,92 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 		$this->assertSame( 'duplicate_link_pages_for_owner', $result->get_error_code() );
 	}
 
+	public function test_same_page_canonical_and_legacy_divergence_fails_for_legacy_owner(): void {
+		$this->addPost( 4, 21, 'artist_profile', 'other-artist' );
+		$this->addPost( 4, 40, 'artist_link_page', 'divergent' );
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40]['_associated_artist_profile_id'] = 20;
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40][ EC_LINK_PAGE_OWNER_META_KEY ] = 'post:4:artist_profile:21';
+
+		$legacy_owner    = ec_get_link_page_id_for_owner( $this->postOwner( 20 ) );
+		$canonical_owner = ec_get_link_page_id_for_owner( $this->postOwner( 21 ) );
+
+		$this->assertSame( 'link_page_owner_divergence', $legacy_owner->get_error_code() );
+		$this->assertSame( 'link_page_owner_divergence', $canonical_owner->get_error_code() );
+	}
+
+	public function test_malformed_earlier_compatibility_provider_fails_closed(): void {
+		$GLOBALS['ec_test']['filter_callbacks']['ec_link_page_legacy_owner_candidates'][] = array(
+			'priority' => 5,
+			'callback' => static function () {
+				return 'malformed';
+			},
+		);
+
+		$result = ec_get_link_page_id_for_owner( $this->postOwner() );
+
+		$this->assertSame( 'invalid_link_page_owner_candidates', $result->get_error_code() );
+	}
+
+	public function test_later_compatibility_provider_candidates_are_validated_in_current_context(): void {
+		$this->addPost( 4, 40, 'artist_link_page', 'legacy' );
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40]['_associated_artist_profile_id'] = 20;
+		$GLOBALS['ec_test']['filter_callbacks']['ec_link_page_legacy_owner_candidates'][] = array(
+			'priority' => 20,
+			'callback' => static function ( $candidate_ids ) {
+				$GLOBALS['ec_test']['later_provider_received'] = $candidate_ids;
+				$candidate_ids[] = 20;
+				return $candidate_ids;
+			},
+		);
+
+		$result = ec_get_link_page_id_for_owner( $this->postOwner() );
+
+		$this->assertSame( array( 40 ), $GLOBALS['ec_test']['later_provider_received'] );
+		$this->assertSame( 'invalid_link_page_owner_candidate', $result->get_error_code() );
+	}
+
+	/**
+	 * @dataProvider invalidCompatibilityCandidateProvider
+	 */
+	public function test_invalid_compatibility_candidate_ids_fail_closed( $candidate_id, $setup = null ): void {
+		if ( $setup ) {
+			$setup( $this );
+		}
+		$GLOBALS['ec_test']['filter_callbacks']['ec_link_page_legacy_owner_candidates'][] = array(
+			'priority' => 20,
+			'callback' => static function ( $candidate_ids ) use ( $candidate_id ) {
+				$candidate_ids[] = $candidate_id;
+				return $candidate_ids;
+			},
+		);
+
+		$result = ec_get_link_page_id_for_owner( $this->postOwner() );
+
+		$this->assertSame( 'invalid_link_page_owner_candidate', $result->get_error_code() );
+	}
+
+	public function invalidCompatibilityCandidateProvider(): array {
+		return array(
+			'zero'          => array( 0 ),
+			'malformed'     => array( '40' ),
+			'missing'       => array( 999 ),
+			'unrelated post' => array( 20 ),
+			'deleted'       => array(
+				40,
+				static function ( $test ) {
+					$test->addPost( 4, 40, 'artist_link_page', 'deleted' );
+					unset( $GLOBALS['ec_test']['blogs'][4]['posts'][40] );
+				},
+			),
+			'cross context' => array(
+				50,
+				static function ( $test ) {
+					$test->addPost( 7, 50, 'artist_link_page', 'other-site' );
+				},
+			),
+		);
+	}
+
 	public function test_malformed_stored_reference_does_not_fall_back_to_legacy_owner(): void {
 		$this->addPost( 4, 40, 'artist_link_page', 'test-artist' );
 		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40]['_associated_artist_profile_id'] = 20;
@@ -160,7 +246,7 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 	public function test_conflict_created_during_assignment_is_compensated(): void {
 		$this->addPost( 4, 40, 'artist_link_page', 'first' );
 		$this->addPost( 4, 41, 'artist_link_page', 'second' );
-		$GLOBALS['ec_test']['after_post_meta_update'] = static function () {
+		$GLOBALS['ec_test']['after_post_meta_add'] = static function () {
 			$GLOBALS['ec_test']['blogs'][4]['post_meta'][41][ EC_LINK_PAGE_OWNER_META_KEY ] = 'post:4:artist_profile:20';
 		};
 
@@ -172,12 +258,27 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 
 	public function test_partial_duplicate_rows_are_compensated_before_uniqueness_check(): void {
 		$this->addPost( 4, 40, 'artist_link_page', 'first' );
-		$GLOBALS['ec_test']['post_meta_conflict'] = array( 'post:4:artist_profile:20', 'post:4:artist_profile:20' );
+		$GLOBALS['ec_test']['after_post_meta_add'] = static function () {
+			$GLOBALS['ec_test']['blogs'][4]['post_meta'][40][ EC_LINK_PAGE_OWNER_META_KEY ] = array( 'post:4:artist_profile:20', 'post:4:artist_profile:20' );
+		};
 
 		$result = ec_assign_link_page_owner( 40, $this->postOwner() );
 
 		$this->assertSame( 'link_page_owner_assignment_failed', $result->get_error_code() );
-		$this->assertArrayNotHasKey( EC_LINK_PAGE_OWNER_META_KEY, $GLOBALS['ec_test']['blogs'][4]['post_meta'][40] );
+		$this->assertSame( array( 'post:4:artist_profile:20' ), $GLOBALS['ec_test']['blogs'][4]['post_meta'][40][ EC_LINK_PAGE_OWNER_META_KEY ] );
+	}
+
+	public function test_different_owner_inserted_immediately_before_assignment_is_not_overwritten(): void {
+		$this->addPost( 4, 21, 'artist_profile', 'other-artist' );
+		$this->addPost( 4, 40, 'artist_link_page', 'first' );
+		$GLOBALS['ec_test']['before_post_meta_add'] = static function () {
+			$GLOBALS['ec_test']['blogs'][4]['post_meta'][40][ EC_LINK_PAGE_OWNER_META_KEY ] = 'post:4:artist_profile:21';
+		};
+
+		$result = ec_assign_link_page_owner( 40, $this->postOwner( 20 ) );
+
+		$this->assertSame( 'link_page_owner_conflict', $result->get_error_code() );
+		$this->assertSame( 'post:4:artist_profile:21', get_post_meta( 40, EC_LINK_PAGE_OWNER_META_KEY, true ) );
 	}
 
 	public function test_backfill_halts_after_failed_partial_assignment_compensation(): void {
@@ -186,13 +287,16 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 		$this->addPost( 4, 41, 'artist_link_page', 'second' );
 		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40]['_associated_artist_profile_id'] = 20;
 		$GLOBALS['ec_test']['blogs'][4]['post_meta'][41]['_associated_artist_profile_id'] = 21;
-		$GLOBALS['ec_test']['post_meta_conflict'] = array( 'post:4:artist_profile:20', 'post:4:artist_profile:20' );
-		$GLOBALS['ec_test']['fail_post_meta_delete_keys'][ EC_LINK_PAGE_OWNER_META_KEY ] = 1;
+		$GLOBALS['ec_test']['after_post_meta_add'] = static function () {
+			$GLOBALS['ec_test']['blogs'][4]['post_meta'][40][ EC_LINK_PAGE_OWNER_META_KEY ] = array( 'post:4:artist_profile:20', 'post:4:artist_profile:20' );
+		};
+		$GLOBALS['ec_test']['fail_metadata_delete_by_mid'] = true;
 
 		$result = ec_backfill_link_page_owner_references( 2, 0 );
 
 		$this->assertSame( 1, $result['processed'] );
 		$this->assertSame( array( 40 => 'link_page_owner_compensation_failed' ), $result['errors'] );
+		$this->assertSame( 0, $result['next_offset'] );
 		$this->assertArrayNotHasKey( EC_LINK_PAGE_OWNER_META_KEY, $GLOBALS['ec_test']['blogs'][4]['post_meta'][41] );
 	}
 
@@ -243,7 +347,7 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 	}
 
 	public function test_creation_rolls_back_when_owner_assignment_fails(): void {
-		$GLOBALS['ec_test']['fail_post_meta_update_keys'][ EC_LINK_PAGE_OWNER_META_KEY ] = 1;
+		$GLOBALS['ec_test']['fail_post_meta_add_keys'][ EC_LINK_PAGE_OWNER_META_KEY ] = 1;
 
 		$result = ec_create_link_page( 20 );
 
@@ -261,6 +365,42 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 
 		$this->assertSame( array( 'processed' => 1, 'updated' => 1, 'skipped' => 0, 'errors' => array(), 'next_offset' => 1 ), $first );
 		$this->assertSame( array( 'processed' => 1, 'updated' => 0, 'skipped' => 1, 'errors' => array(), 'next_offset' => 1 ), $second );
+	}
+
+	public function test_backfill_halts_before_skipping_globally_conflicting_canonical_owner(): void {
+		$this->addPost( 4, 40, 'artist_link_page', 'canonical' );
+		$this->addPost( 4, 41, 'artist_link_page', 'legacy' );
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40][ EC_LINK_PAGE_OWNER_META_KEY ] = 'post:4:artist_profile:20';
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][41]['_associated_artist_profile_id'] = 20;
+
+		$result = ec_backfill_link_page_owner_references( 2, 0 );
+
+		$this->assertSame( 1, $result['processed'] );
+		$this->assertSame( 0, $result['skipped'] );
+		$this->assertSame( array( 40 => 'duplicate_link_pages_for_owner' ), $result['errors'] );
+		$this->assertSame( 0, $result['next_offset'] );
+	}
+
+	public function test_backfill_halts_on_same_page_divergence_and_duplicate_canonical_rows(): void {
+		$this->addPost( 4, 21, 'artist_profile', 'other-artist' );
+		$this->addPost( 4, 40, 'artist_link_page', 'divergent' );
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40]['_associated_artist_profile_id'] = 20;
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40][ EC_LINK_PAGE_OWNER_META_KEY ] = 'post:4:artist_profile:21';
+
+		$divergent = ec_backfill_link_page_owner_references( 1, 0 );
+
+		$this->assertSame( array( 40 => 'link_page_owner_divergence' ), $divergent['errors'] );
+		$this->assertSame( 0, $divergent['next_offset'] );
+
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40]['_associated_artist_profile_id'] = 20;
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40][ EC_LINK_PAGE_OWNER_META_KEY ] = array(
+			'post:4:artist_profile:20',
+			'post:4:artist_profile:20',
+		);
+		$duplicate = ec_backfill_link_page_owner_references( 1, 0 );
+
+		$this->assertSame( array( 40 => 'duplicate_link_page_owner_references' ), $duplicate['errors'] );
+		$this->assertSame( 0, $duplicate['next_offset'] );
 	}
 
 	public function test_generic_owner_reference_helpers_have_no_domain_owner_knowledge(): void {

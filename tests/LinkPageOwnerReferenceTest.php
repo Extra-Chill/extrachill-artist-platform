@@ -125,6 +125,28 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 		$this->assertSame( 'duplicate_link_page_owner_references', $duplicate_rows->get_error_code() );
 	}
 
+	public function test_three_canonical_pages_fail_even_when_two_are_allowed(): void {
+		foreach ( array( 40, 41, 42 ) as $link_page_id ) {
+			$this->addPost( 4, $link_page_id, 'artist_link_page', 'page-' . $link_page_id );
+			$GLOBALS['ec_test']['blogs'][4]['post_meta'][ $link_page_id ][ EC_LINK_PAGE_OWNER_META_KEY ] = 'post:4:artist_profile:20';
+		}
+
+		$result = ec_get_link_page_id_for_owner( $this->postOwner(), array( 40, 41 ) );
+
+		$this->assertSame( 'duplicate_link_pages_for_owner', $result->get_error_code() );
+	}
+
+	public function test_canonical_and_separate_legacy_candidates_conflict(): void {
+		$this->addPost( 4, 40, 'artist_link_page', 'canonical' );
+		$this->addPost( 4, 41, 'artist_link_page', 'legacy' );
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40][ EC_LINK_PAGE_OWNER_META_KEY ] = 'post:4:artist_profile:20';
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][41]['_associated_artist_profile_id'] = 20;
+
+		$result = ec_get_link_page_id_for_owner( $this->postOwner() );
+
+		$this->assertSame( 'duplicate_link_pages_for_owner', $result->get_error_code() );
+	}
+
 	public function test_malformed_stored_reference_does_not_fall_back_to_legacy_owner(): void {
 		$this->addPost( 4, 40, 'artist_link_page', 'test-artist' );
 		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40]['_associated_artist_profile_id'] = 20;
@@ -146,6 +168,69 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 
 		$this->assertSame( 'duplicate_link_pages_for_owner', $result->get_error_code() );
 		$this->assertArrayNotHasKey( EC_LINK_PAGE_OWNER_META_KEY, $GLOBALS['ec_test']['blogs'][4]['post_meta'][40] );
+	}
+
+	public function test_partial_duplicate_rows_are_compensated_before_uniqueness_check(): void {
+		$this->addPost( 4, 40, 'artist_link_page', 'first' );
+		$GLOBALS['ec_test']['post_meta_conflict'] = array( 'post:4:artist_profile:20', 'post:4:artist_profile:20' );
+
+		$result = ec_assign_link_page_owner( 40, $this->postOwner() );
+
+		$this->assertSame( 'link_page_owner_assignment_failed', $result->get_error_code() );
+		$this->assertArrayNotHasKey( EC_LINK_PAGE_OWNER_META_KEY, $GLOBALS['ec_test']['blogs'][4]['post_meta'][40] );
+	}
+
+	public function test_backfill_halts_after_failed_partial_assignment_compensation(): void {
+		$this->addPost( 4, 21, 'artist_profile', 'second-artist' );
+		$this->addPost( 4, 40, 'artist_link_page', 'first' );
+		$this->addPost( 4, 41, 'artist_link_page', 'second' );
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40]['_associated_artist_profile_id'] = 20;
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][41]['_associated_artist_profile_id'] = 21;
+		$GLOBALS['ec_test']['post_meta_conflict'] = array( 'post:4:artist_profile:20', 'post:4:artist_profile:20' );
+		$GLOBALS['ec_test']['fail_post_meta_delete_keys'][ EC_LINK_PAGE_OWNER_META_KEY ] = 1;
+
+		$result = ec_backfill_link_page_owner_references( 2, 0 );
+
+		$this->assertSame( 1, $result['processed'] );
+		$this->assertSame( array( 40 => 'link_page_owner_compensation_failed' ), $result['errors'] );
+		$this->assertArrayNotHasKey( EC_LINK_PAGE_OWNER_META_KEY, $GLOBALS['ec_test']['blogs'][4]['post_meta'][41] );
+	}
+
+	public function test_forced_replacement_rejects_mismatched_canonical_and_legacy_owners(): void {
+		$this->addPost( 4, 21, 'artist_profile', 'other-artist' );
+		$this->addPost( 4, 30, 'artist_link_page', 'test-artist' );
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][20]['_extrch_link_page_id'] = 30;
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][30]['_associated_artist_profile_id'] = 20;
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][30][ EC_LINK_PAGE_OWNER_META_KEY ] = 'post:4:artist_profile:21';
+
+		$result = ec_create_link_page( 20, true );
+
+		$this->assertSame( 'link_page_previous_owner_conflict', $result->get_error_code() );
+		$this->assertSame( 30, (int) get_post_meta( 20, '_extrch_link_page_id', true ) );
+		$this->assertSame( 20, (int) get_post_meta( 30, '_associated_artist_profile_id', true ) );
+		$this->assertSame( 'post:4:artist_profile:21', get_post_meta( 30, EC_LINK_PAGE_OWNER_META_KEY, true ) );
+		$this->assertSame( array( 20, 21, 30 ), array_keys( $GLOBALS['ec_test']['blogs'][4]['posts'] ) );
+		$this->assertArrayNotHasKey( 'deleted_posts', $GLOBALS['ec_test'] );
+	}
+
+	public function test_failed_previous_canonical_owner_restoration_requires_manual_reconciliation(): void {
+		$this->addPost( 4, 30, 'artist_link_page', 'test-artist' );
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][20]['_extrch_link_page_id'] = 30;
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][30]['_associated_artist_profile_id'] = 20;
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][30][ EC_LINK_PAGE_OWNER_META_KEY ] = 'post:4:artist_profile:20';
+		$GLOBALS['ec_test']['fail_post_meta_delete_keys']['_associated_artist_profile_id'] = 1;
+		$GLOBALS['ec_test']['after_post_meta_update'] = static function () {
+			$GLOBALS['ec_test']['fail_post_meta_update_keys'][ EC_LINK_PAGE_OWNER_META_KEY ] = 1;
+		};
+
+		$result = ec_create_link_page( 20, true );
+
+		$this->assertSame( 'link_page_association_compensation_failed', $result->get_error_code() );
+		$this->assertFalse( $result->get_error_data()['retryable'] );
+		$this->assertSame( 30, (int) get_post_meta( 20, '_extrch_link_page_id', true ) );
+		$this->assertSame( 20, (int) get_post_meta( 30, '_associated_artist_profile_id', true ) );
+		$this->assertEmpty( get_post_meta( 30, EC_LINK_PAGE_OWNER_META_KEY, true ) );
+		$this->assertSame( array( 20, 30 ), array_keys( $GLOBALS['ec_test']['blogs'][4]['posts'] ) );
 	}
 
 	public function test_cross_blog_post_and_term_validation_always_restores_context(): void {
@@ -176,5 +261,12 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 
 		$this->assertSame( array( 'processed' => 1, 'updated' => 1, 'skipped' => 0, 'errors' => array(), 'next_offset' => 1 ), $first );
 		$this->assertSame( array( 'processed' => 1, 'updated' => 0, 'skipped' => 1, 'errors' => array(), 'next_offset' => 1 ), $second );
+	}
+
+	public function test_generic_owner_reference_helpers_have_no_domain_owner_knowledge(): void {
+		$source = strtolower( file_get_contents( dirname( __DIR__ ) . '/inc/link-pages/owner-reference.php' ) );
+
+		$this->assertStringNotContainsString( 'artist', $source );
+		$this->assertStringNotContainsString( 'venue', $source );
 	}
 }

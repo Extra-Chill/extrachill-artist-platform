@@ -7,6 +7,7 @@ define( 'OBJECT', 'OBJECT' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'DAY_IN_SECONDS', 86400 );
 define( 'EC_ANALYTICS_EVENT_ARTIST_PROFILE_CREATED', 'artist_profile_created' );
+define( 'EC_LINK_PAGE_POST_TYPE', 'artist_link_page' );
 
 function plugin_dir_path( $file ) {
 	return trailingslashit( dirname( $file ) );
@@ -593,6 +594,25 @@ function delete_post_meta( $post_id, $key, $value = '' ) {
 		return false;
 	}
 	$current = $GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] ?? null;
+	if ( EC_LINK_PAGE_OWNER_META_KEY === $key && is_array( $current ) && '' !== $value ) {
+		$remaining = array_values(
+			array_filter(
+				$current,
+				static function ( $stored_value ) use ( $value ) {
+					return (string) $stored_value !== (string) $value;
+				}
+			)
+		);
+		if ( count( $remaining ) === count( $current ) ) {
+			return false;
+		}
+		if ( empty( $remaining ) ) {
+			unset( $GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] );
+		} else {
+			$GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] = $remaining;
+		}
+		return true;
+	}
 	if ( '' === $value || (string) $current === (string) $value ) {
 		unset( $GLOBALS['ec_test']['blogs'][ $blog_id ]['post_meta'][ $post_id ][ $key ] );
 		return true;
@@ -919,6 +939,12 @@ function apply_filters( $hook_name, $value, ...$args ) {
 		$producer = (string) ( $args[0] ?? '' );
 		return in_array( $producer, $GLOBALS['ec_test']['authorized_local_support_producers'] ?? array(), true );
 	}
+	if ( 'ec_link_page_legacy_owner_reference' === $hook_name ) {
+		return ec_artist_link_page_legacy_owner_reference( $value, (int) ( $args[0] ?? 0 ) );
+	}
+	if ( 'ec_link_page_legacy_owner_candidates' === $hook_name ) {
+		return ec_artist_link_page_legacy_owner_candidates( $value, (string) ( $args[0] ?? '' ) );
+	}
 	return $value;
 }
 
@@ -1017,6 +1043,7 @@ require_once dirname( __DIR__ ) . '/inc/abilities/handlers/create-artist.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/onboard-external-artist.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-invitation.php';
 require_once dirname( __DIR__ ) . '/inc/link-pages/owner-reference.php';
+require_once dirname( __DIR__ ) . '/inc/link-pages/artist-owner-compatibility.php';
 require_once dirname( __DIR__ ) . '/inc/core/filters/create.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-link-page-links.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-link-page-styles.php';

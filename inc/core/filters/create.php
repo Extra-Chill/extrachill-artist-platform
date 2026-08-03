@@ -145,6 +145,23 @@ function ec_create_link_page( $artist_id, $force = false ) {
 	if ( is_wp_error( $owner_reference ) ) {
 		return $owner_reference;
 	}
+	if ( $force && $previous_link_page_id ) {
+		$previous_owner_references = ec_get_stored_link_page_owner_references( $previous_link_page_id );
+		if ( count( $previous_owner_references ) > 1 ) {
+			return new WP_Error(
+				'link_page_previous_detach_failed',
+				'The previous Link Page has duplicate owner references.',
+				array( 'retryable' => false )
+			);
+		}
+		if ( ! empty( $previous_owner_references ) && $owner_reference !== $previous_owner_references[0] ) {
+			return new WP_Error(
+				'link_page_previous_owner_conflict',
+				'The previous Link Page canonical owner conflicts with its legacy artist association.',
+				array( 'retryable' => false )
+			);
+		}
+	}
 
 	$new_link_page_id = wp_insert_post(
 		array(
@@ -204,6 +221,14 @@ function ec_create_link_page( $artist_id, $force = false ) {
 			);
 		}
 		$previous_owner_reference = $previous_owner_references[0] ?? '';
+		if ( $previous_owner_reference && $owner_reference !== $previous_owner_reference ) {
+			$rollback = ec_rollback_created_link_page( $artist_id, $new_link_page_id, $previous_link_page_id );
+			return is_wp_error( $rollback ) ? $rollback : new WP_Error(
+				'link_page_previous_owner_conflict',
+				'The previous Link Page canonical owner conflicts with its legacy artist association.',
+				array( 'retryable' => false )
+			);
+		}
 		if ( $previous_owner_reference ) {
 			delete_post_meta( $previous_link_page_id, EC_LINK_PAGE_OWNER_META_KEY, $previous_owner_reference );
 			if ( ! empty( ec_get_stored_link_page_owner_references( $previous_link_page_id ) ) ) {
@@ -219,6 +244,18 @@ function ec_create_link_page( $artist_id, $force = false ) {
 		if ( $artist_id === (int) get_post_meta( $previous_link_page_id, '_associated_artist_profile_id', true ) ) {
 			if ( $previous_owner_reference ) {
 				update_post_meta( $previous_link_page_id, EC_LINK_PAGE_OWNER_META_KEY, $previous_owner_reference );
+				$restored_owner_references = ec_get_stored_link_page_owner_references( $previous_link_page_id );
+				if ( 1 !== count( $restored_owner_references ) || $previous_owner_reference !== $restored_owner_references[0] ) {
+					$rollback = ec_rollback_created_link_page( $artist_id, $new_link_page_id, $previous_link_page_id );
+					if ( is_wp_error( $rollback ) ) {
+						return $rollback;
+					}
+					return new WP_Error(
+						'link_page_association_compensation_failed',
+						'The previous Link Page canonical owner could not be restored. Manual reconciliation is required.',
+						array( 'retryable' => false )
+					);
+				}
 			}
 			$rollback = ec_rollback_created_link_page( $artist_id, $new_link_page_id, $previous_link_page_id );
 			if ( is_wp_error( $rollback ) ) {

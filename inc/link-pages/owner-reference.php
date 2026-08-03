@@ -2,7 +2,7 @@
 /**
  * Typed owner references for Link Pages.
  *
- * @package ExtraChillArtistPlatform
+ * @package ExtraChillLinkPages
  */
 
 defined( 'ABSPATH' ) || exit;
@@ -112,14 +112,12 @@ function ec_get_stored_link_page_owner_references( $link_page_id ) {
 /**
  * Resolve the normalized owner fields for a Link Page.
  *
- * Legacy artist associations are a read-only fallback.
- *
  * @param int $link_page_id Link Page post ID on the current blog.
  * @return array{kind:string,blog_id:int,subtype:string,object_id:int,reference:string}|WP_Error
  */
 function ec_get_link_page_owner( $link_page_id ) {
 	$link_page_id = absint( $link_page_id );
-	if ( ! $link_page_id || 'artist_link_page' !== get_post_type( $link_page_id ) ) {
+	if ( ! $link_page_id || EC_LINK_PAGE_POST_TYPE !== get_post_type( $link_page_id ) ) {
 		return new WP_Error( 'invalid_link_page', 'The Link Page does not exist.' );
 	}
 
@@ -129,19 +127,10 @@ function ec_get_link_page_owner( $link_page_id ) {
 	}
 
 	if ( empty( $stored ) ) {
-		$artist_id = (int) get_post_meta( $link_page_id, '_associated_artist_profile_id', true );
-		$blog_id   = function_exists( 'ec_get_blog_id' ) ? (int) ec_get_blog_id( 'artist' ) : get_current_blog_id();
-		if ( ! $artist_id || ! $blog_id ) {
+		$reference = apply_filters( 'ec_link_page_legacy_owner_reference', '', $link_page_id );
+		if ( ! is_string( $reference ) || '' === $reference ) {
 			return new WP_Error( 'link_page_owner_not_found', 'The Link Page has no owner association.' );
 		}
-		$reference = ec_format_link_page_owner_reference(
-			array(
-				'kind'      => 'post',
-				'blog_id'   => $blog_id,
-				'subtype'   => 'artist_profile',
-				'object_id' => $artist_id,
-			)
-		);
 	} else {
 		$reference = $stored[0];
 	}
@@ -158,10 +147,10 @@ function ec_get_link_page_owner( $link_page_id ) {
  * Find the unique Link Page assigned to an owner on the current blog.
  *
  * @param string|array $owner                 Owner reference or fields.
- * @param int[]        $allowed_legacy_pages Known temporary legacy duplicates during replacement.
+ * @param int[]        $allowed_link_pages Known temporary duplicates during replacement.
  * @return int|WP_Error Link Page ID, zero when absent, or a conflict error.
  */
-function ec_get_link_page_id_for_owner( $owner, $allowed_legacy_pages = array() ) {
+function ec_get_link_page_id_for_owner( $owner, $allowed_link_pages = array() ) {
 	$reference = ec_normalize_link_page_owner_reference( $owner );
 	if ( is_wp_error( $reference ) ) {
 		return $reference;
@@ -171,62 +160,32 @@ function ec_get_link_page_id_for_owner( $owner, $allowed_legacy_pages = array() 
 	// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key,WordPress.DB.SlowDBQuery.slow_db_query_meta_value
 	$link_page_ids = get_posts(
 		array(
-			'post_type'      => 'artist_link_page',
+			'post_type'      => EC_LINK_PAGE_POST_TYPE,
 			'post_status'    => 'any',
 			'meta_key'       => EC_LINK_PAGE_OWNER_META_KEY,
 			'meta_value'     => $reference,
-			'posts_per_page' => 2,
+			'posts_per_page' => -1,
 			'fields'         => 'ids',
 			'orderby'        => 'ID',
 			'order'          => 'ASC',
 		)
 	);
 	// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key,WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-	if ( count( $link_page_ids ) > 1 ) {
-		$allowed_owner_pages = array_values( array_unique( array_map( 'absint', $allowed_legacy_pages ) ) );
-		sort( $allowed_owner_pages, SORT_NUMERIC );
-		$normalized_link_page_ids = array_values( array_unique( array_map( 'absint', $link_page_ids ) ) );
-		sort( $normalized_link_page_ids, SORT_NUMERIC );
-		if ( $allowed_owner_pages !== $normalized_link_page_ids ) {
-			return new WP_Error( 'duplicate_link_pages_for_owner', 'Multiple Link Pages store the same owner reference.' );
-		}
+	$compatibility_ids = apply_filters( 'ec_link_page_legacy_owner_candidates', array(), $reference );
+	if ( ! is_array( $compatibility_ids ) ) {
+		return new WP_Error( 'invalid_link_page_owner_candidates', 'A Link Page owner compatibility provider returned invalid candidates.' );
 	}
-	if ( ! empty( $link_page_ids ) ) {
-		return (int) $link_page_ids[0];
-	}
-
-	$parsed         = ec_parse_link_page_owner_reference( $reference );
-	$artist_blog_id = function_exists( 'ec_get_blog_id' ) ? (int) ec_get_blog_id( 'artist' ) : get_current_blog_id();
-	if ( 'post' !== $parsed['kind'] || $artist_blog_id !== $parsed['blog_id'] || 'artist_profile' !== $parsed['subtype'] ) {
-		return 0;
+	$candidate_ids      = array_values( array_unique( array_map( 'absint', array_merge( $link_page_ids, $compatibility_ids ) ) ) );
+	$allowed_link_pages = array_values( array_unique( array_map( 'absint', $allowed_link_pages ) ) );
+	$candidate_ids      = array_values( array_filter( $candidate_ids ) );
+	$allowed_link_pages = array_values( array_filter( $allowed_link_pages ) );
+	sort( $candidate_ids, SORT_NUMERIC );
+	sort( $allowed_link_pages, SORT_NUMERIC );
+	if ( count( $candidate_ids ) > 1 && $allowed_link_pages !== $candidate_ids ) {
+		return new WP_Error( 'duplicate_link_pages_for_owner', 'Multiple Link Pages resolve to the same owner.' );
 	}
 
-	// The compatibility fallback must query the legacy reciprocal association.
-	// phpcs:disable WordPress.DB.SlowDBQuery.slow_db_query_meta_key,WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-	$legacy_ids = get_posts(
-		array(
-			'post_type'      => 'artist_link_page',
-			'post_status'    => 'any',
-			'meta_key'       => '_associated_artist_profile_id',
-			'meta_value'     => (string) $parsed['object_id'],
-			'posts_per_page' => 2,
-			'fields'         => 'ids',
-			'orderby'        => 'ID',
-			'order'          => 'ASC',
-		)
-	);
-	// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key,WordPress.DB.SlowDBQuery.slow_db_query_meta_value
-	if ( count( $legacy_ids ) > 1 ) {
-		$allowed_legacy_pages = array_values( array_unique( array_map( 'absint', $allowed_legacy_pages ) ) );
-		sort( $allowed_legacy_pages, SORT_NUMERIC );
-		$normalized_legacy_ids = array_values( array_unique( array_map( 'absint', $legacy_ids ) ) );
-		sort( $normalized_legacy_ids, SORT_NUMERIC );
-		if ( $allowed_legacy_pages !== $normalized_legacy_ids ) {
-			return new WP_Error( 'duplicate_link_pages_for_owner', 'Multiple legacy Link Pages are associated with the same owner.' );
-		}
-	}
-
-	return empty( $legacy_ids ) ? 0 : (int) $legacy_ids[0];
+	return empty( $candidate_ids ) ? 0 : (int) $candidate_ids[0];
 }
 
 /**
@@ -239,7 +198,7 @@ function ec_get_link_page_id_for_owner( $owner, $allowed_legacy_pages = array() 
  */
 function ec_assign_link_page_owner( $link_page_id, $owner, $replace_link_page_id = 0 ) {
 	$link_page_id = absint( $link_page_id );
-	if ( ! $link_page_id || 'artist_link_page' !== get_post_type( $link_page_id ) ) {
+	if ( ! $link_page_id || EC_LINK_PAGE_POST_TYPE !== get_post_type( $link_page_id ) ) {
 		return new WP_Error( 'invalid_link_page', 'The Link Page does not exist.' );
 	}
 
@@ -256,8 +215,8 @@ function ec_assign_link_page_owner( $link_page_id, $owner, $replace_link_page_id
 		return new WP_Error( 'link_page_owner_conflict', 'The Link Page is already assigned to another owner.' );
 	}
 
-	$allowed_legacy_pages  = $replace_link_page_id ? array( $link_page_id, $replace_link_page_id ) : array();
-	$existing_link_page_id = ec_get_link_page_id_for_owner( $reference, $allowed_legacy_pages );
+	$allowed_link_pages    = $replace_link_page_id ? array( $link_page_id, $replace_link_page_id ) : array();
+	$existing_link_page_id = ec_get_link_page_id_for_owner( $reference, $allowed_link_pages );
 	if ( is_wp_error( $existing_link_page_id ) ) {
 		return $existing_link_page_id;
 	}
@@ -271,19 +230,41 @@ function ec_assign_link_page_owner( $link_page_id, $owner, $replace_link_page_id
 	update_post_meta( $link_page_id, EC_LINK_PAGE_OWNER_META_KEY, $reference );
 	$stored = ec_get_stored_link_page_owner_references( $link_page_id );
 	if ( 1 !== count( $stored ) || $reference !== $stored[0] ) {
-		return new WP_Error( 'link_page_owner_assignment_failed', 'The Link Page owner could not be persisted.' );
+		return ec_compensate_link_page_owner_assignment(
+			$link_page_id,
+			$reference,
+			new WP_Error( 'link_page_owner_assignment_failed', 'The Link Page owner could not be persisted.' )
+		);
 	}
 
-	$persisted_link_page_id = ec_get_link_page_id_for_owner( $reference, $allowed_legacy_pages );
+	$persisted_link_page_id = ec_get_link_page_id_for_owner( $reference, $allowed_link_pages );
 	if ( is_wp_error( $persisted_link_page_id ) ) {
-		delete_post_meta( $link_page_id, EC_LINK_PAGE_OWNER_META_KEY, $reference );
-		if ( ! empty( ec_get_stored_link_page_owner_references( $link_page_id ) ) ) {
-			return new WP_Error( 'link_page_owner_compensation_failed', 'A conflicting owner assignment could not be compensated safely.' );
-		}
-		return $persisted_link_page_id;
+		return ec_compensate_link_page_owner_assignment( $link_page_id, $reference, $persisted_link_page_id );
 	}
 
 	return true;
+}
+
+/**
+ * Remove and verify canonical metadata written by a failed assignment.
+ *
+ * @param int      $link_page_id Link Page post ID.
+ * @param string   $reference    Attempted owner reference.
+ * @param WP_Error $error        Assignment error to return after compensation.
+ * @return WP_Error
+ */
+function ec_compensate_link_page_owner_assignment( $link_page_id, $reference, $error ) {
+	delete_post_meta( $link_page_id, EC_LINK_PAGE_OWNER_META_KEY, $reference );
+	$remaining = ec_get_stored_link_page_owner_references( $link_page_id );
+	if ( in_array( $reference, $remaining, true ) ) {
+		return new WP_Error(
+			'link_page_owner_compensation_failed',
+			'A failed owner assignment could not be compensated. Manual reconciliation is required.',
+			array( 'retryable' => false )
+		);
+	}
+
+	return $error;
 }
 
 /**
@@ -298,7 +279,7 @@ function ec_backfill_link_page_owner_references( $limit = 100, $offset = 0 ) {
 	$offset        = absint( $offset );
 	$link_page_ids = get_posts(
 		array(
-			'post_type'      => 'artist_link_page',
+			'post_type'      => EC_LINK_PAGE_POST_TYPE,
 			'post_status'    => 'any',
 			'posts_per_page' => $limit,
 			'offset'         => $offset,
@@ -337,6 +318,9 @@ function ec_backfill_link_page_owner_references( $limit = 100, $offset = 0 ) {
 		$assigned = ec_assign_link_page_owner( $link_page_id, $owner );
 		if ( is_wp_error( $assigned ) ) {
 			$result['errors'][ (int) $link_page_id ] = $assigned->get_error_code();
+			if ( 'link_page_owner_compensation_failed' === $assigned->get_error_code() ) {
+				break;
+			}
 			continue;
 		}
 		++$result['updated'];

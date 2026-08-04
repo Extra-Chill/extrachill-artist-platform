@@ -163,7 +163,7 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 		$this->assertSame( 'duplicate_link_pages_for_owner', $result->get_error_code() );
 	}
 
-	public function test_same_page_canonical_and_legacy_divergence_fails_for_legacy_owner(): void {
+	public function test_same_page_canonical_and_legacy_divergence_fails_for_both_owners(): void {
 		$this->addPost( 4, 21, 'artist_profile', 'other-artist' );
 		$this->addPost( 4, 40, 'artist_link_page', 'divergent' );
 		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40]['_associated_artist_profile_id'] = 20;
@@ -173,7 +173,24 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 		$canonical_owner = ec_get_link_page_id_for_owner( $this->postOwner( 21 ) );
 
 		$this->assertSame( 'link_page_owner_divergence', $legacy_owner->get_error_code() );
-		$this->assertSame( 40, $canonical_owner );
+		$this->assertSame( 'link_page_owner_divergence', $canonical_owner->get_error_code() );
+	}
+
+	public function test_provider_same_subject_reentrancy_fails_closed(): void {
+		ec_register_link_page_owner_compatibility_provider(
+			'reentrant-provider',
+			function ( $operation, $context ) {
+				if ( 'owner_pages' !== $operation ) {
+					return array();
+				}
+				return ec_collect_raw_link_page_owner_compatibility_claims( $operation, $context );
+			},
+			5
+		);
+
+		$result = ec_get_link_page_id_for_owner( $this->postOwner() );
+
+		$this->assertSame( 'link_page_owner_provider_reentrancy', $result->get_error_code() );
 	}
 
 	public function test_later_provider_cannot_suppress_earlier_error(): void {

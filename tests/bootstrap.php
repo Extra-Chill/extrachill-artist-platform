@@ -278,6 +278,10 @@ function absint( $value ) {
 	return abs( (int) $value );
 }
 
+function wp_json_encode( $value ) {
+	return json_encode( $value );
+}
+
 function get_current_user_id() {
 	return $GLOBALS['ec_test']['current_user_id'] ?? 0;
 }

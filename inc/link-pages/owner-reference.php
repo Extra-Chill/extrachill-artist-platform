@@ -296,35 +296,69 @@ function ec_collect_raw_link_page_owner_compatibility_claims( $operation, $conte
 	if ( ! in_array( $operation, array( 'page_owner', 'owner_pages' ), true ) || ! is_array( $context ) ) {
 		return new WP_Error( 'invalid_link_page_owner_provider_context', 'The Link Page owner provider context is invalid.' );
 	}
+	static $active_collections = array();
+	$collection_key            = $operation . '|' . md5( (string) wp_json_encode( $context ) );
+	if ( isset( $active_collections[ $collection_key ] ) ) {
+		return new WP_Error( 'link_page_owner_provider_reentrancy', 'A Link Page owner compatibility provider recursively requested the same ownership context.' );
+	}
 
-	$claims = array();
-	$errors = array();
-	foreach ( ec_link_page_owner_compatibility_registry()->snapshot() as $provider ) {
-		$result = ec_invoke_link_page_owner_compatibility_provider( $provider, $operation, $context );
-		if ( is_wp_error( $result ) ) {
-			$errors[] = $result;
-			continue;
-		}
-		if ( ! is_array( $result ) ) {
-			$errors[] = new WP_Error( 'invalid_link_page_owner_provider_result', 'A Link Page owner compatibility provider returned an invalid result.' );
-			continue;
-		}
-		foreach ( $result as $claim ) {
-			$claim = ec_validate_link_page_owner_compatibility_claim( $claim, $operation, $context );
-			if ( is_wp_error( $claim ) ) {
-				$errors[] = $claim;
+	$active_collections[ $collection_key ] = true;
+	try {
+		$claims = array();
+		$errors = array();
+		foreach ( ec_link_page_owner_compatibility_registry()->snapshot() as $provider ) {
+			$result = ec_invoke_link_page_owner_compatibility_provider( $provider, $operation, $context );
+			if ( is_wp_error( $result ) ) {
+				$errors[] = $result;
 				continue;
 			}
-			$key = $claim['link_page_id'] . '|' . $claim['owner_reference'];
-			if ( isset( $claims[ $key ] ) ) {
-				$errors[] = new WP_Error( 'duplicate_link_page_owner_claim', 'Multiple compatibility providers returned the same owner claim.' );
+			if ( ! is_array( $result ) ) {
+				$errors[] = new WP_Error( 'invalid_link_page_owner_provider_result', 'A Link Page owner compatibility provider returned an invalid result.' );
 				continue;
 			}
-			$claims[ $key ] = $claim;
+			foreach ( $result as $claim ) {
+				$claim = ec_validate_link_page_owner_compatibility_claim( $claim, $operation, $context );
+				if ( is_wp_error( $claim ) ) {
+					$errors[] = $claim;
+					continue;
+				}
+				$key = $claim['link_page_id'] . '|' . $claim['owner_reference'];
+				if ( isset( $claims[ $key ] ) ) {
+					$errors[] = new WP_Error( 'duplicate_link_page_owner_claim', 'Multiple compatibility providers returned the same owner claim.' );
+					continue;
+				}
+				$claims[ $key ] = $claim;
+			}
+		}
+
+		return empty( $errors ) ? array_values( $claims ) : $errors[0];
+	} finally {
+		unset( $active_collections[ $collection_key ] );
+	}
+}
+
+/**
+ * Require every compatibility provider to agree with one candidate's owner.
+ *
+ * @param int    $link_page_id   Link Page candidate ID.
+ * @param string $owner_reference Normalized owner reference.
+ * @return true|WP_Error
+ */
+function ec_reconcile_link_page_owner_candidate( $link_page_id, $owner_reference ) {
+	$page_claims = ec_collect_raw_link_page_owner_compatibility_claims(
+		'page_owner',
+		array( 'link_page_id' => $link_page_id )
+	);
+	if ( is_wp_error( $page_claims ) ) {
+		return $page_claims;
+	}
+	foreach ( $page_claims as $page_claim ) {
+		if ( $page_claim['owner_reference'] !== $owner_reference ) {
+			return new WP_Error( 'link_page_owner_divergence', 'Owner compatibility providers disagree about the Link Page owner.' );
 		}
 	}
 
-	return empty( $errors ) ? array_values( $claims ) : $errors[0];
+	return true;
 }
 
 /**
@@ -341,17 +375,9 @@ function ec_collect_link_page_owner_compatibility_claims( $operation, $context )
 	}
 
 	foreach ( $claims as $claim ) {
-		$page_claims = ec_collect_raw_link_page_owner_compatibility_claims(
-			'page_owner',
-			array( 'link_page_id' => $claim['link_page_id'] )
-		);
-		if ( is_wp_error( $page_claims ) ) {
-			return $page_claims;
-		}
-		foreach ( $page_claims as $page_claim ) {
-			if ( $page_claim['owner_reference'] !== $context['owner_reference'] ) {
-				return new WP_Error( 'link_page_owner_divergence', 'Owner compatibility providers disagree about the Link Page owner.' );
-			}
+		$reconciled = ec_reconcile_link_page_owner_candidate( $claim['link_page_id'], $context['owner_reference'] );
+		if ( is_wp_error( $reconciled ) ) {
+			return $reconciled;
 		}
 	}
 
@@ -429,6 +455,12 @@ function ec_get_link_page_id_for_owner( $owner, $allowed_link_pages = array() ) 
 		)
 	);
 	// phpcs:enable WordPress.DB.SlowDBQuery.slow_db_query_meta_key,WordPress.DB.SlowDBQuery.slow_db_query_meta_value
+	foreach ( $link_page_ids as $link_page_id ) {
+		$reconciled = ec_reconcile_link_page_owner_candidate( (int) $link_page_id, $reference );
+		if ( is_wp_error( $reconciled ) ) {
+			return $reconciled;
+		}
+	}
 	$claims = ec_collect_link_page_owner_compatibility_claims( 'owner_pages', array( 'owner_reference' => $reference ) );
 	if ( is_wp_error( $claims ) ) {
 		return $claims;

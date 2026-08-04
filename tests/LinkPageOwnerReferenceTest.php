@@ -5,6 +5,8 @@ use PHPUnit\Framework\TestCase;
 final class LinkPageOwnerReferenceTest extends TestCase {
 	protected function setUp(): void {
 		$this->resetProviders();
+		$GLOBALS['_wp_switched_stack'] = array();
+		$GLOBALS['switched']           = false;
 		$GLOBALS['ec_test'] = array(
 			'current_blog_id' => 4,
 			'blog_stack'      => array(),
@@ -24,7 +26,11 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 	}
 
 	private function resetProviders(): void {
-		$GLOBALS['ec_link_page_owner_compatibility_providers'] = array();
+		$registry   = ec_link_page_owner_compatibility_registry();
+		$reflection = new ReflectionObject( $registry );
+		$providers  = $reflection->getProperty( 'providers' );
+		$providers->setAccessible( true );
+		$providers->setValue( $registry, array() );
 		ec_register_link_page_owner_compatibility_provider( 'artist-platform', 'ec_artist_link_page_owner_compatibility_provider' );
 	}
 
@@ -193,6 +199,37 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 		$this->assertTrue( $GLOBALS['ec_test']['later_provider_called'] );
 	}
 
+	public function test_provider_cannot_mutate_private_registry_storage(): void {
+		$this->addPost( 4, 40, 'artist_link_page', 'legacy' );
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40]['_associated_artist_profile_id'] = 20;
+		ec_register_link_page_owner_compatibility_provider(
+			'registry-tamper',
+			static function () {
+				$GLOBALS['ec_link_page_owner_compatibility_providers'] = array(
+					'injected' => array( 'callback' => 'missing_callback' ),
+				);
+				return array();
+			},
+			5
+		);
+
+		$first  = ec_get_link_page_id_for_owner( $this->postOwner() );
+		$second = ec_get_link_page_id_for_owner( $this->postOwner() );
+
+		$this->assertSame( 40, $first );
+		$this->assertSame( 40, $second );
+		$this->assertCount( 2, ec_link_page_owner_compatibility_registry()->snapshot() );
+	}
+
+	public function test_registry_exposes_no_reset_or_unregister_api(): void {
+		$registry = ec_link_page_owner_compatibility_registry();
+
+		$this->assertFalse( method_exists( $registry, 'reset' ) );
+		$this->assertFalse( method_exists( $registry, 'unregister' ) );
+		$this->assertFalse( function_exists( 'ec_reset_link_page_owner_compatibility_providers' ) );
+		$this->assertFalse( function_exists( 'ec_unregister_link_page_owner_compatibility_provider' ) );
+	}
+
 	public function test_later_provider_cannot_erase_earlier_candidates(): void {
 		$this->addPost( 4, 40, 'artist_link_page', 'first' );
 		$this->addPost( 4, 41, 'artist_link_page', 'second' );
@@ -221,6 +258,89 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 		$result = ec_get_link_page_id_for_owner( $this->postOwner( 20 ) );
 
 		$this->assertSame( 'link_page_owner_divergence', $result->get_error_code() );
+	}
+
+	public function test_owner_pages_claim_must_agree_with_all_page_owner_claims(): void {
+		$this->addPost( 4, 21, 'artist_profile', 'legacy-owner' );
+		$this->addPost( 4, 40, 'artist_link_page', 'uncanonicalized' );
+		$GLOBALS['ec_test']['blogs'][4]['post_meta'][40]['_associated_artist_profile_id'] = 21;
+		ec_register_link_page_owner_compatibility_provider(
+			'one-way-owner',
+			static function ( $operation, $context ) {
+				return 'owner_pages' === $operation
+					? array( array( 'link_page_id' => 40, 'owner_reference' => $context['owner_reference'] ) )
+					: array();
+			}
+		);
+
+		$result = ec_get_link_page_id_for_owner( $this->postOwner( 20 ) );
+
+		$this->assertSame( 'link_page_owner_divergence', $result->get_error_code() );
+	}
+
+	public function test_provider_switch_result_is_validated_after_storage_context_restoration(): void {
+		$this->addPost( 7, 50, 'artist_link_page', 'cross-site' );
+		ec_register_link_page_owner_compatibility_provider(
+			'context-switcher',
+			static function ( $operation, $context ) {
+				if ( 'owner_pages' !== $operation ) {
+					return array();
+				}
+				switch_to_blog( 7 );
+				return array( array( 'link_page_id' => 50, 'owner_reference' => $context['owner_reference'] ) );
+			},
+			5
+		);
+
+		$result = ec_get_link_page_id_for_owner( $this->postOwner() );
+
+		$this->assertSame( 'invalid_link_page_owner_candidate', $result->get_error_code() );
+		$this->assertSame( 4, get_current_blog_id() );
+		$this->assertSame( array(), $GLOBALS['ec_test']['blog_stack'] );
+		$this->assertSame( array(), $GLOBALS['_wp_switched_stack'] );
+		$this->assertFalse( $GLOBALS['switched'] );
+	}
+
+	public function test_provider_switch_exception_restores_storage_context(): void {
+		ec_register_link_page_owner_compatibility_provider(
+			'throwing-switcher',
+			static function () {
+				switch_to_blog( 7 );
+				throw new RuntimeException( 'failed' );
+			},
+			5
+		);
+
+		$result = ec_get_link_page_id_for_owner( $this->postOwner() );
+
+		$this->assertSame( 'link_page_owner_provider_exception', $result->get_error_code() );
+		$this->assertSame( 4, get_current_blog_id() );
+		$this->assertSame( array(), $GLOBALS['ec_test']['blog_stack'] );
+		$this->assertSame( array(), $GLOBALS['_wp_switched_stack'] );
+	}
+
+	public function test_provider_restores_nested_entry_context_exactly(): void {
+		ec_register_link_page_owner_compatibility_provider(
+			'nested-switcher',
+			static function () {
+				switch_to_blog( 4 );
+				return array();
+			},
+			5
+		);
+		switch_to_blog( 7 );
+
+		$result = ec_collect_link_page_owner_compatibility_claims(
+			'owner_pages',
+			array( 'owner_reference' => 'post:4:artist_profile:20' )
+		);
+
+		$this->assertSame( array(), $result );
+		$this->assertSame( 7, get_current_blog_id() );
+		$this->assertSame( array( 4 ), $GLOBALS['ec_test']['blog_stack'] );
+		$this->assertSame( array( 4 ), $GLOBALS['_wp_switched_stack'] );
+		$this->assertTrue( $GLOBALS['switched'] );
+		restore_current_blog();
 	}
 
 	public function test_distinct_page_owner_claims_fail_closed(): void {

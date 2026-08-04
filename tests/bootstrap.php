@@ -144,8 +144,11 @@ function ec_test_blog_store( $type ) {
 }
 
 function switch_to_blog( $blog_id ) {
-	$GLOBALS['ec_test']['blog_stack'][] = $GLOBALS['ec_test']['current_blog_id'] ?? 4;
+	$previous_blog_id = $GLOBALS['ec_test']['current_blog_id'] ?? 4;
+	$GLOBALS['ec_test']['blog_stack'][] = $previous_blog_id;
+	$GLOBALS['_wp_switched_stack'][]    = $previous_blog_id;
 	$GLOBALS['ec_test']['current_blog_id'] = (int) $blog_id;
+	$GLOBALS['switched'] = true;
 	return true;
 }
 
@@ -153,6 +156,10 @@ function restore_current_blog() {
 	if ( ! empty( $GLOBALS['ec_test']['blog_stack'] ) ) {
 		$GLOBALS['ec_test']['current_blog_id'] = array_pop( $GLOBALS['ec_test']['blog_stack'] );
 	}
+	if ( ! empty( $GLOBALS['_wp_switched_stack'] ) ) {
+		array_pop( $GLOBALS['_wp_switched_stack'] );
+	}
+	$GLOBALS['switched'] = ! empty( $GLOBALS['_wp_switched_stack'] );
 	return true;
 }
 

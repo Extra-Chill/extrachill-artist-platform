@@ -30,6 +30,7 @@ export default function useAnalytics( artistId ) {
 		const currentRequest = ++requestId.current;
 
 		if ( ! artistId || ! range ) {
+			setAnalytics( null );
 			setIsLoading( false );
 			setError( null );
 			return undefined;

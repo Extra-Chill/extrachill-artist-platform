@@ -78,7 +78,12 @@ describe( 'useAnalytics', () => {
 		await act( async () => current.selectCustom() );
 
 		expect( getAnalytics ).not.toHaveBeenCalled();
+		expect( current.analytics ).toBeNull();
 		expect( current.isLoading ).toBe( false );
+
+		await act( async () => root.render( <Harness artistId={ 43 } /> ) );
+		expect( getAnalytics ).not.toHaveBeenCalled();
+		expect( current.analytics ).toBeNull();
 	} );
 
 	test( 'prevents stale requests from overwriting the current range', async () => {

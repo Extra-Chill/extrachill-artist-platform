@@ -10,7 +10,7 @@ defined( 'ABSPATH' ) || exit;
 /**
  * Return the function-private operation provider registry.
  *
- * @return object
+ * The anonymous class keeps registry mutation behind its public methods.
  */
 function ec_link_page_operation_provider_registry() {
 	static $registry = null;
@@ -26,9 +26,9 @@ function ec_link_page_operation_provider_registry() {
 			/**
 			 * Register one validated provider.
 			 *
-			 * @param string   $name     Stable provider name.
-			 * @param callable $callback Provider callback.
-			 * @param int      $priority Provider ordering priority.
+			 * @param mixed $name     Stable provider name.
+			 * @param mixed $callback Provider callback.
+			 * @param mixed $priority Provider ordering priority.
 			 * @return true|WP_Error
 			 */
 			public function register( $name, $callback, $priority ) {
@@ -86,7 +86,7 @@ function ec_register_link_page_operation_provider( $name, $callback, $priority =
 /**
  * Resolve a Link Page ID, owner reference, or an exact pair to one target.
  *
- * @param int|string|array $target Link Page ID, owner reference, or target fields.
+ * @param mixed $target Link Page ID, owner reference, or target fields.
  * @return array{link_page_id:int,owner:array,owner_reference:string}|WP_Error
  */
 function ec_resolve_link_page_operation_target( $target ) {
@@ -303,7 +303,7 @@ function ec_read_link_page( $target ) {
  * Save current Link Page data through its owner provider.
  *
  * @param int|string|array $target Operation target.
- * @param array            $data   Prepared save data.
+ * @param mixed            $data   Prepared save data.
  * @return array|WP_Error
  */
 function ec_save_link_page( $target, $data ) {

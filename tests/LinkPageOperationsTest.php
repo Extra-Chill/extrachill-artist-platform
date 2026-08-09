@@ -98,6 +98,14 @@ final class LinkPageOperationsTest extends TestCase {
 		$this->assertEmpty( get_post_meta( 40, '_link_page_bio_text', true ) );
 	}
 
+	public function test_unknown_operation_is_rejected_by_owner_authorization(): void {
+		$this->authorizeOwner();
+
+		$result = ec_prepare_link_page_operation( 40, 'delete' );
+
+		$this->assertSame( 'link_page_operation_forbidden', $result->get_error_code() );
+	}
+
 	/**
 	 * @dataProvider invalidTargetProvider
 	 */
@@ -113,6 +121,12 @@ final class LinkPageOperationsTest extends TestCase {
 
 	public function invalidTargetProvider(): array {
 		return array(
+			'empty target' => array( static function () {}, array(), 'invalid_link_page_operation_target' ),
+			'extra target field' => array(
+				static function () {},
+				array( 'link_page_id' => 40, 'owner_reference' => 'post:4:artist_profile:20', 'artist_id' => 20 ),
+				'invalid_link_page_operation_target',
+			),
 			'malformed' => array( static function () {}, 'post/4/type/20', 'invalid_link_page_owner_reference' ),
 			'missing page' => array( static function () {}, 999, 'invalid_link_page' ),
 			'unavailable owner' => array( static function () {}, 'post:99:type:20', 'invalid_link_page_owner_blog' ),
@@ -175,6 +189,32 @@ final class LinkPageOperationsTest extends TestCase {
 						throw new RuntimeException( 'failed' );
 					},
 					'read'      => static function () { return array(); },
+					'save'      => static function () { return array(); },
+				);
+			}
+		);
+
+		$result = ec_read_link_page( 40 );
+
+		$this->assertSame( 'link_page_operation_provider_exception', $result->get_error_code() );
+		$this->assertSame( 4, get_current_blog_id() );
+		$this->assertSame( array(), $GLOBALS['ec_test']['blog_stack'] );
+		$this->assertSame( array(), $GLOBALS['_wp_switched_stack'] );
+		$this->assertFalse( $GLOBALS['switched'] );
+	}
+
+	public function test_provider_read_exception_restores_context_and_fails_closed(): void {
+		$this->authorizeOwner();
+		$this->resetRegistry( ec_link_page_operation_provider_registry(), 'providers' );
+		ec_register_link_page_operation_provider(
+			'throwing-read',
+			static function () {
+				return array(
+					'authorize' => '__return_true',
+					'read'      => static function () {
+						switch_to_blog( 7 );
+						throw new RuntimeException( 'failed' );
+					},
 					'save'      => static function () { return array(); },
 				);
 			}

@@ -1127,8 +1127,6 @@ require_once dirname( __DIR__ ) . '/inc/abilities/handlers/onboard-external-arti
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-invitation.php';
 require_once dirname( __DIR__ ) . '/inc/link-pages/owner-reference.php';
 require_once dirname( __DIR__ ) . '/inc/link-pages/artist-owner-compatibility.php';
-require_once dirname( __DIR__ ) . '/inc/link-pages/operations.php';
-require_once dirname( __DIR__ ) . '/inc/link-pages/artist-owner-operations.php';
 require_once dirname( __DIR__ ) . '/inc/core/filters/create.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-link-page-links.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/save-link-page-styles.php';

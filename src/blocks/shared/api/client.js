@@ -9,7 +9,14 @@
  * cross-origin and cannot go through the api-client transport.
  */
 
+/**
+ * WordPress dependencies
+ */
 import apiFetch from '@wordpress/api-fetch';
+
+/**
+ * External dependencies
+ */
 import { ExtraChillClient } from '@extrachill/api-client';
 import { WpApiFetchTransport } from '@extrachill/api-client/wordpress';
 
@@ -95,8 +102,8 @@ export const updateSocials = ( artistId, data ) =>
 
 // ─── Analytics ──────────────────────────────────────────────────────────────
 
-export const getAnalytics = ( artistId, dateRange = 30 ) =>
-	client.artists.getAnalytics( artistId, dateRange );
+export const getAnalytics = ( artistId, range = 30 ) =>
+	client.artists.getAnalytics( artistId, range );
 
 // ─── Media ──────────────────────────────────────────────────────────────────
 

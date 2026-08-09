@@ -6,7 +6,6 @@ define( 'ABSPATH', __DIR__ . '/' );
 define( 'OBJECT', 'OBJECT' );
 define( 'MINUTE_IN_SECONDS', 60 );
 define( 'DAY_IN_SECONDS', 86400 );
-define( 'EC_ANALYTICS_EVENT_ARTIST_PROFILE_CREATED', 'artist_profile_created' );
 define( 'EC_LINK_PAGE_POST_TYPE', 'artist_link_page' );
 
 function plugin_dir_path( $file ) {
@@ -133,6 +132,14 @@ function is_wp_error( $value ) {
 	return $value instanceof WP_Error;
 }
 
+function wp_parse_args( $args, $defaults = array() ) {
+	return array_merge( $defaults, $args );
+}
+
+function current_time( $type, $gmt = 0 ) {
+	return 'Y-m-d' === $type ? '2026-08-04' : '2026-08-04 12:00:00';
+}
+
 $GLOBALS['ec_test'] = array(
 	'current_blog_id' => 4,
 	'blog_stack'      => array(),
@@ -179,7 +186,7 @@ function get_current_blog_id() {
 }
 
 function get_site( $blog_id = null ) {
-	$blog_id = $blog_id ?: get_current_blog_id();
+	$blog_id = $blog_id ? $blog_id : get_current_blog_id();
 	if ( ! isset( $GLOBALS['ec_test']['blogs'][ $blog_id ] ) ) {
 		return null;
 	}
@@ -413,7 +420,7 @@ function get_post_status( $post_id ) {
 function get_post_meta( $post_id, $key = '', $single = false ) {
 	$blog_meta = ec_test_blog_store( 'post_meta' );
 	$meta      = $blog_meta[ $post_id ] ?? ( $GLOBALS['ec_test']['meta'][ $post_id ] ?? array() );
-	if ( $key === '' ) {
+	if ( '' === $key ) {
 		return $meta;
 	}
 	$value = $meta[ $key ] ?? ( $single ? '' : array() );
@@ -994,11 +1001,6 @@ function get_userdata( $user_id ) {
 	);
 }
 
-function extrachill_users_entity_subscription_recipients( $producer, $entity_type, $taxonomy, $slug, $delivery ) {
-	$GLOBALS['ec_test']['recipient_resolution_calls'][] = compact( 'producer', 'entity_type', 'taxonomy', 'slug', 'delivery' );
-	return $GLOBALS['ec_test']['entity_subscription_recipients'][ $slug ] ?? array();
-}
-
 function apply_filters( $hook_name, $value, ...$args ) {
 	if ( 'agents_api_execution_principal' === $hook_name ) {
 		return $GLOBALS['ec_test']['execution_principal'] ?? $value;
@@ -1020,6 +1022,10 @@ function apply_filters( $hook_name, $value, ...$args ) {
 		$producer = (string) ( $args[0] ?? '' );
 		return in_array( $producer, $GLOBALS['ec_test']['authorized_local_support_producers'] ?? array(), true );
 	}
+	if ( 'extrachill_get_link_page_analytics' === $hook_name ) {
+		$GLOBALS['ec_test']['analytics_filter_args'][] = $args;
+		return $GLOBALS['ec_test']['analytics_result'] ?? $value;
+	}
 	return $value;
 }
 
@@ -1036,7 +1042,8 @@ function do_action() {
 	return true;
 }
 
-function ec_artist_platform_emit_funnel_event() {
+function ec_artist_platform_emit_funnel_event( ...$args ) {
+	$GLOBALS['ec_test']['funnel_events'][] = $args;
 	return true;
 }
 
@@ -1107,6 +1114,7 @@ require_once dirname( __DIR__ ) . '/inc/core/filters/data.php';
 require_once dirname( __DIR__ ) . '/inc/core/filters/permissions.php';
 require_once dirname( __DIR__ ) . '/inc/core/artist-platform-post-types.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-get.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-public-projections.php';
 require_once dirname( __DIR__ ) . '/inc/local-support/availability.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/helpers.php';
 require_once dirname( __DIR__ ) . '/inc/core/artist-term-binding.php';
@@ -1136,6 +1144,7 @@ require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-list-socials.p
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-create-social.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-update-social.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-delete-social.php';
+require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-subscribe.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-export-subscribers.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-list-subscribers.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-get-analytics.php';

@@ -18,6 +18,13 @@ final class LinkPageRuntimeHandoffTest extends TestCase {
 		return $result;
 	}
 
+	public function test_artist_runtime_requires_exact_composed_mutation_signatures(): void {
+		$signatures = extrachill_artist_platform_link_pages_runtime_signatures();
+
+		$this->assertSame( array( 'total' => 3, 'required' => 3 ), $signatures['ec_save_link_page_persistence_composed'] );
+		$this->assertSame( array( 'total' => 6, 'required' => 4 ), $signatures['ec_provision_owned_link_page_composed'] );
+	}
+
 	public function test_fake_external_runtime_owns_generic_symbols_and_cpt_while_artist_adapter_registers_once(): void {
 		$result = $this->runSmokeFixture( 'link-pages-external-runtime-smoke.php' );
 
@@ -119,8 +126,10 @@ final class LinkPageRuntimeHandoffTest extends TestCase {
 		$result = $this->runSmokeFixture( 'combined-runtime-smoke.php' );
 
 		$this->assertIsInt( $result['created'] );
+		$this->assertSame( array( 'ec_link_page_created', 'ec_owned_link_page_created' ), $result['creation_hooks'] );
 		$this->assertTrue( $result['read_shape'] );
 		$this->assertTrue( $result['saved'] );
+		$this->assertSame( array( 'ec_link_page_save', 'ec_link_page_persistence_saved' ), $result['save_hooks'] );
 		$this->assertTrue( $result['owner_writes_locked'] );
 		$this->assertSame( 'Updated bio', $result['saved_bio'] );
 		$this->assertSame( 'Ability bio', $result['persisted_bio'] );
@@ -158,6 +167,7 @@ final class LinkPageRuntimeHandoffTest extends TestCase {
 		$result = $this->runSmokeFixture( 'combined-runtime-smoke.php', 'force-failure' );
 
 		$this->assertSame( 'link_page_previous_detach_failed', $result['forced'] );
+		$this->assertSame( array(), $result['force_hooks'] );
 		$this->assertSame( $result['created'], $result['force_restored_id'] );
 		$this->assertSame( 'combined-artist', $result['force_restored_slug'] );
 		$this->assertSame( 1, $result['force_new_count'] );
@@ -169,6 +179,7 @@ final class LinkPageRuntimeHandoffTest extends TestCase {
 		$result = $this->runSmokeFixture( 'combined-runtime-smoke.php', 'owner-save-failure' );
 
 		$this->assertSame( 'social_failure', $result['saved'] );
+		$this->assertSame( array(), $result['save_hooks'] );
 		$this->assertSame( '', $result['persisted_bio'] );
 		$this->assertSame( 0, $result['social_count'] );
 		$this->assertSame( 0, $result['final_hook_count'] );

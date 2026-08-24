@@ -117,8 +117,10 @@ function ec_sanitize_link_page_css_vars( $vars, $existing = array() ) { return $
 function ec_sanitize_link_page_settings( $settings ) { return $settings; }
 function ec_read_link_page_persistence( $link_page_id, $overrides = array() ) { return $overrides; }
 function ec_save_link_page_persistence( $link_page_id, $data ) { return $data; }
+function ec_save_link_page_persistence_composed( $link_page_id, $data, $finalizer ) { return call_user_func( $finalizer, $link_page_id, $data ); }
 function ec_create_owned_link_page( $owner, $title, $slug, $force = false ) { return 40; }
 function ec_provision_owned_link_page( $owner, $title, $slug, $force = false, $precondition = null ) { return array( 'link_page_id' => 40, 'created' => true ); }
+function ec_provision_owned_link_page_composed( $owner, $title, $slug, $finalizer, $force = false, $precondition = null ) { $result = call_user_func( $finalizer, 40, $owner ); return is_wp_error( $result ) ? $result : array( 'link_page_id' => 40, 'created' => true ); }
 function ec_invoke_link_page_provision_precondition( $precondition, $owner ) { return true; }
 function ec_create_owned_link_page_unlocked( $owner, $title, $slug, $force = false ) { return 40; }
 function ec_with_link_page_lock_scope( $id, $callback, $scope = 'generic' ) { return call_user_func( $callback ); }

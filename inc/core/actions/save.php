@@ -133,17 +133,6 @@ function ec_handle_link_page_save( $link_page_id, $save_data = array(), $files_d
 
 /** Save generic fields through standalone and retain artist-owned side effects. */
 function ec_handle_external_artist_link_page_save( $link_page_id, $save_data, $files_data = array() ) {
-	return ec_with_link_page_lock_scope(
-		$link_page_id,
-		static function () use ( $link_page_id, $save_data, $files_data ) {
-			return ec_handle_external_artist_link_page_save_locked( $link_page_id, $save_data, $files_data );
-		},
-		'combined'
-	);
-}
-
-/** Execute the complete Artist save while the standalone page lock is held. */
-function ec_handle_external_artist_link_page_save_locked( $link_page_id, $save_data, $files_data = array() ) {
 	$owner = ec_get_link_page_owner( $link_page_id );
 	if ( is_wp_error( $owner ) || 'post' !== ( $owner['kind'] ?? '' ) || 'artist_profile' !== ( $owner['subtype'] ?? '' ) ) {
 		return new WP_Error( 'invalid_artist_link_page_owner', 'The Link Page is not canonically owned by an artist.' );
@@ -152,19 +141,54 @@ function ec_handle_external_artist_link_page_save_locked( $link_page_id, $save_d
 	if ( $artist_id !== (int) get_post_meta( $link_page_id, '_associated_artist_profile_id', true ) ) {
 		return new WP_Error( 'artist_link_page_owner_mismatch', 'The canonical and legacy Link Page owners do not match.' );
 	}
-	$generic_keys = array( 'links', 'css_vars', 'bio', 'link_expiration_enabled', 'redirect_enabled', 'redirect_target_url', 'youtube_embed_enabled', 'meta_pixel_id', 'google_tag_id', 'google_tag_manager_id', 'social_icons_position', 'profile_image_shape', 'background_image_id' );
-	$generic      = array_intersect_key( $save_data, array_flip( $generic_keys ) );
-	$generic_meta = array( '_link_page_links', '_link_page_custom_css_vars', '_link_page_bio_text', '_link_expiration_enabled', '_link_page_redirect_enabled', '_link_page_redirect_target_url', '_enable_youtube_inline_embed', '_link_page_meta_pixel_id', '_link_page_google_tag_id', '_link_page_google_tag_manager_id', '_link_page_social_icons_position', '_link_page_profile_img_shape', '_link_page_background_image_id', '_ec_link_page_next_section_id', '_ec_link_page_next_link_id' );
-	$snapshots    = array();
-	foreach ( array_merge( $generic_meta, array( '_link_page_subscribe_display_mode', '_link_page_subscribe_description' ) ) as $meta_key ) {
-		$snapshots[ $meta_key ] = ec_snapshot_link_page_meta( $link_page_id, $meta_key );
+	$generic_keys            = array( 'links', 'css_vars', 'bio', 'link_expiration_enabled', 'redirect_enabled', 'redirect_target_url', 'youtube_embed_enabled', 'meta_pixel_id', 'google_tag_id', 'google_tag_manager_id', 'social_icons_position', 'profile_image_shape', 'background_image_id' );
+	$generic                 = array_intersect_key( $save_data, array_flip( $generic_keys ) );
+	$artist_files            = $files_data;
+	$new_background_image_id = 0;
+	$old_background_image_id = 0;
+	if ( ! empty( $files_data['link_page_background_image_upload']['tmp_name'] ) ) {
+		unset( $artist_files['link_page_background_image_upload'] );
+		if ( (int) ( $files_data['link_page_background_image_upload']['size'] ?? 0 ) <= 5 * 1024 * 1024 ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
+			require_once ABSPATH . 'wp-admin/includes/image.php';
+			require_once ABSPATH . 'wp-admin/includes/media.php';
+			$uploaded = media_handle_upload( 'link_page_background_image_upload', $link_page_id );
+			if ( is_numeric( $uploaded ) ) {
+				$new_background_image_id       = (int) $uploaded;
+				$old_background_image_id       = (int) get_post_meta( $link_page_id, '_link_page_background_image_id', true );
+				$generic['background_image_id'] = $new_background_image_id;
+			}
+		}
 	}
-	$old_socials  = get_post_meta( $artist_id, '_artist_profile_social_links', true );
-	$old_thumbnail = get_post_thumbnail_id( $artist_id );
-	$result       = ec_save_link_page_persistence( $link_page_id, $generic );
+
+	$result = ec_save_link_page_persistence_composed(
+		$link_page_id,
+		$generic,
+		static function ( $finalized_link_page_id ) use ( $artist_id, $save_data, $artist_files ) {
+			return ec_finalize_external_artist_link_page_save( $finalized_link_page_id, $artist_id, $save_data, $artist_files );
+		}
+	);
 	if ( is_wp_error( $result ) ) {
+		if ( $new_background_image_id ) {
+			wp_delete_attachment( $new_background_image_id, true );
+		}
 		return $result;
 	}
+	if ( $old_background_image_id && $old_background_image_id !== $new_background_image_id ) {
+		do_action( 'ec_delete_old_bg_image', $old_background_image_id );
+	}
+	return true;
+}
+
+/** Persist and compensate only Artist-owned save state inside the runtime lock. */
+function ec_finalize_external_artist_link_page_save( $link_page_id, $artist_id, $save_data, $files_data = array() ) {
+	$snapshots = array();
+	foreach ( array( '_link_page_subscribe_display_mode', '_link_page_subscribe_description', '_link_page_profile_image_id' ) as $meta_key ) {
+		$snapshots[ $meta_key ] = ec_artist_snapshot_owned_meta( $link_page_id, $meta_key );
+	}
+	$old_socials   = get_post_meta( $artist_id, '_artist_profile_social_links', true );
+	$old_thumbnail = get_post_thumbnail_id( $artist_id );
+	$result        = true;
 	foreach ( array( 'subscribe_display_mode' => '_link_page_subscribe_display_mode', 'subscribe_description' => '_link_page_subscribe_description' ) as $key => $meta_key ) {
 		if ( array_key_exists( $key, $save_data ) ) {
 			$value = null === $save_data[ $key ] ? '' : sanitize_text_field( wp_unslash( (string) $save_data[ $key ] ) );
@@ -194,7 +218,7 @@ function ec_handle_external_artist_link_page_save_locked( $link_page_id, $save_d
 		}
 	}
 	if ( is_wp_error( $result ) ) {
-		$restored = ec_restore_link_page_meta_snapshots( $link_page_id, $snapshots );
+		$restored = ec_artist_restore_owned_meta_snapshots( $link_page_id, $snapshots );
 		if ( isset( $save_data['social_icons'] ) ) {
 			$social_restore = extrachill_artist_platform_social_links()->save( $artist_id, is_array( $old_socials ) ? $old_socials : array() );
 			$restored       = ! is_wp_error( $social_restore ) && false !== $social_restore && $restored;

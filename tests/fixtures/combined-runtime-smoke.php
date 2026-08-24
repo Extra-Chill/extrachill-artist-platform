@@ -112,6 +112,7 @@ $GLOBALS['ec_test']['blogs'][4]['posts'][40] = (object) array( 'ID' => 40, 'post
 $GLOBALS['ec_test']['blogs'][4]['post_meta'][40] = array( EC_LINK_PAGE_OWNER_META_KEY => 'post:4:artist_profile:21', '_associated_artist_profile_id' => 21 );
 
 $created = ec_create_link_page( 20 );
+$creation_hooks = array_values( array_map( static function ( $action ) { return $action[0]; }, array_filter( $GLOBALS['ec_test']['fired_actions'], static function ( $action ) { return in_array( $action[0], array( 'ec_link_page_created', 'ec_owned_link_page_created' ), true ); } ) ) );
 $cache_actions_before_save = count( array_filter( $GLOBALS['ec_test']['fired_actions'], static function ( $action ) { return 'extrachill_cache_purge_post' === $action[0]; } ) );
 $GLOBALS['ec_test']['blogs'][1] = array( 'posts' => array(), 'post_meta' => array(), 'terms' => array() );
 $cross_blog_resolution = array();
@@ -133,6 +134,7 @@ if ( in_array( $mode, array( 'owner-save-failure', 'interleaving-failure' ), tru
 	$GLOBALS['fail_social_once'] = true;
 }
 $GLOBALS['record_owner_lock'] = true;
+$save_hook_offset = count( $GLOBALS['ec_test']['fired_actions'] );
 $saved   = is_wp_error( $created ) ? $created : ec_save_link_page(
 	$created,
 	array(
@@ -144,6 +146,8 @@ $saved   = is_wp_error( $created ) ? $created : ec_save_link_page(
 		'profile_image_id'       => 55,
 	)
 );
+$save_actions = array_slice( $GLOBALS['ec_test']['fired_actions'], $save_hook_offset );
+$save_hooks = array_values( array_map( static function ( $action ) { return $action[0]; }, array_filter( $save_actions, static function ( $action ) { return in_array( $action[0], array( 'ec_link_page_save', 'ec_link_page_persistence_saved' ), true ); } ) ) );
 $combined_owner_writes_locked = $GLOBALS['owner_writes_locked'] ?? false;
 unset( $GLOBALS['record_owner_lock'] );
 $contention = array();
@@ -268,7 +272,10 @@ $force_failure = 'force-failure' === ( $argv[1] ?? '' );
 if ( $force_failure ) {
 	$GLOBALS['ec_test']['fail_meta_write_calls'] = array( $GLOBALS['ec_test']['meta_write_calls'] + 5 );
 }
+$force_hook_offset = count( $GLOBALS['ec_test']['fired_actions'] );
 $forced     = is_wp_error( $created ) ? $created : ec_create_link_page( 20, true );
+$force_actions = array_slice( $GLOBALS['ec_test']['fired_actions'], $force_hook_offset );
+$force_hooks = array_values( array_map( static function ( $action ) { return $action[0]; }, array_filter( $force_actions, static function ( $action ) { return in_array( $action[0], array( 'ec_link_page_created', 'ec_owned_link_page_created' ), true ); } ) ) );
 $purges_before_delete = count( array_filter( $GLOBALS['ec_test']['fired_actions'], static function ( $action ) { return 'extrachill_cache_purge_post' === $action[0]; } ) );
 if ( ! is_wp_error( $forced ) ) {
 	ec_purge_link_page_before_delete( $forced );
@@ -280,8 +287,10 @@ $final_hooks = array_values( array_filter( $GLOBALS['ec_test']['fired_actions'],
 echo wp_json_encode(
 	array(
 		'created'             => is_wp_error( $created ) ? $created->get_error_code() : $created,
+		'creation_hooks'      => $creation_hooks,
 		'read_shape'          => is_array( $read ) && isset( $read['artist_id'], $read['settings'], $read['links'] ),
 		'saved'               => is_wp_error( $saved ) ? $saved->get_error_code() : true,
+		'save_hooks'          => $save_hooks,
 		'saved_bio'           => is_array( $saved ) ? $saved['bio'] : '',
 		'persisted_bio'       => is_wp_error( $created ) ? '' : get_post_meta( $created, '_link_page_bio_text', true ),
 		'persisted_after_failed_save' => $persisted_after_failed_save,
@@ -326,6 +335,7 @@ echo wp_json_encode(
 		'head_hook'           => 1 <= count( array_filter( $GLOBALS['ec_test']['fired_actions'], static function ( $action ) { return 'extrachill_artist_link_page_minimal_head' === $action[0] && 20 === $action[1][1]; } ) ),
 		'join_redirect'       => $join_redirect[0] ?? '',
 		'forced'              => is_wp_error( $forced ) ? $forced->get_error_code() : $forced,
+		'force_hooks'         => $force_hooks,
 		'force_restored_id'   => (int) get_post_meta( 20, '_extrch_link_page_id', true ),
 		'force_restored_slug' => get_post_field( 'post_name', $created ),
 		'force_new_count'     => count( get_posts( array( 'post_type' => EC_LINK_PAGE_POST_TYPE, 'post_status' => 'any', 'fields' => 'ids', 'posts_per_page' => -1, 'meta_key' => '_associated_artist_profile_id', 'meta_value' => '20' ) ) ),

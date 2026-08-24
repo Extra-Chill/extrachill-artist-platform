@@ -8,30 +8,6 @@
 defined( 'ABSPATH' ) || exit;
 
 /**
- * Resolve the canonical Link Page storage blog through the platform site map.
- *
- * @param int $blog_id Default storage blog ID.
- * @return int
- */
-function ec_artist_link_page_storage_blog_id( $blog_id ) {
-	$artist_blog_id = function_exists( 'ec_get_blog_id' ) ? (int) ec_get_blog_id( 'artist' ) : 0;
-	return $artist_blog_id > 0 ? $artist_blog_id : $blog_id;
-}
-
-/** Seed canonical storage once before either runtime can initialize or activate. */
-function extrachill_artist_platform_register_link_page_storage() {
-	static $registered = false;
-	if ( ! $registered ) {
-		$blog_id = ec_artist_link_page_storage_blog_id( 0 );
-		if ( $blog_id > 0 && get_site( $blog_id ) && ! (int) get_site_option( 'ec_link_page_storage_blog_id', 0 ) ) {
-			update_site_option( 'ec_link_page_storage_blog_id', $blog_id );
-		}
-		$registered = true;
-	}
-}
-add_action( 'plugins_loaded', 'extrachill_artist_platform_register_link_page_storage', 1 );
-
-/**
  * Return whether WordPress is configured to load the standalone runtime.
  *
  * This reads configuration instead of runtime symbols because Artist Platform
@@ -371,7 +347,6 @@ function extrachill_artist_platform_register_link_page_adapters() {
  * @return true|WP_Error
  */
 function extrachill_artist_platform_boot_link_pages_runtime() {
-	extrachill_artist_platform_register_link_page_storage();
 	if ( ! extrachill_artist_platform_uses_external_link_pages_runtime() ) {
 		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/owner-reference.php';
 		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/operations.php';

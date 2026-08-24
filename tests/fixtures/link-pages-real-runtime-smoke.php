@@ -80,6 +80,13 @@ function restore_current_blog() { $GLOBALS['smoke']['current_blog_id'] = 4; retu
 function is_multisite() { return true; }
 function ec_get_blog_id( $type ) { return 'artist' === $type ? 4 : 0; }
 
+add_filter(
+	'ec_link_page_storage_blog_id',
+	static function () {
+		return 4;
+	}
+);
+
 function do_action( $hook ) {
 	$priorities = $GLOBALS['smoke']['actions'][ $hook ] ?? array();
 	ksort( $priorities );
@@ -131,7 +138,7 @@ if ( in_array( $mode, array( 'activation', 'activation-site' ), true ) ) {
 	$before_boot = function_exists( 'ec_get_link_page_owner' );
 	do_action( 'plugins_loaded' );
 	$after_boot = function_exists( 'ec_get_link_page_owner' );
-	$storage_provider_before_standalone = 4 === (int) get_site_option( 'ec_link_page_storage_blog_id', 0 );
+	$storage_provider_before_standalone = 4 === (int) apply_filters( 'ec_link_page_storage_blog_id', 0 );
 	require_once $standalone . '/extrachill-link-pages.php';
 	$activation_callbacks = array_values( $GLOBALS['smoke']['activation_callbacks'] );
 	call_user_func( $activation_callbacks[0], 'activation' === $mode );

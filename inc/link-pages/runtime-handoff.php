@@ -18,11 +18,14 @@ function ec_artist_link_page_storage_blog_id( $blog_id ) {
 	return $artist_blog_id > 0 ? $artist_blog_id : $blog_id;
 }
 
-/** Register canonical storage before either runtime can initialize or activate. */
+/** Seed canonical storage once before either runtime can initialize or activate. */
 function extrachill_artist_platform_register_link_page_storage() {
 	static $registered = false;
 	if ( ! $registered ) {
-		add_filter( 'ec_link_page_storage_blog_id', 'ec_artist_link_page_storage_blog_id' );
+		$blog_id = ec_artist_link_page_storage_blog_id( 0 );
+		if ( $blog_id > 0 && get_site( $blog_id ) && ! (int) get_site_option( 'ec_link_page_storage_blog_id', 0 ) ) {
+			update_site_option( 'ec_link_page_storage_blog_id', $blog_id );
+		}
 		$registered = true;
 	}
 }
@@ -71,6 +74,7 @@ function extrachill_artist_platform_link_pages_runtime_signatures() {
 			'total'    => 3,
 			'required' => 2,
 		),
+		'ec_can_register_link_page_owner_compatibility_provider' => array( 'total' => 3, 'required' => 2 ),
 		'ec_parse_link_page_owner_reference'               => array(
 			'total'    => 1,
 			'required' => 1,
@@ -147,6 +151,7 @@ function extrachill_artist_platform_link_pages_runtime_signatures() {
 			'total'    => 3,
 			'required' => 2,
 		),
+		'ec_can_register_link_page_operation_provider'     => array( 'total' => 3, 'required' => 2 ),
 		'ec_resolve_link_page_operation_target'            => array(
 			'total'    => 1,
 			'required' => 1,
@@ -207,6 +212,9 @@ function extrachill_artist_platform_link_pages_runtime_signatures() {
 			'total'    => 4,
 			'required' => 3,
 		),
+		'ec_provision_owned_link_page'                     => array( 'total' => 5, 'required' => 3 ),
+		'ec_invoke_link_page_provision_precondition'       => array( 'total' => 2, 'required' => 2 ),
+		'ec_create_owned_link_page_unlocked'               => array( 'total' => 4, 'required' => 3 ),
 		'ec_with_link_page_lock_scope'                     => array(
 			'total'    => 3,
 			'required' => 2,
@@ -219,6 +227,11 @@ function extrachill_artist_platform_link_pages_runtime_signatures() {
 			'total'    => 3,
 			'required' => 2,
 		),
+		'ec_can_register_link_page_public_projection_provider' => array( 'total' => 3, 'required' => 2 ),
+		'ec_sanitize_link_page_public_projection_snapshot' => array( 'total' => 1, 'required' => 1 ),
+		'ec_save_link_page_public_projection_snapshot'     => array( 'total' => 3, 'required' => 3 ),
+		'ec_read_link_page_public_projection_snapshot'     => array( 'total' => 2, 'required' => 1 ),
+		'ec_render_stored_link_page_social_links'          => array( 'total' => 1, 'required' => 1 ),
 		'ec_get_link_page_public_projection'               => array(
 			'total'    => 2,
 			'required' => 1,
@@ -254,7 +267,7 @@ function extrachill_artist_platform_validate_link_pages_runtime() {
 	if ( $external && ! defined( 'EC_LINK_PAGES_RUNTIME_API_VERSION' ) ) {
 		return new WP_Error( 'extrachill_link_pages_runtime_incomplete', 'The configured Extra Chill Link Pages runtime did not declare its API version.' );
 	}
-	if ( $external && '2' !== EC_LINK_PAGES_RUNTIME_API_VERSION ) {
+	if ( $external && '3' !== EC_LINK_PAGES_RUNTIME_API_VERSION ) {
 		return new WP_Error( 'extrachill_link_pages_runtime_incompatible', 'The configured Extra Chill Link Pages runtime API version is not supported.' );
 	}
 	if ( $external ) {
@@ -269,6 +282,7 @@ function extrachill_artist_platform_validate_link_pages_runtime() {
 
 	$signatures = extrachill_artist_platform_link_pages_runtime_signatures();
 	if ( ! $external ) {
+		$signatures = array_diff_key( $signatures, array_flip( array( 'ec_can_register_link_page_owner_compatibility_provider', 'ec_can_register_link_page_operation_provider', 'ec_provision_owned_link_page', 'ec_invoke_link_page_provision_precondition', 'ec_create_owned_link_page_unlocked', 'ec_can_register_link_page_public_projection_provider', 'ec_sanitize_link_page_public_projection_snapshot', 'ec_save_link_page_public_projection_snapshot', 'ec_read_link_page_public_projection_snapshot', 'ec_render_stored_link_page_social_links' ) ) );
 		$signatures = array_slice( $signatures, 0, 27, true );
 	}
 	foreach ( $signatures as $function => $signature ) {

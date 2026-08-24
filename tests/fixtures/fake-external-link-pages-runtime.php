@@ -1,7 +1,7 @@
 <?php
 
 if ( empty( $GLOBALS['smoke']['omit_api_version'] ) ) {
-	define( 'EC_LINK_PAGES_RUNTIME_API_VERSION', $GLOBALS['smoke']['api_version'] ?? '2' );
+	define( 'EC_LINK_PAGES_RUNTIME_API_VERSION', $GLOBALS['smoke']['api_version'] ?? '3' );
 }
 define( 'EC_LINK_PAGE_POST_TYPE', $GLOBALS['smoke']['post_type_constant'] ?? 'artist_link_page' );
 define( 'EC_LINK_PAGE_OWNER_META_KEY', $GLOBALS['smoke']['owner_meta_constant'] ?? '_ec_link_page_owner_reference' );
@@ -17,6 +17,7 @@ function ec_register_link_page_owner_compatibility_provider( $name, $callback, $
 	$GLOBALS['smoke']['owner_providers'][ $name ] = $callback;
 	return true;
 }
+function ec_can_register_link_page_owner_compatibility_provider( $name, $callback, $priority = 10 ) { return true; }
 
 function ec_register_link_page_operation_provider( $name, $callback, $priority = 10 ) {
 	if ( isset( $GLOBALS['smoke']['operation_providers'][ $name ] ) ) {
@@ -25,6 +26,7 @@ function ec_register_link_page_operation_provider( $name, $callback, $priority =
 	$GLOBALS['smoke']['operation_providers'][ $name ] = $callback;
 	return true;
 }
+function ec_can_register_link_page_operation_provider( $name, $callback, $priority = 10 ) { return true; }
 
 function ec_format_link_page_owner_reference( $owner ) {
 	return sprintf( '%s:%d:%s:%d', $owner['kind'], $owner['blog_id'], $owner['subtype'], $owner['object_id'] );
@@ -116,6 +118,9 @@ function ec_sanitize_link_page_settings( $settings ) { return $settings; }
 function ec_read_link_page_persistence( $link_page_id, $overrides = array() ) { return $overrides; }
 function ec_save_link_page_persistence( $link_page_id, $data ) { return $data; }
 function ec_create_owned_link_page( $owner, $title, $slug, $force = false ) { return 40; }
+function ec_provision_owned_link_page( $owner, $title, $slug, $force = false, $precondition = null ) { return array( 'link_page_id' => 40, 'created' => true ); }
+function ec_invoke_link_page_provision_precondition( $precondition, $owner ) { return true; }
+function ec_create_owned_link_page_unlocked( $owner, $title, $slug, $force = false ) { return 40; }
 function ec_with_link_page_lock_scope( $id, $callback, $scope = 'generic' ) { return call_user_func( $callback ); }
 function ec_link_page_public_projection_registry() { return (object) array(); }
 function ec_register_link_page_public_projection_provider( $name, $callback, $priority = 10 ) {
@@ -125,6 +130,11 @@ function ec_register_link_page_public_projection_provider( $name, $callback, $pr
 	$GLOBALS['smoke']['projection_providers'][ $name ] = $callback;
 	return true;
 }
+function ec_can_register_link_page_public_projection_provider( $name, $callback, $priority = 10 ) { return true; }
+function ec_sanitize_link_page_public_projection_snapshot( $projection ) { return $projection; }
+function ec_save_link_page_public_projection_snapshot( $id, $owner, $projection ) { return array(); }
+function ec_read_link_page_public_projection_snapshot( $id, $owner = '' ) { return array(); }
+function ec_render_stored_link_page_social_links( $links ) { return ''; }
 function ec_get_link_page_public_projection( $link_page_id, $request = array() ) { return array(); }
 function ec_render_link_page_public_components( $projection, $slot ) { return ''; }
 function ec_get_link_page_public_url( $link_page_id ) { return 'https://extrachill.link/example/'; }

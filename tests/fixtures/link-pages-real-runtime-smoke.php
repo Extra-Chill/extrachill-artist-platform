@@ -34,6 +34,7 @@ $GLOBALS['smoke'] = array(
 	'flushes'               => 0,
 	'current_blog_id'       => 4,
 	'filters'               => array(),
+	'site_options'          => array(),
 );
 
 function get_option( $name, $default = false ) {
@@ -44,8 +45,9 @@ function get_option( $name, $default = false ) {
 }
 
 function get_site_option( $name, $default = false ) {
-	return $default;
+	return $GLOBALS['smoke']['site_options'][ $name ] ?? $default;
 }
+function update_site_option( $name, $value ) { $GLOBALS['smoke']['site_options'][ $name ] = $value; return true; }
 
 function plugin_dir_path( $file ) {
 	return dirname( $file ) . '/';
@@ -129,7 +131,7 @@ if ( in_array( $mode, array( 'activation', 'activation-site' ), true ) ) {
 	$before_boot = function_exists( 'ec_get_link_page_owner' );
 	do_action( 'plugins_loaded' );
 	$after_boot = function_exists( 'ec_get_link_page_owner' );
-	$storage_provider_before_standalone = has_filter( 'ec_link_page_storage_blog_id' );
+	$storage_provider_before_standalone = 4 === (int) get_site_option( 'ec_link_page_storage_blog_id', 0 );
 	require_once $standalone . '/extrachill-link-pages.php';
 	$activation_callbacks = array_values( $GLOBALS['smoke']['activation_callbacks'] );
 	call_user_func( $activation_callbacks[0], 'activation' === $mode );

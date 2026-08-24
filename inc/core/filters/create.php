@@ -162,6 +162,9 @@ function ec_create_link_page( $artist_id, $force = false ) {
 			);
 		}
 	}
+	if ( extrachill_artist_platform_uses_external_link_pages_runtime() ) {
+		return ec_create_artist_link_page_with_external_runtime( $artist_id, $owner_reference, $link_page_title, $artist_profile_slug, $previous_link_page_id, $force );
+	}
 
 	$new_link_page_id = wp_insert_post(
 		array(
@@ -287,6 +290,70 @@ function ec_create_link_page( $artist_id, $force = false ) {
     do_action( 'ec_link_page_created', $new_link_page_id, $artist_id, $force );
 
 	return $new_link_page_id;
+}
+
+/** Compose standalone provisioning while retaining reciprocal artist metadata. */
+function ec_create_artist_link_page_with_external_runtime( $artist_id, $owner_reference, $title, $slug, $previous_link_page_id, $force ) {
+	$new_link_page_id = ec_create_owned_link_page( $owner_reference, $title, $slug, $force );
+	if ( is_wp_error( $new_link_page_id ) ) {
+		return $new_link_page_id;
+	}
+	if ( (int) $new_link_page_id === (int) $previous_link_page_id ) {
+		return (int) $new_link_page_id;
+	}
+
+	update_post_meta( $new_link_page_id, '_associated_artist_profile_id', $artist_id );
+	update_post_meta( $artist_id, '_extrch_link_page_id', $new_link_page_id );
+	$associated = (int) get_post_meta( $new_link_page_id, '_associated_artist_profile_id', true );
+	$reciprocal = (int) get_post_meta( $artist_id, '_extrch_link_page_id', true );
+	if ( $associated !== (int) $artist_id || $reciprocal !== (int) $new_link_page_id ) {
+		$rollback = ec_rollback_created_link_page( $artist_id, $new_link_page_id, $previous_link_page_id );
+		if ( is_wp_error( $rollback ) ) {
+			return $rollback;
+		}
+		if ( $previous_link_page_id ) {
+			$owner_restored = ec_assign_link_page_owner( $previous_link_page_id, $owner_reference );
+			$slug_restored  = wp_update_post(
+				array(
+					'ID'        => $previous_link_page_id,
+					'post_name' => $slug,
+				),
+				true
+			);
+			$stored = ec_get_stored_link_page_owner_references( $previous_link_page_id );
+			if ( is_wp_error( $owner_restored ) || is_wp_error( $slug_restored ) || array( $owner_reference ) !== $stored || $slug !== get_post_field( 'post_name', $previous_link_page_id ) ) {
+				return new WP_Error( 'link_page_association_compensation_failed', 'Link page association compensation failed. Manual reconciliation is required.', array( 'retryable' => false ) );
+			}
+		}
+		return new WP_Error( 'link_page_association_failed', 'Link page association could not be persisted. No link page was created.', array( 'retryable' => true ) );
+	}
+
+	if ( $force && $previous_link_page_id ) {
+		delete_post_meta( $previous_link_page_id, '_associated_artist_profile_id', $artist_id );
+		if ( $artist_id === (int) get_post_meta( $previous_link_page_id, '_associated_artist_profile_id', true ) ) {
+			$rollback = ec_rollback_created_link_page( $artist_id, $new_link_page_id, $previous_link_page_id );
+			if ( is_wp_error( $rollback ) ) {
+				return $rollback;
+			}
+			$owner_restored = ec_assign_link_page_owner( $previous_link_page_id, $owner_reference );
+			$slug_restored  = wp_update_post(
+				array(
+					'ID'        => $previous_link_page_id,
+					'post_name' => $slug,
+				),
+				true
+			);
+			if ( is_wp_error( $owner_restored ) || is_wp_error( $slug_restored ) || array( $owner_reference ) !== ec_get_stored_link_page_owner_references( $previous_link_page_id ) || $slug !== get_post_field( 'post_name', $previous_link_page_id ) ) {
+				return new WP_Error( 'link_page_association_compensation_failed', 'Link page association compensation failed. Manual reconciliation is required.', array( 'retryable' => false ) );
+			}
+			return new WP_Error( 'link_page_previous_detach_failed', 'The previous link page could not be detached. The original association was restored.', array( 'retryable' => true ) );
+		}
+	}
+	do_action( 'ec_link_page_created', $new_link_page_id, $artist_id, (bool) $force );
+	if ( function_exists( 'ec_purge_link_page_after_mutation' ) ) {
+		ec_purge_link_page_after_mutation( $new_link_page_id );
+	}
+	return (int) $new_link_page_id;
 }
 
 /**

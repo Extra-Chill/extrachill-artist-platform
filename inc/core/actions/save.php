@@ -18,6 +18,9 @@ function ec_handle_link_page_save( $link_page_id, $save_data = array(), $files_d
     if ( ! $link_page_id || get_post_type( $link_page_id ) !== 'artist_link_page' ) {
         return new WP_Error( 'invalid_link_page', 'Invalid link page ID' );
     }
+	if ( extrachill_artist_platform_uses_external_link_pages_runtime() ) {
+		return ec_handle_external_artist_link_page_save( $link_page_id, $save_data, $files_data );
+	}
 
     // Core link page data
     if ( isset( $save_data['links'] ) && is_array( $save_data['links'] ) ) {
@@ -128,6 +131,84 @@ function ec_handle_link_page_save( $link_page_id, $save_data = array(), $files_d
     return true;
 }
 
+/** Save generic fields through standalone and retain artist-owned side effects. */
+function ec_handle_external_artist_link_page_save( $link_page_id, $save_data, $files_data = array() ) {
+	return ec_with_link_page_lock_scope(
+		$link_page_id,
+		static function () use ( $link_page_id, $save_data, $files_data ) {
+			return ec_handle_external_artist_link_page_save_locked( $link_page_id, $save_data, $files_data );
+		},
+		'combined'
+	);
+}
+
+/** Execute the complete Artist save while the standalone page lock is held. */
+function ec_handle_external_artist_link_page_save_locked( $link_page_id, $save_data, $files_data = array() ) {
+	$owner = ec_get_link_page_owner( $link_page_id );
+	if ( is_wp_error( $owner ) || 'post' !== ( $owner['kind'] ?? '' ) || 'artist_profile' !== ( $owner['subtype'] ?? '' ) ) {
+		return new WP_Error( 'invalid_artist_link_page_owner', 'The Link Page is not canonically owned by an artist.' );
+	}
+	$artist_id = (int) $owner['object_id'];
+	if ( $artist_id !== (int) get_post_meta( $link_page_id, '_associated_artist_profile_id', true ) ) {
+		return new WP_Error( 'artist_link_page_owner_mismatch', 'The canonical and legacy Link Page owners do not match.' );
+	}
+	$generic_keys = array( 'links', 'css_vars', 'bio', 'link_expiration_enabled', 'redirect_enabled', 'redirect_target_url', 'youtube_embed_enabled', 'meta_pixel_id', 'google_tag_id', 'google_tag_manager_id', 'social_icons_position', 'profile_image_shape', 'background_image_id' );
+	$generic      = array_intersect_key( $save_data, array_flip( $generic_keys ) );
+	$generic_meta = array( '_link_page_links', '_link_page_custom_css_vars', '_link_page_bio_text', '_link_expiration_enabled', '_link_page_redirect_enabled', '_link_page_redirect_target_url', '_enable_youtube_inline_embed', '_link_page_meta_pixel_id', '_link_page_google_tag_id', '_link_page_google_tag_manager_id', '_link_page_social_icons_position', '_link_page_profile_img_shape', '_link_page_background_image_id', '_ec_link_page_next_section_id', '_ec_link_page_next_link_id' );
+	$snapshots    = array();
+	foreach ( array_merge( $generic_meta, array( '_link_page_subscribe_display_mode', '_link_page_subscribe_description' ) ) as $meta_key ) {
+		$snapshots[ $meta_key ] = ec_snapshot_link_page_meta( $link_page_id, $meta_key );
+	}
+	$old_socials  = get_post_meta( $artist_id, '_artist_profile_social_links', true );
+	$old_thumbnail = get_post_thumbnail_id( $artist_id );
+	$result       = ec_save_link_page_persistence( $link_page_id, $generic );
+	if ( is_wp_error( $result ) ) {
+		return $result;
+	}
+	foreach ( array( 'subscribe_display_mode' => '_link_page_subscribe_display_mode', 'subscribe_description' => '_link_page_subscribe_description' ) as $key => $meta_key ) {
+		if ( array_key_exists( $key, $save_data ) ) {
+			$value = null === $save_data[ $key ] ? '' : sanitize_text_field( wp_unslash( (string) $save_data[ $key ] ) );
+			if ( ! ec_write_link_page_meta( $link_page_id, $meta_key, $value, '' === $value ) ) {
+				$result = new WP_Error( 'artist_link_page_save_failed', 'Artist subscription settings could not be persisted.' );
+				break;
+			}
+		}
+	}
+	if ( ! is_wp_error( $result ) && isset( $save_data['social_icons'] ) && is_array( $save_data['social_icons'] ) ) {
+		$social_result = extrachill_artist_platform_social_links()->save( $artist_id, $save_data['social_icons'] );
+		if ( is_wp_error( $social_result ) || false === $social_result ) {
+			$result = is_wp_error( $social_result ) ? $social_result : new WP_Error( 'artist_social_save_failed', 'Artist social links could not be persisted.' );
+		}
+	}
+	if ( ! is_wp_error( $result ) && array_key_exists( 'profile_image_id', $save_data ) ) {
+		$image_id = absint( $save_data['profile_image_id'] );
+		$updated  = $image_id ? set_post_thumbnail( $artist_id, $image_id ) : delete_post_thumbnail( $artist_id );
+		if ( false === $updated && (int) get_post_thumbnail_id( $artist_id ) !== $image_id ) {
+			$result = new WP_Error( 'artist_profile_image_save_failed', 'The artist profile image could not be synchronized.' );
+		}
+	}
+	if ( ! is_wp_error( $result ) && ( ! empty( $files_data ) || isset( $save_data['remove_profile_image'] ) ) ) {
+		$upload_error = ec_handle_link_page_file_uploads( $link_page_id, $files_data, $save_data );
+		if ( $upload_error ) {
+			$result = new WP_Error( 'upload_error', 'File upload error', array( 'error_code' => $upload_error ) );
+		}
+	}
+	if ( is_wp_error( $result ) ) {
+		$restored = ec_restore_link_page_meta_snapshots( $link_page_id, $snapshots );
+		if ( isset( $save_data['social_icons'] ) ) {
+			$social_restore = extrachill_artist_platform_social_links()->save( $artist_id, is_array( $old_socials ) ? $old_socials : array() );
+			$restored       = ! is_wp_error( $social_restore ) && false !== $social_restore && $restored;
+		}
+		if ( array_key_exists( 'profile_image_id', $save_data ) || ! empty( $files_data ) || isset( $save_data['remove_profile_image'] ) ) {
+			$thumbnail_restored = $old_thumbnail ? set_post_thumbnail( $artist_id, $old_thumbnail ) : delete_post_thumbnail( $artist_id );
+			$restored           = ( false !== $thumbnail_restored || (int) get_post_thumbnail_id( $artist_id ) === (int) $old_thumbnail ) && $restored;
+		}
+		return $restored ? $result : new WP_Error( 'artist_link_page_save_compensation_failed', 'The failed artist Link Page save could not be compensated.', array( 'cause' => $result->get_error_code() ) );
+	}
+	do_action( 'ec_link_page_save', $link_page_id );
+	return true;
+}
+
 /**
  * Link page save completion handler
  * 
@@ -151,6 +232,7 @@ add_action( 'ec_link_page_save', 'ec_handle_link_page_save_completion', 10, 1 );
  * @param int $link_page_id The link page post ID.
  * @return string[] Public link page URLs.
  */
+if ( ! extrachill_artist_platform_uses_external_link_pages_runtime() ) {
 function ec_get_link_page_public_urls( $link_page_id ) {
     if ( ! $link_page_id || get_post_type( $link_page_id ) !== 'artist_link_page' ) {
         return array();
@@ -222,6 +304,7 @@ function ec_purge_link_page_cache( $link_page_id ) {
     do_action( 'ec_link_page_cache_purged', $link_page_id, $urls );
 }
 add_action( 'ec_link_page_save', 'ec_purge_link_page_cache', 20, 1 );
+}
 
 
 /**
@@ -298,7 +381,7 @@ function ec_process_link_form_fields( $post_data ) {
                 $link_data = array(
                     'link_text' => $link_text,
                     'link_url' => $link_url,
-                    'id' => isset( $link_ids[$section_idx][$link_idx] ) ? sanitize_text_field( $link_ids[$section_idx][$link_idx] ) : 'link_' . time() . '_' . wp_rand()
+                    'id' => isset( $link_ids[$section_idx][$link_idx] ) ? sanitize_text_field( $link_ids[$section_idx][$link_idx] ) : ( extrachill_artist_platform_uses_external_link_pages_runtime() ? '' : 'link_' . time() . '_' . wp_rand() )
                 );
                 
                 // Add expiration if available
@@ -650,8 +733,8 @@ function ec_prepare_artist_profile_save_data( $post_data ) {
  */
 function ec_admin_post_save_link_page() {
     // Verify nonce
-    if ( ! isset( $_POST['ec_save_link_page_nonce'] ) ||
-         ! wp_verify_nonce( $_POST['ec_save_link_page_nonce'], 'ec_save_link_page_action' ) ) {
+	if ( ! isset( $_POST['ec_save_link_page_nonce'] ) ||
+		 ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ec_save_link_page_nonce'] ) ), 'ec_save_link_page_action' ) ) {
         wp_die( __( 'Security check failed.', 'extrachill-artist-platform' ) );
     }
     
@@ -661,17 +744,20 @@ function ec_admin_post_save_link_page() {
     }
     
     // Get link page and artist IDs directly from form data
-    $link_page_id = absint($_POST['link_page_id']);
-    $artist_id = absint($_POST['artist_id']);
+	$link_page_id = isset( $_POST['link_page_id'] ) ? absint( $_POST['link_page_id'] ) : 0;
+	$artist_id    = isset( $_POST['artist_id'] ) ? absint( $_POST['artist_id'] ) : 0;
     
     if ( ! $link_page_id || get_post_type( $link_page_id ) !== 'artist_link_page' ) {
         wp_die( __( 'Invalid link page.', 'extrachill-artist-platform' ) );
     }
     
     // Check user permissions
-    if ( ! ec_can_manage_artist( get_current_user_id(), $artist_id ) ) {
+	if ( ! ec_can_manage_artist( get_current_user_id(), $artist_id ) ) {
         wp_die( __( 'Permission denied: You do not have access to manage this artist.', 'extrachill-artist-platform' ) );
-    }
+	}
+	if ( ! function_exists( 'extrachill_artist_platform_ability_link_page_belongs_to_artist' ) || ! extrachill_artist_platform_ability_link_page_belongs_to_artist( $artist_id, $link_page_id ) ) {
+		wp_die( __( 'Permission denied: This Link Page does not belong to the submitted artist.', 'extrachill-artist-platform' ) );
+	}
     
     // Prepare and save data using centralized functions
     $save_data = ec_prepare_link_page_save_data( $_POST );

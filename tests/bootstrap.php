@@ -313,6 +313,10 @@ function get_current_user_id() {
 	return $GLOBALS['ec_test']['current_user_id'] ?? 0;
 }
 
+function home_url( $path = '' ) {
+	return 'https://artist.extrachill.com' . $path;
+}
+
 function current_user_can( $capability ) {
 	return ! empty( $GLOBALS['ec_test']['capabilities'][ $capability ] );
 }
@@ -330,8 +334,8 @@ function map_meta_cap( $capability, $user_id, ...$args ) {
 	return $GLOBALS['ec_test']['mapped_caps'][ $capability ][ $object_id ] ?? array( $capability );
 }
 
-function ec_get_artists_for_user( $user_id ) {
-	$user_id    = (int) $user_id;
+function ec_get_artists_for_user( $user_id = null ) {
+	$user_id    = null === $user_id ? get_current_user_id() : (int) $user_id;
 	$artist_ids = get_user_meta( $user_id, '_artist_profile_ids', true );
 	if ( ! is_array( $artist_ids ) ) {
 		return array();
@@ -346,6 +350,33 @@ function ec_get_artists_for_user( $user_id ) {
 	}
 
 	return $artists;
+}
+
+function ec_can_create_artist_profiles( $user_id = null ) {
+	$user_id = null === $user_id ? get_current_user_id() : (int) $user_id;
+	return 0 < $user_id && empty( $GLOBALS['ec_test']['cannot_create_artist'][ $user_id ] );
+}
+
+function ec_get_latest_artist_for_user( $user_id = null ) {
+	$artists = ec_get_artists_for_user( $user_id );
+	return empty( $artists ) ? 0 : (int) reset( $artists );
+}
+
+function ec_get_link_page_count_for_user( $user_id = null ) {
+	$artist_ids = ec_get_artists_for_user( $user_id );
+	if ( empty( $artist_ids ) ) {
+		return 0;
+	}
+
+	return count(
+		array_filter(
+			ec_test_blog_store( 'posts' ),
+			static function ( $post ) use ( $artist_ids ) {
+				$owner_id = (int) get_post_meta( $post->ID, '_associated_artist_profile_id', true );
+				return 'artist_link_page' === $post->post_type && in_array( $owner_id, $artist_ids, true );
+			}
+		)
+	);
 }
 
 function did_action( $hook_name ) {

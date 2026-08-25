@@ -24,12 +24,12 @@ function ec_artist_platform_secondary_header_items( $items ) {
 		return $items;
 	}
 
-	$user_artists  = ec_get_artists_for_user( $user_id );
-	$artist_count  = count( $user_artists );
+	$user_artists = ec_get_artists_for_user( $user_id ); // @phpstan-ignore arguments.count (Network Users runtime accepts an optional user ID.)
+	$artist_count = count( $user_artists );
 
 	// Artist Profile Link (priority 10)
 	if ( $artist_count > 0 ) {
-		$artist_label = $artist_count === 1
+		$artist_label = 1 === $artist_count
 			? __( 'Manage Artist', 'extrachill-artist-platform' )
 			: __( 'Manage Artists', 'extrachill-artist-platform' );
 
@@ -52,9 +52,9 @@ function ec_artist_platform_secondary_header_items( $items ) {
 		$link_page_count  = ec_get_link_page_count_for_user( $user_id );
 		$link_page_url    = home_url( '/manage-link-page/' );
 
-		if ( $link_page_count === 0 ) {
+		if ( 0 === $link_page_count ) {
 			$link_page_label = __( 'Create Link Page', 'extrachill-artist-platform' );
-		} elseif ( $link_page_count === 1 ) {
+		} elseif ( 1 === $link_page_count ) {
 			$link_page_label = __( 'Manage Link Page', 'extrachill-artist-platform' );
 		} else {
 			$link_page_label = __( 'Manage Link Pages', 'extrachill-artist-platform' );
@@ -74,7 +74,6 @@ function ec_artist_platform_secondary_header_items( $items ) {
 				'priority' => 40,
 			);
 		}
-
 	}
 
 	// Shop Link (priority 30).
@@ -96,3 +95,48 @@ function ec_artist_platform_secondary_header_items( $items ) {
 	return $items;
 }
 add_filter( 'extrachill_secondary_header_items', 'ec_artist_platform_secondary_header_items' );
+
+/**
+ * Contribute Artist workspace destinations to the shared account menu.
+ *
+ * @param array $items   Existing domain menu items.
+ * @param int   $user_id User ID.
+ * @return array
+ */
+function ec_artist_platform_avatar_menu_items( array $items, int $user_id ): array {
+	if ( ! function_exists( 'ec_get_artists_for_user' ) ) {
+		return $items;
+	}
+
+	$artist_count = count( ec_get_artists_for_user( $user_id ) ); // @phpstan-ignore arguments.count (Network Users runtime accepts an optional user ID.)
+	if ( 0 === $artist_count ) {
+		return $items;
+	}
+
+	$items[] = array(
+		'id'       => 'manage_artists',
+		'label'    => 1 === $artist_count
+			? __( 'Manage Artist', 'extrachill-artist-platform' )
+			: __( 'Manage Artists', 'extrachill-artist-platform' ),
+		'url'      => home_url( '/manage-artist/' ),
+		'priority' => 30,
+	);
+
+	if ( function_exists( 'ec_can_manage_shop' ) && ec_can_manage_shop( $user_id ) ) {
+		$product_count = function_exists( 'ec_get_shop_product_count_for_user' )
+			? ec_get_shop_product_count_for_user( $user_id )
+			: 0;
+
+		$items[] = array(
+			'id'       => 'manage_shop',
+			'label'    => $product_count > 0
+				? __( 'Manage Shop', 'extrachill-artist-platform' )
+				: __( 'Create Shop', 'extrachill-artist-platform' ),
+			'url'      => home_url( '/manage-shop/' ),
+			'priority' => 50,
+		);
+	}
+
+	return $items;
+}
+add_filter( 'ec_avatar_menu_items', 'ec_artist_platform_avatar_menu_items', 10, 2 );

@@ -311,6 +311,7 @@ function extrachill_artist_platform_register_link_page_adapters() {
 
 	require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/artist-owner-compatibility.php';
 	require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/artist-owner-operations.php';
+	require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/storage-migration.php';
 	if ( extrachill_artist_platform_uses_external_link_pages_runtime() ) {
 		require_once EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'inc/link-pages/artist-public-runtime-adapter.php';
 	}
@@ -328,6 +329,10 @@ function extrachill_artist_platform_register_link_page_adapters() {
 	$operation_result = ec_register_link_page_operation_provider( 'artist-platform', 'ec_artist_link_page_operation_provider' );
 	if ( is_wp_error( $operation_result ) ) {
 		return $operation_result;
+	}
+	$migration_result = ec_artist_register_link_page_migration_adapter();
+	if ( is_wp_error( $migration_result ) ) {
+		return $migration_result;
 	}
 	if ( extrachill_artist_platform_uses_external_link_pages_runtime() ) {
 		$projection_result = ec_register_link_page_public_projection_provider( 'artist-platform', 'ec_artist_link_page_public_projection_provider' );

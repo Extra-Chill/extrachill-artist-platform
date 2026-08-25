@@ -5,6 +5,7 @@ import {
 	updateArtist,
 	updateLinks,
 	updateSocials,
+	deleteMedia,
 } from '../../src/blocks/shared/api/client';
 import { adapter } from '../../src/blocks/link-page-editor/adapter';
 
@@ -54,6 +55,7 @@ describe( 'shared editor Artist adapter', () => {
 	it( 'keeps unrelated resources untouched for page and social saves', async () => {
 		await adapter.save( 7, draft, { dirtyAreas: [ 'links' ] } );
 		expect( updateLinks ).toHaveBeenCalledTimes( 1 );
+		expect( updateLinks ).toHaveBeenCalledWith( 7, { links: [] } );
 		expect( updateArtist ).not.toHaveBeenCalled();
 		expect( updateSocials ).not.toHaveBeenCalled();
 
@@ -62,5 +64,24 @@ describe( 'shared editor Artist adapter', () => {
 		expect( updateSocials ).toHaveBeenCalledTimes( 1 );
 		expect( updateArtist ).not.toHaveBeenCalled();
 		expect( updateLinks ).not.toHaveBeenCalled();
+	} );
+
+	it( 'omits unrelated Link Page fields from bio-only saves', async () => {
+		await adapter.save( 7, draft, { dirtyAreas: [ 'bio' ] } );
+		expect( updateLinks ).toHaveBeenCalledWith( 7, { bio: '' } );
+		expect( updateLinks.mock.calls[ 0 ][ 1 ] ).not.toHaveProperty(
+			'links'
+		);
+		expect( updateLinks.mock.calls[ 0 ][ 1 ] ).not.toHaveProperty(
+			'css_vars'
+		);
+		expect( updateLinks.mock.calls[ 0 ][ 1 ] ).not.toHaveProperty(
+			'settings'
+		);
+	} );
+
+	it( 'deletes background media before clearing its attachment id', async () => {
+		await adapter.upload( 'background-remove', 7, null );
+		expect( deleteMedia ).toHaveBeenCalledWith( 'link_page_background', 7 );
 	} );
 } );

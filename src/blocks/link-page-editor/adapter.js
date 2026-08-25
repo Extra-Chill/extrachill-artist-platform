@@ -40,14 +40,23 @@ const save = async ( artistId, draft, { dirtyAreas = [] } = {} ) => {
 			dirty.has( area )
 		)
 	) {
-		tasks.push(
-			updateLinks( artistId, {
-				links: draft.page.links,
-				settings: { ...draft.page.settings, bio: draft.page.bio },
-				css_vars: draft.page.styles,
-				background_image_id: draft.page.backgroundImageId,
-			} )
-		);
+		const pageChanges = {};
+		if ( dirty.has( 'links' ) ) {
+			pageChanges.links = draft.page.links;
+		}
+		if ( dirty.has( 'styles' ) ) {
+			pageChanges.css_vars = draft.page.styles;
+		}
+		if ( dirty.has( 'settings' ) ) {
+			pageChanges.settings = draft.page.settings;
+		}
+		if ( dirty.has( 'bio' ) ) {
+			pageChanges.bio = draft.page.bio;
+		}
+		if ( dirty.has( 'background' ) ) {
+			pageChanges.background_image_id = draft.page.backgroundImageId;
+		}
+		tasks.push( updateLinks( artistId, pageChanges ) );
 	}
 	if ( dirty.has( 'socials' ) ) {
 		tasks.push(
@@ -133,6 +142,38 @@ const SocialsPanel = ( { draft, change, configuration } ) =>
 					'button',
 					{
 						type: 'button',
+						disabled: 0 === index,
+						onClick: () => {
+							const items = [ ...draft.socials ];
+							[ items[ index - 1 ], items[ index ] ] = [
+								items[ index ],
+								items[ index - 1 ],
+							];
+							change( { socials: items } );
+						},
+					},
+					'Move Up'
+				),
+				createElement(
+					'button',
+					{
+						type: 'button',
+						disabled: index === draft.socials.length - 1,
+						onClick: () => {
+							const items = [ ...draft.socials ];
+							[ items[ index ], items[ index + 1 ] ] = [
+								items[ index + 1 ],
+								items[ index ],
+							];
+							change( { socials: items } );
+						},
+					},
+					'Move Down'
+				),
+				createElement(
+					'button',
+					{
+						type: 'button',
 						'aria-label': 'Remove social link',
 						onClick: () =>
 							change( {
@@ -186,6 +227,9 @@ export const adapter = {
 	upload: ( type, artistId, file ) => {
 		if ( 'profile-remove' === type ) {
 			return deleteMedia( 'artist_profile', artistId );
+		}
+		if ( 'background-remove' === type ) {
+			return deleteMedia( 'link_page_background', artistId );
 		}
 		return uploadMedia(
 			type === 'background' ? 'link_page_background' : 'artist_profile',

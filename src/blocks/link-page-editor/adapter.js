@@ -24,24 +24,41 @@ const read = async ( artistId ) => {
 	};
 };
 
-const save = async ( artistId, draft ) => {
-	await Promise.all( [
-		updateArtist( artistId, {
-			name: draft.identity.name,
-			profile_image_id: draft.identity.imageId,
-		} ),
-		updateLinks( artistId, {
-			links: draft.page.links,
-			settings: { ...draft.page.settings, bio: draft.page.bio },
-			css_vars: draft.page.styles,
-			background_image_id: draft.page.backgroundImageId,
-		} ),
-		updateSocials( artistId, { social_links: draft.socials } ),
-	] );
+const save = async ( artistId, draft, { dirtyAreas = [] } = {} ) => {
+	const dirty = new Set( dirtyAreas );
+	const tasks = [];
+	if ( dirty.has( 'identity' ) ) {
+		tasks.push(
+			updateArtist( artistId, {
+				name: draft.identity.name,
+				profile_image_id: draft.identity.imageId,
+			} )
+		);
+	}
+	if (
+		[ 'bio', 'links', 'styles', 'settings', 'background' ].some( ( area ) =>
+			dirty.has( area )
+		)
+	) {
+		tasks.push(
+			updateLinks( artistId, {
+				links: draft.page.links,
+				settings: { ...draft.page.settings, bio: draft.page.bio },
+				css_vars: draft.page.styles,
+				background_image_id: draft.page.backgroundImageId,
+			} )
+		);
+	}
+	if ( dirty.has( 'socials' ) ) {
+		tasks.push(
+			updateSocials( artistId, { social_links: draft.socials } )
+		);
+	}
+	await Promise.all( tasks );
 	return read( artistId );
 };
 
-const InfoPanel = ( { draft, change, identityId } ) =>
+const InfoPanel = ( { draft, runUpload } ) =>
 	createElement(
 		'label',
 		null,
@@ -54,18 +71,19 @@ const InfoPanel = ( { draft, change, identityId } ) =>
 				if ( ! file ) {
 					return;
 				}
-				const result = await uploadMedia(
-					'artist_profile',
-					identityId,
-					file
+				await runUpload(
+					'profile',
+					file,
+					( current, result ) => ( {
+						...current,
+						identity: {
+							...current.identity,
+							imageId: result.attachment_id,
+							imageUrl: result.url,
+						},
+					} ),
+					'identity'
 				);
-				change( {
-					identity: {
-						...draft.identity,
-						imageId: result.attachment_id,
-						imageUrl: result.url,
-					},
-				} );
 			},
 		} ),
 		draft.identity.imageUrl &&
@@ -74,16 +92,20 @@ const InfoPanel = ( { draft, change, identityId } ) =>
 				{
 					type: 'button',
 					className: 'button-2',
-					onClick: async () => {
-						await deleteMedia( 'artist_profile', identityId );
-						change( {
-							identity: {
-								...draft.identity,
-								imageId: 0,
-								imageUrl: '',
-							},
-						} );
-					},
+					onClick: () =>
+						runUpload(
+							'profile-remove',
+							null,
+							( current ) => ( {
+								...current,
+								identity: {
+									...current.identity,
+									imageId: 0,
+									imageUrl: '',
+								},
+							} ),
+							'identity'
+						),
 				},
 				'Remove image'
 			)
@@ -158,18 +180,35 @@ const SocialsPanel = ( { draft, change, configuration } ) =>
 		)
 	);
 
-window.ecLinkPageEditorAdapters = window.ecLinkPageEditorAdapters || {};
-window.ecLinkPageEditorAdapters[ 'extrachill-artist-platform' ] = {
+export const adapter = {
 	read,
 	save,
-	upload: ( type, artistId, file ) =>
-		uploadMedia(
-			type === 'background' ? 'link_page_background' : type,
+	upload: ( type, artistId, file ) => {
+		if ( 'profile-remove' === type ) {
+			return deleteMedia( 'artist_profile', artistId );
+		}
+		return uploadMedia(
+			type === 'background' ? 'link_page_background' : 'artist_profile',
 			artistId,
 			file
-		),
+		);
+	},
 	infoPanel: ( props ) => createElement( InfoPanel, props ),
 	socialsPanel: ( props ) => createElement( SocialsPanel, props ),
 	qrCode: async ( url, size ) =>
 		( await generateQRCode( url, size ) ).image_url,
 };
+
+if ( window.ExtraChillLinkPageEditor?.registerAdapter ) {
+	window.ExtraChillLinkPageEditor.registerAdapter(
+		'extrachill-artist-platform',
+		adapter
+	);
+} else {
+	window.ecLinkPageEditorPendingAdapters =
+		window.ecLinkPageEditorPendingAdapters || [];
+	window.ecLinkPageEditorPendingAdapters.push( [
+		'extrachill-artist-platform',
+		adapter,
+	] );
+}

@@ -10,9 +10,7 @@ describe( 'portable Link Page editor adapter', () => {
 			),
 			'utf8'
 		);
-		expect( source ).toMatch(
-			/window\.ecLinkPageEditorAdapters\[\s*["']extrachill-artist-platform["']\s*\]/
-		);
+		expect( source ).toContain( 'registerAdapter' );
 		expect( source ).toContain( 'updateArtist' );
 		expect( source ).toContain( 'updateLinks' );
 		expect( source ).toContain( 'updateSocials' );

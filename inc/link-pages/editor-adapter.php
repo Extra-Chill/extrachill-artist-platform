@@ -44,6 +44,12 @@ function extrachill_artist_link_page_editor_configuration( $configuration ) {
 	);
 	$initial = $identities[0]['id'];
 	$fonts   = class_exists( 'ExtraChillArtistPlatform_Fonts' ) ? ExtraChillArtistPlatform_Fonts::instance()->get_supported_fonts() : array();
+	$local_fonts_css = class_exists( 'ExtraChillArtistPlatform_Fonts' ) ? ExtraChillArtistPlatform_Fonts::instance()->get_local_fonts_css(
+		array(
+			ExtraChillArtistPlatform_Fonts::DEFAULT_TITLE_FONT,
+			ExtraChillArtistPlatform_Fonts::DEFAULT_BODY_FONT,
+		)
+	) : '';
 	$social_types = array();
 	if ( function_exists( 'extrachill_artist_platform_social_links' ) ) {
 		foreach ( extrachill_artist_platform_social_links()->get_supported_types() as $type => $details ) {
@@ -66,6 +72,16 @@ function extrachill_artist_link_page_editor_configuration( $configuration ) {
 		'initialIdentity' => $initial,
 		'managementUrl'   => site_url( '/manage-link-page/' ),
 		'fonts'           => $fonts,
+		'localFontsCss'   => $local_fonts_css,
 		'socialTypes'     => $social_types,
+		'limits'          => array(
+			'sections'          => 10,
+			'linksPerSection'    => 25,
+			'sectionTitleLength' => 200,
+			'linkTextLength'     => 200,
+			'urlLength'          => 2048,
+			'bioLength'          => 5000,
+			'displayNameLength'  => 200,
+		),
 	);
 }

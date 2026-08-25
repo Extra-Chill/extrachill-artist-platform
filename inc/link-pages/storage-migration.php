@@ -28,11 +28,12 @@ function ec_artist_link_page_migration_plan( $context ) {
 	$artist_blog_id = function_exists( 'ec_get_blog_id' ) ? (int) ec_get_blog_id( 'artist' ) : $source_blog_id;
 	if ( $source_blog_id !== $artist_blog_id ) {
 		return new WP_Error( 'artist_link_page_migration_source_mismatch', 'Artist-owned Link Pages must be inventoried on the Artist owner blog.' ); }
-	$rows          = array();
-	$attachments   = array();
-	$source_before = get_current_blog_id();
-	if ( get_current_blog_id() !== $source_blog_id && ! switch_to_blog( $source_blog_id ) ) {
-		return new WP_Error( 'artist_link_page_migration_context_failed', 'The source Link Page context is unavailable.' );
+	$rows              = array();
+	$attachments       = array();
+	$attachment_owners = array();
+	$source_before     = get_current_blog_id();
+	if ( get_current_blog_id() !== $source_blog_id ) {
+		switch_to_blog( $source_blog_id );
 	}
 	try {
 		foreach ( $context['link_page_ids'] as $link_page_id ) {
@@ -46,45 +47,41 @@ function ec_artist_link_page_migration_plan( $context ) {
 				return new WP_Error( 'artist_link_page_migration_owner_mismatch', 'Legacy and canonical Link Page ownership disagree.', array( 'link_page_id' => $link_page_id ) );
 			}
 			$legacy_profile_image = (int) get_post_meta( $link_page_id, '_link_page_profile_image_id', true );
-			if ( $legacy_profile_image ) {
-				$attachments[] = $legacy_profile_image; }
-			$background_image = (int) get_post_meta( $link_page_id, '_link_page_background_image_id', true );
-			if ( $background_image ) {
-				$attachments[] = $background_image; }
-			$switched = get_current_blog_id() !== $artist_blog_id;
-			if ( $switched && ! switch_to_blog( $artist_blog_id ) ) {
-				return new WP_Error( 'artist_link_page_migration_context_failed', 'The profile context is unavailable.' ); }
-			try {
-				$profile         = get_post( $artist_id );
-				$reciprocal_rows = get_post_meta( $artist_id, '_extrch_link_page_id', false );
-				// phpcs:disable WordPress.DB.SlowDBQuery -- Exact reciprocal uniqueness audit.
-				$other_profiles = get_posts(
+			$background_image     = (int) get_post_meta( $link_page_id, '_link_page_background_image_id', true );
+			$profile         = get_post( $artist_id );
+			$reciprocal_rows = get_post_meta( $artist_id, '_extrch_link_page_id', false );
+			// phpcs:disable WordPress.DB.SlowDBQuery -- Exact reciprocal uniqueness audit.
+			$other_profiles = get_posts(
+				array(
+					'post_type'      => 'artist_profile',
+					'post_status'    => 'any',
+					'meta_key'       => '_extrch_link_page_id',
+					'meta_value'     => (string) $link_page_id,
+					'posts_per_page' => -1,
+					'fields'         => 'ids',
+				)
+			);
+			// phpcs:enable WordPress.DB.SlowDBQuery
+			if ( ! $profile || 'artist_profile' !== $profile->post_type || 1 !== count( $reciprocal_rows ) || (int) $reciprocal_rows[0] !== $link_page_id || array_map( 'intval', $other_profiles ) !== array( $artist_id ) ) {
+				return new WP_Error(
+					'artist_link_page_migration_reciprocal_mismatch',
+					'An owner profile has a stale or ambiguous reciprocal pointer.',
 					array(
-						'post_type'      => 'artist_profile',
-						'post_status'    => 'any',
-						'meta_key'       => '_extrch_link_page_id',
-						'meta_value'     => (string) $link_page_id,
-						'posts_per_page' => -1,
-						'fields'         => 'ids',
+						'link_page_id' => $link_page_id,
+						'profile_id'   => $artist_id,
 					)
 				);
-				// phpcs:enable WordPress.DB.SlowDBQuery
-				if ( ! $profile || 'artist_profile' !== $profile->post_type || 1 !== count( $reciprocal_rows ) || (int) $reciprocal_rows[0] !== $link_page_id || array_map( 'intval', $other_profiles ) !== array( $artist_id ) ) {
-					return new WP_Error(
-						'artist_link_page_migration_reciprocal_mismatch',
-						'An owner profile has a stale or ambiguous reciprocal pointer.',
-						array(
-							'link_page_id' => $link_page_id,
-							'profile_id'   => $artist_id,
-						)
-					);
+			}
+			$profile_image = (int) get_post_thumbnail_id( $artist_id );
+			foreach ( array( $legacy_profile_image, $background_image, $profile_image ) as $attachment_id ) {
+				if ( ! $attachment_id ) {
+					continue;
 				}
-				$profile_image = (int) get_post_thumbnail_id( $artist_id );
-				if ( $profile_image ) {
-					$attachments[] = $profile_image; }
-			} finally {
-				if ( $switched ) {
-					restore_current_blog(); }
+				if ( isset( $attachment_owners[ $attachment_id ] ) && $owner['reference'] !== $attachment_owners[ $attachment_id ] ) {
+					return new WP_Error( 'artist_link_page_migration_attachment_owner_mismatch', 'An Artist attachment is shared by multiple Link Page owners.', array( 'attachment_id' => $attachment_id ) );
+				}
+				$attachments[]                        = $attachment_id;
+				$attachment_owners[ $attachment_id ] = $owner['reference'];
 			}
 			$projection = ec_read_link_page( $link_page_id );
 			if ( is_wp_error( $projection ) || (int) ( $projection['link_page_id'] ?? 0 ) !== $link_page_id ) {
@@ -101,38 +98,43 @@ function ec_artist_link_page_migration_plan( $context ) {
 				'profile_remains_on_blog_id' => $artist_blog_id,
 			);
 		}
+		usort(
+			$rows,
+			static function ( $a, $b ) {
+				return $a['link_page_id'] <=> $b['link_page_id'];
+			}
+		);
+		$attachments = array_values( array_unique( array_map( 'absint', $attachments ) ) );
+		sort( $attachments, SORT_NUMERIC );
+		$semantics = array();
+		foreach ( $attachments as $attachment_id ) {
+			$attachment = get_post( $attachment_id );
+			if ( ! $attachment || 'attachment' !== $attachment->post_type ) {
+				return new WP_Error( 'artist_link_page_migration_attachment_source_mismatch', 'An Artist-contributed attachment does not exist on the source blog.', array( 'attachment_id' => $attachment_id ) ); }
+			$parent      = in_array( (int) $attachment->post_parent, $context['link_page_ids'], true ) ? (int) $attachment->post_parent : 0;
+			$semantics[] = array(
+				'attachment_id'      => $attachment_id,
+				'destination_parent' => $parent,
+				'owner_reference'    => $attachment_owners[ $attachment_id ],
+				'reason'             => $parent ? 'migrated-link-page-parent-preserved' : 'external-owner-parent-remapped',
+			);
+		}
+		$data                = array(
+			'profiles'             => $rows,
+			'attachment_ids'       => $attachments,
+			'attachment_semantics' => $semantics,
+			'qr_storage'           => 'generated-on-demand-no-persisted-attachment',
+		);
+		$encoded = wp_json_encode( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE );
+		if ( false === $encoded ) {
+			return new WP_Error( 'artist_link_page_migration_fingerprint_failed', 'The Artist migration projection could not be fingerprinted.' );
+		}
+		$data['fingerprint'] = hash( 'sha256', $encoded );
+		return $data;
 	} finally {
 		while ( get_current_blog_id() !== $source_before && ! empty( $GLOBALS['_wp_switched_stack'] ) ) {
 			restore_current_blog(); }
 	}
-	usort(
-		$rows,
-		static function ( $a, $b ) {
-			return $a['link_page_id'] <=> $b['link_page_id'];
-		}
-	);
-	$attachments = array_values( array_unique( array_filter( array_map( 'absint', $attachments ) ) ) );
-	sort( $attachments, SORT_NUMERIC );
-	$semantics = array();
-	foreach ( $attachments as $attachment_id ) {
-		$attachment = get_post( $attachment_id );
-		if ( ! $attachment || 'attachment' !== $attachment->post_type ) {
-			return new WP_Error( 'artist_link_page_migration_attachment_source_mismatch', 'An Artist-contributed attachment does not exist on the source blog.', array( 'attachment_id' => $attachment_id ) ); }
-		$parent      = in_array( (int) $attachment->post_parent, $context['link_page_ids'], true ) ? (int) $attachment->post_parent : 0;
-		$semantics[] = array(
-			'attachment_id'      => $attachment_id,
-			'destination_parent' => $parent,
-			'reason'             => $parent ? 'migrated-link-page-parent-preserved' : 'external-owner-parent-remapped',
-		);
-	}
-	$data                = array(
-		'profiles'             => $rows,
-		'attachment_ids'       => $attachments,
-		'attachment_semantics' => $semantics,
-		'qr_storage'           => 'generated-on-demand-no-persisted-attachment',
-	);
-	$data['fingerprint'] = hash( 'sha256', wp_json_encode( $data, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE ) );
-	return $data;
 }
 
 /**

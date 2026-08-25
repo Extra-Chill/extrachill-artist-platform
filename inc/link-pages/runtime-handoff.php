@@ -50,7 +50,10 @@ function extrachill_artist_platform_link_pages_runtime_signatures() {
 			'total'    => 3,
 			'required' => 2,
 		),
-		'ec_can_register_link_page_owner_compatibility_provider' => array( 'total' => 3, 'required' => 2 ),
+		'ec_can_register_link_page_owner_compatibility_provider' => array(
+			'total'    => 3,
+			'required' => 2,
+		),
 		'ec_parse_link_page_owner_reference'               => array(
 			'total'    => 1,
 			'required' => 1,
@@ -127,7 +130,10 @@ function extrachill_artist_platform_link_pages_runtime_signatures() {
 			'total'    => 3,
 			'required' => 2,
 		),
-		'ec_can_register_link_page_operation_provider'     => array( 'total' => 3, 'required' => 2 ),
+		'ec_can_register_link_page_operation_provider'     => array(
+			'total'    => 3,
+			'required' => 2,
+		),
 		'ec_resolve_link_page_operation_target'            => array(
 			'total'    => 1,
 			'required' => 1,
@@ -184,15 +190,30 @@ function extrachill_artist_platform_link_pages_runtime_signatures() {
 			'total'    => 2,
 			'required' => 2,
 		),
-		'ec_save_link_page_persistence_composed'           => array( 'total' => 3, 'required' => 3 ),
+		'ec_save_link_page_persistence_composed'           => array(
+			'total'    => 3,
+			'required' => 3,
+		),
 		'ec_create_owned_link_page'                        => array(
 			'total'    => 4,
 			'required' => 3,
 		),
-		'ec_provision_owned_link_page'                     => array( 'total' => 5, 'required' => 3 ),
-		'ec_provision_owned_link_page_composed'            => array( 'total' => 6, 'required' => 4 ),
-		'ec_invoke_link_page_provision_precondition'       => array( 'total' => 2, 'required' => 2 ),
-		'ec_create_owned_link_page_unlocked'               => array( 'total' => 4, 'required' => 3 ),
+		'ec_provision_owned_link_page'                     => array(
+			'total'    => 5,
+			'required' => 3,
+		),
+		'ec_provision_owned_link_page_composed'            => array(
+			'total'    => 6,
+			'required' => 4,
+		),
+		'ec_invoke_link_page_provision_precondition'       => array(
+			'total'    => 2,
+			'required' => 2,
+		),
+		'ec_create_owned_link_page_unlocked'               => array(
+			'total'    => 4,
+			'required' => 3,
+		),
 		'ec_with_link_page_lock_scope'                     => array(
 			'total'    => 3,
 			'required' => 2,
@@ -205,11 +226,26 @@ function extrachill_artist_platform_link_pages_runtime_signatures() {
 			'total'    => 3,
 			'required' => 2,
 		),
-		'ec_can_register_link_page_public_projection_provider' => array( 'total' => 3, 'required' => 2 ),
-		'ec_sanitize_link_page_public_projection_snapshot' => array( 'total' => 1, 'required' => 1 ),
-		'ec_save_link_page_public_projection_snapshot'     => array( 'total' => 3, 'required' => 3 ),
-		'ec_read_link_page_public_projection_snapshot'     => array( 'total' => 2, 'required' => 1 ),
-		'ec_render_stored_link_page_social_links'          => array( 'total' => 1, 'required' => 1 ),
+		'ec_can_register_link_page_public_projection_provider' => array(
+			'total'    => 3,
+			'required' => 2,
+		),
+		'ec_sanitize_link_page_public_projection_snapshot' => array(
+			'total'    => 1,
+			'required' => 1,
+		),
+		'ec_save_link_page_public_projection_snapshot'     => array(
+			'total'    => 3,
+			'required' => 3,
+		),
+		'ec_read_link_page_public_projection_snapshot'     => array(
+			'total'    => 2,
+			'required' => 1,
+		),
+		'ec_render_stored_link_page_social_links'          => array(
+			'total'    => 1,
+			'required' => 1,
+		),
 		'ec_get_link_page_public_projection'               => array(
 			'total'    => 2,
 			'required' => 1,
@@ -225,6 +261,14 @@ function extrachill_artist_platform_link_pages_runtime_signatures() {
 		'ec_link_page_public_urls'                         => array(
 			'total'    => 1,
 			'required' => 1,
+		),
+		'ec_link_page_migration_participant_registry'      => array(
+			'total'    => 0,
+			'required' => 0,
+		),
+		'ec_register_link_page_migration_participant'      => array(
+			'total'    => 4,
+			'required' => 3,
 		),
 	);
 }
@@ -260,7 +304,7 @@ function extrachill_artist_platform_validate_link_pages_runtime() {
 
 	$signatures = extrachill_artist_platform_link_pages_runtime_signatures();
 	if ( ! $external ) {
-		$signatures = array_diff_key( $signatures, array_flip( array( 'ec_can_register_link_page_owner_compatibility_provider', 'ec_can_register_link_page_operation_provider', 'ec_save_link_page_persistence_composed', 'ec_provision_owned_link_page', 'ec_provision_owned_link_page_composed', 'ec_invoke_link_page_provision_precondition', 'ec_create_owned_link_page_unlocked', 'ec_can_register_link_page_public_projection_provider', 'ec_sanitize_link_page_public_projection_snapshot', 'ec_save_link_page_public_projection_snapshot', 'ec_read_link_page_public_projection_snapshot', 'ec_render_stored_link_page_social_links' ) ) );
+		$signatures = array_diff_key( $signatures, array_flip( array( 'ec_link_page_migration_participant_registry', 'ec_register_link_page_migration_participant', 'ec_can_register_link_page_owner_compatibility_provider', 'ec_can_register_link_page_operation_provider', 'ec_save_link_page_persistence_composed', 'ec_provision_owned_link_page', 'ec_provision_owned_link_page_composed', 'ec_invoke_link_page_provision_precondition', 'ec_create_owned_link_page_unlocked', 'ec_can_register_link_page_public_projection_provider', 'ec_sanitize_link_page_public_projection_snapshot', 'ec_save_link_page_public_projection_snapshot', 'ec_read_link_page_public_projection_snapshot', 'ec_render_stored_link_page_social_links' ) ) );
 		$signatures = array_slice( $signatures, 0, 27, true );
 	}
 	foreach ( $signatures as $function => $signature ) {

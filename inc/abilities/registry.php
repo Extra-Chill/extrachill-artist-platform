@@ -911,6 +911,45 @@ function extrachill_artist_platform_register_abilities() {
 	);
 
 	wp_register_ability(
+		'extrachill/artist-get-local-support-workspace',
+		array(
+			'label'               => __( 'Get artist Local Support workspace', 'extrachill-artist-platform' ),
+			'description'         => __( 'Returns the Events Local Support workspace for an exactly managed artist when canonical identity is available.', 'extrachill-artist-platform' ),
+			'category'            => 'extrachill-artists',
+			'input_schema'        => array(
+				'type'                 => 'object',
+				'required'             => array( 'id' ),
+				'properties'           => array(
+					'id' => array(
+						'type'    => 'integer',
+						'minimum' => 1,
+					),
+				),
+				'additionalProperties' => false,
+			),
+			'output_schema'       => array(
+				'type'                 => 'object',
+				'required'             => array( 'artist_id', 'workspace_url' ),
+				'properties'           => array(
+					'artist_id'     => array( 'type' => 'integer' ),
+					'workspace_url' => array( 'type' => 'string' ),
+				),
+				'additionalProperties' => false,
+			),
+			'execute_callback'    => 'extrachill_artist_platform_ability_get_local_support_workspace',
+			'permission_callback' => 'extrachill_artist_platform_ability_artist_permission',
+			'meta'                => array(
+				'show_in_rest' => true,
+				'annotations'  => array(
+					'readonly'    => true,
+					'destructive' => false,
+					'idempotent'  => true,
+				),
+			),
+		)
+	);
+
+	wp_register_ability(
 		'extrachill/artist-query-local-support-candidates',
 		array(
 			'label'               => __( 'Query local support candidates', 'extrachill-artist-platform' ),

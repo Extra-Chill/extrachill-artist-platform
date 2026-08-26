@@ -522,6 +522,8 @@ const App = () => {
 	const [saving, setSaving] = useState(false);
 	const [saveSuccess, setSaveSuccess] = useState(false);
 	const [error, setError] = useState('');
+	const [localSupportDirty, setLocalSupportDirty] = useState(false);
+	const localSupportDiscardApproved = useRef(false);
 	const [formState, setFormState] = useState(() => getInitialFormState(null));
 
 	const tabs = [
@@ -594,7 +596,30 @@ const App = () => {
 		}
 	};
 
+	const confirmLocalSupportDiscard = () => {
+		if ( localSupportDiscardApproved.current ) {
+			localSupportDiscardApproved.current = false;
+			return true;
+		}
+		if ( ! localSupportDirty ) {
+			return true;
+		}
+		if (
+			// eslint-disable-next-line no-alert
+			! window.confirm(
+				'You have unsaved Local Support availability changes. Discard them?'
+			)
+		) {
+			return false;
+		}
+		setLocalSupportDirty( false );
+		return true;
+	};
+
 	const handleSelect = (id) => {
+		if ( ! confirmLocalSupportDiscard() ) {
+			return;
+		}
 		const numId = Number(id) || 0;
 		setSelectedId(numId);
 		if (numId > 0) {
@@ -605,10 +630,36 @@ const App = () => {
 		}
 	};
 
+	const handleTabChange = ( nextTab ) => {
+		if (
+			nextTab !== activeTab &&
+			'local-support' === activeTab &&
+			! confirmLocalSupportDiscard()
+		) {
+			return;
+		}
+		setActiveTab( nextTab );
+	};
+
+	const handleTabsClickCapture = ( event ) => {
+		if ( ! localSupportDirty || 'local-support' !== activeTab ) {
+			return;
+		}
+		const trigger = event.target.closest?.(
+			'.ec-responsive-tabs__trigger'
+		);
+		if ( ! trigger ) {
+			return;
+		}
+		if ( ! confirmLocalSupportDiscard() ) {
+			event.preventDefault();
+			event.stopPropagation();
+		} else if ( ! trigger.closest( '.is-active' ) ) {
+			localSupportDiscardApproved.current = true;
+		}
+	};
+
 	const artistName = formState.name || '';
-	const selectedArtistConfig = config.userArtists.find(
-		( managedArtist ) => Number( managedArtist.id ) === Number( selectedId )
-	);
 	const saveButtonLabel = saving ? 'Saving…' : 'Save';
 	const renderPanel = ( id ) => {
 		switch ( id ) {
@@ -628,9 +679,7 @@ const App = () => {
 				return selectedId ? (
 					<LocalSupportTab
 						artistId={ selectedId }
-						workspaceUrl={
-							selectedArtistConfig?.localSupportWorkspaceUrl || ''
-						}
+						onDirtyChange={ setLocalSupportDirty }
 					/>
 				) : null;
 			default:
@@ -656,6 +705,11 @@ const App = () => {
 								<a
 									href={`${config.artistSiteUrl}/${artist.slug}`}
 									className="button-3 button-small"
+									onClick={ ( event ) => {
+										if ( ! confirmLocalSupportDiscard() ) {
+											event.preventDefault();
+										}
+									} }
 								>
 									View Profile
 								</a>
@@ -674,19 +728,23 @@ const App = () => {
 
 				{loading && <InlineStatus tone="info">Loading artist…</InlineStatus>}
 
-				<ResponsiveTabs
-					tabs={tabs}
-					active={activeTab}
-					onChange={setActiveTab}
-					renderPanel={renderPanel}
-					showDesktopTabs={true}
-				/>
+				<div onClickCapture={ handleTabsClickCapture }>
+					<ResponsiveTabs
+						tabs={tabs}
+						active={activeTab}
+						onChange={handleTabChange}
+						renderPanel={renderPanel}
+						showDesktopTabs={true}
+					/>
+				</div>
 			</BlockShellInner>
 		</BlockShell>
 	);
 };
 
 const rootEl = document.getElementById('ec-artist-manager-root');
+
+export { App };
 
 if (rootEl) {
 	render(<App />, rootEl);

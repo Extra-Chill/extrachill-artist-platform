@@ -187,6 +187,10 @@
 		color: var(--text-color);
 		text-align: left;
 		cursor: pointer;
+
+		&[aria-selected="true"] {
+			background: var(--card-background);
+		}
 	}
 }
 

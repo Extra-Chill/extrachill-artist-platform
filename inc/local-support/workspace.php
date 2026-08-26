@@ -81,10 +81,17 @@ function extrachill_artist_platform_local_support_workspace_url( $artist_id, $ac
 
 	$term_id = 0;
 	try {
+		ec_artist_binding_invalidate_profile_cache( $artist_id, $artist_blog_id );
+		ec_artist_binding_invalidate_slug_caches();
 		switch_to_blog( $artist_blog_id );
 		try {
-			$profile_claims = extrachill_artist_platform_normalize_binding_claims( get_post_meta( $artist_id, '_artist_term_id', false ) );
-			$profile_ids    = 1 === count( $profile_claims ) ? get_posts(
+			$locked_profile    = get_post( $artist_id );
+			$locked_authorized = $locked_profile
+				&& 'artist_profile' === $locked_profile->post_type
+				&& 'publish' === $locked_profile->post_status
+				&& ec_user_can_manage_artist_object( $actor_id, $artist_id );
+			$profile_claims    = extrachill_artist_platform_normalize_binding_claims( get_post_meta( $artist_id, '_artist_term_id', false ) );
+			$profile_ids       = 1 === count( $profile_claims ) ? get_posts(
 				array(
 					'post_type'   => 'artist_profile',
 					'post_status' => 'any',
@@ -100,10 +107,11 @@ function extrachill_artist_platform_local_support_workspace_url( $artist_id, $ac
 			restore_current_blog();
 		}
 
-		if ( 1 !== count( $profile_claims ) || array( $artist_id ) !== array_map( 'intval', $profile_ids ) ) {
+		if ( ! $locked_authorized || 1 !== count( $profile_claims ) || array( $artist_id ) !== array_map( 'intval', $profile_ids ) ) {
 			return '';
 		}
 		$term_id = $profile_claims[0];
+		ec_artist_binding_invalidate_term_cache( $term_id, $main_blog_id );
 
 		switch_to_blog( $main_blog_id );
 		try {
@@ -155,5 +163,5 @@ function extrachill_artist_platform_local_support_workspace_url( $artist_id, $ac
 		return '';
 	}
 
-	return esc_url_raw( trailingslashit( $events_url ) . 'local-support/?artist_id=' . rawurlencode( (string) $term_id ) );
+	return esc_url_raw( trailingslashit( $events_url ) . 'local-support/?mode=artist&artist_id=' . rawurlencode( (string) $term_id ) );
 }

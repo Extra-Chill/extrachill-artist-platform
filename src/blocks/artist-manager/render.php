@@ -46,13 +46,9 @@ foreach ( $user_artists as $artist_id ) {
     $artist_post = get_post( $artist_id );
     if ( $artist_post && $artist_post->post_status === 'publish' ) {
         $user_artists_data[] = array(
-            'id'                       => (int) $artist_id,
-            'name'                     => $artist_post->post_title,
-            'slug'                     => $artist_post->post_name,
-            'localSupportWorkspaceUrl' => extrachill_artist_platform_local_support_workspace_url(
-                $artist_id,
-                $current_user_id
-            ),
+            'id'   => (int) $artist_id,
+            'name' => $artist_post->post_title,
+            'slug' => $artist_post->post_name,
         );
     }
 }

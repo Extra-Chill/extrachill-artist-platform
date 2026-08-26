@@ -78,6 +78,15 @@ describe( 'Artist Manager Local Support tab', () => {
 		} );
 	}
 
+	function setInputValue( input, value ) {
+		const setValue = Object.getOwnPropertyDescriptor(
+			window.HTMLInputElement.prototype,
+			'value'
+		).set;
+		setValue.call( input, value );
+		input.dispatchEvent( new window.Event( 'input', { bubbles: true } ) );
+	}
+
 	test( 'distinguishes availability, opportunities, and exact organizer eligibility', async () => {
 		await renderTab();
 
@@ -340,6 +349,95 @@ describe( 'Artist Manager Local Support tab', () => {
 		} );
 		expect( input.getAttribute( 'aria-expanded' ) ).toBe( 'false' );
 		jest.useRealTimers();
+	} );
+
+	test( 'invalidates an in-flight search immediately on raw input change', async () => {
+		jest.useFakeTimers();
+		let resolveOldSearch;
+		searchEventLocations
+			.mockReturnValueOnce(
+				new Promise( ( resolve ) => {
+					resolveOldSearch = resolve;
+				} )
+			)
+			.mockResolvedValueOnce( {
+				locations: [ { slug: 'austin', name: 'Austin' } ],
+			} );
+		await renderTab();
+		act( () =>
+			container.querySelector( 'input[type="checkbox"]' ).click()
+		);
+		const input = container.querySelector( 'input[role="combobox"]' );
+
+		act( () => {
+			setInputValue( input, 'char' );
+			jest.advanceTimersByTime( 300 );
+		} );
+		act( () => setInputValue( input, 'charl' ) );
+		await act( async () =>
+			resolveOldSearch( {
+				locations: [ { slug: 'charleston', name: 'Charleston' } ],
+			} )
+		);
+
+		expect( input.getAttribute( 'aria-expanded' ) ).toBe( 'false' );
+		expect( input.hasAttribute( 'aria-activedescendant' ) ).toBe( false );
+		expect( container.querySelector( '[role="listbox"]' ) ).toBeNull();
+
+		act( () => jest.advanceTimersByTime( 300 ) );
+		await act( async () => Promise.resolve() );
+		expect( container.textContent ).toContain( 'Austin' );
+	} );
+
+	test( 'closes on Tab blur while preserving option click selection', async () => {
+		jest.useFakeTimers();
+		searchEventLocations.mockResolvedValue( {
+			locations: [ { slug: 'charleston', name: 'Charleston' } ],
+		} );
+		await renderTab();
+		act( () =>
+			container.querySelector( 'input[type="checkbox"]' ).click()
+		);
+		const input = container.querySelector( 'input[role="combobox"]' );
+		act( () => {
+			input.focus();
+			setInputValue( input, 'charl' );
+			jest.advanceTimersByTime( 300 );
+		} );
+		await act( async () => Promise.resolve() );
+		act( () => {
+			input.dispatchEvent(
+				new window.KeyboardEvent( 'keydown', {
+					key: 'ArrowDown',
+					bubbles: true,
+				} )
+			);
+			input.dispatchEvent(
+				new window.KeyboardEvent( 'keydown', {
+					key: 'Tab',
+					bubbles: true,
+				} )
+			);
+			input.blur();
+			jest.runOnlyPendingTimers();
+		} );
+
+		expect( input.getAttribute( 'aria-expanded' ) ).toBe( 'false' );
+		expect( input.hasAttribute( 'aria-activedescendant' ) ).toBe( false );
+
+		act( () => {
+			input.focus();
+			setInputValue( input, 'char' );
+			jest.advanceTimersByTime( 300 );
+		} );
+		await act( async () => Promise.resolve() );
+		const option = container.querySelector( '[role="option"]' );
+		act( () => {
+			input.blur();
+			option.click();
+			jest.runOnlyPendingTimers();
+		} );
+		expect( input.value ).toBe( 'Charleston' );
 	} );
 
 	test( 'warns on dirty availability while the cross-site link preserves the page', async () => {

@@ -217,11 +217,15 @@ const LocalSupportTab = ( { artistId, onDirtyChange } ) => {
 		setActiveLocation( -1 );
 	};
 
+	const closeLocationResults = () => {
+		setLocations( [] );
+		setActiveLocation( -1 );
+	};
+
 	const handleLocationKeyDown = ( event ) => {
 		if ( 'Escape' === event.key ) {
 			event.preventDefault();
-			setLocations( [] );
-			setActiveLocation( -1 );
+			closeLocationResults();
 			return;
 		}
 		if ( ! locations.length ) {
@@ -370,7 +374,12 @@ const LocalSupportTab = ( { artistId, onDirtyChange } ) => {
 										: undefined
 								}
 								onKeyDown={ handleLocationKeyDown }
+								onBlur={ () =>
+									setTimeout( closeLocationResults, 0 )
+								}
 								onChange={ ( event ) => {
+									++searchGeneration.current;
+									closeLocationResults();
 									setSearch( event.target.value );
 									setScene( null );
 								} }

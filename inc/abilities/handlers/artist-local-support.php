@@ -25,7 +25,7 @@ function extrachill_artist_platform_ability_get_local_support_workspace( $input 
 	$artist_id = absint( $input['id'] ?? 0 );
 	return array(
 		'artist_id'     => $artist_id,
-		'workspace_url' => extrachill_artist_platform_local_support_workspace_url( $artist_id, get_current_user_id() ),
+		'workspace_url' => extrachill_artist_platform_local_support_workspace_url( $artist_id, extrachill_artist_platform_ability_acting_user_id() ),
 	);
 }
 

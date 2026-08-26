@@ -161,4 +161,19 @@ final class LocalSupportWorkspaceUrlTest extends TestCase {
 		$this->assertSame( '', $workspace['workspace_url'] );
 		$this->assertSame( 1, array_sum( $GLOBALS['ec_test']['db_lock_get_calls'] ) );
 	}
+
+	public function test_workspace_uses_delegated_principal_instead_of_ambient_session(): void {
+		$GLOBALS['ec_test']['current_user_id'] = 1;
+		$GLOBALS['ec_test']['execution_principal'] = new AgentsAPI\AI\WP_Agent_Execution_Principal(
+			7,
+			'agent_token',
+			'rest',
+			new WP_Agent_Capability_Ceiling( 7, array( 'manage_artist' ) )
+		);
+
+		$result = extrachill_artist_platform_ability_get_local_support_workspace( array( 'id' => 42 ) );
+
+		$this->assertSame( 42, $result['artist_id'] );
+		$this->assertSame( 'https://events.example/subdirectory/local-support/?mode=artist&artist_id=142', $result['workspace_url'] );
+	}
 }

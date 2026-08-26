@@ -196,6 +196,26 @@
 	font-size: var(--font-size-sm);
 }
 
+.ec-am__local-support-section {
+	display: grid;
+	gap: var(--spacing-sm);
+
+	h2,
+	p {
+		margin: 0;
+	}
+
+	+ .ec-am__local-support-section {
+		padding-top: var(--spacing-md);
+		border-top: 1px solid var(--border-color);
+	}
+}
+
+.ec-am__workspace-action {
+	flex-wrap: wrap;
+	align-items: center;
+}
+
 @media (max-width: 480px) {
 
 	.ec-am__inline {
@@ -216,5 +236,14 @@
 		display: flex;
 		flex-direction: column;
 		align-items: flex-start;
+	}
+
+	.ec-am__workspace-action {
+		align-items: stretch;
+
+		.button-2 {
+			width: 100%;
+			text-align: center;
+		}
 	}
 }

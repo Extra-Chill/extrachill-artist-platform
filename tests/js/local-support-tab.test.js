@@ -1,0 +1,211 @@
+// React's test-only act helper is supplied transitively by @wordpress/element.
+// eslint-disable-next-line import/no-extraneous-dependencies
+import { act } from 'react';
+import { createRoot } from '@wordpress/element';
+import LocalSupportTab from '../../src/blocks/artist-manager/components/LocalSupportTab';
+import {
+	getLocalSupportAvailability,
+	searchEventLocations,
+	updateLocalSupportAvailability,
+} from '../../src/blocks/shared/api/client';
+
+jest.mock( '@extrachill/components', () => ( {
+	ActionRow: ( { children, className = '' } ) => (
+		<div className={ className }>{ children }</div>
+	),
+	FieldGroup: ( { children, label } ) => (
+		<div>
+			<span>{ label }</span>
+			{ children }
+		</div>
+	),
+	InlineStatus: ( { children, tone } ) => (
+		<div role={ 'error' === tone ? 'alert' : 'status' }>{ children }</div>
+	),
+	Panel: ( { children } ) => <div>{ children }</div>,
+} ) );
+
+jest.mock( '../../src/blocks/shared/api/client', () => ( {
+	getLocalSupportAvailability: jest.fn(),
+	searchEventLocations: jest.fn(),
+	updateLocalSupportAvailability: jest.fn(),
+} ) );
+
+describe( 'Artist Manager Local Support tab', () => {
+	let container;
+	let root;
+
+	beforeAll( () => {
+		global.IS_REACT_ACT_ENVIRONMENT = true;
+	} );
+
+	afterAll( () => {
+		delete global.IS_REACT_ACT_ENVIRONMENT;
+	} );
+
+	beforeEach( () => {
+		container = document.createElement( 'div' );
+		document.body.appendChild( container );
+		root = createRoot( container );
+		getLocalSupportAvailability.mockResolvedValue( {
+			available: false,
+			scene: null,
+		} );
+		searchEventLocations.mockResolvedValue( { locations: [] } );
+		updateLocalSupportAvailability.mockResolvedValue( {
+			available: true,
+			scene: { slug: 'charleston', name: 'Charleston' },
+		} );
+	} );
+
+	afterEach( () => {
+		act( () => root.unmount() );
+		container.remove();
+		jest.clearAllMocks();
+	} );
+
+	async function renderTab( props = {} ) {
+		await act( async () => {
+			root.render(
+				<LocalSupportTab
+					artistId={ 42 }
+					workspaceUrl="https://events.example/local-support/?artist_id=142"
+					{ ...props }
+				/>
+			);
+		} );
+	}
+
+	test( 'distinguishes availability, opportunities, and exact organizer eligibility', async () => {
+		await renderTab();
+
+		expect( container.textContent ).toContain(
+			'This does not create a request for any event.'
+		);
+		expect( container.textContent ).toContain(
+			'an Artist taxonomy attachment alone never grants access.'
+		);
+		expect( container.textContent ).toContain(
+			'Events may show an empty organizer state'
+		);
+	} );
+
+	test( 'links exact Artist context to Events with accessible new-tab semantics', async () => {
+		await renderTab();
+		const link = container.querySelector( '.ec-am__workspace-action a' );
+
+		expect( link.href ).toBe(
+			'https://events.example/local-support/?artist_id=142'
+		);
+		expect( link.target ).toBe( '_blank' );
+		expect( link.rel ).toContain( 'noopener' );
+		expect( link.getAttribute( 'aria-label' ) ).toContain(
+			'opens in a new tab'
+		);
+		expect( link.textContent ).toBe( 'View opportunities on Events' );
+	} );
+
+	test( 'keeps availability usable when the Events doorway is unavailable', async () => {
+		await renderTab( { workspaceUrl: '' } );
+
+		expect(
+			container.querySelector( '.ec-am__workspace-action a' )
+		).toBeNull();
+		expect(
+			container.querySelector( '[role="status"]' ).textContent
+		).toContain( 'You can still manage availability here.' );
+		const checkbox = container.querySelector( 'input[type="checkbox"]' );
+		act( () => checkbox.click() );
+		expect( checkbox.checked ).toBe( true );
+		expect(
+			container.querySelector( 'input[type="search"]' )
+		).not.toBeNull();
+	} );
+
+	test( 'preserves availability save behavior independently of Events', async () => {
+		await renderTab( { workspaceUrl: '' } );
+		act( () =>
+			container.querySelector( 'input[type="checkbox"]' ).click()
+		);
+		const save = Array.from( container.querySelectorAll( 'button' ) ).find(
+			( button ) => button.textContent === 'Save Local Support Settings'
+		);
+
+		await act( async () => save.click() );
+
+		expect( updateLocalSupportAvailability ).toHaveBeenCalledWith(
+			42,
+			true,
+			''
+		);
+		expect( container.textContent ).toContain(
+			'Local support settings saved.'
+		);
+	} );
+
+	test( 'isolates availability loading and errors from the Events doorway', async () => {
+		let rejectLoad;
+		getLocalSupportAvailability.mockReturnValue(
+			new Promise( ( resolve, reject ) => {
+				rejectLoad = reject;
+			} )
+		);
+		await act( async () => {
+			root.render(
+				<LocalSupportTab
+					artistId={ 42 }
+					workspaceUrl="https://events.example/local-support/?artist_id=142"
+				/>
+			);
+		} );
+
+		expect( container.textContent ).toContain(
+			'Loading local support settings'
+		);
+		expect(
+			container.querySelector( '.ec-am__workspace-action a' )
+		).not.toBeNull();
+
+		await act( async () =>
+			rejectLoad( new Error( 'Availability failed.' ) )
+		);
+		expect( container.textContent ).toContain( 'Availability failed.' );
+		expect(
+			container.querySelector( '.ec-am__workspace-action a' )
+		).not.toBeNull();
+	} );
+
+	test( 'warns on dirty availability while the cross-site link preserves the page', async () => {
+		await renderTab();
+		act( () =>
+			container.querySelector( 'input[type="checkbox"]' ).click()
+		);
+
+		const unload = new Event( 'beforeunload', { cancelable: true } );
+		window.dispatchEvent( unload );
+		expect( unload.defaultPrevented ).toBe( true );
+		expect(
+			container.querySelector( '.ec-am__workspace-action' )
+		).not.toBeNull();
+		expect( container.textContent ).toContain(
+			'unsaved availability changes stay on this page'
+		);
+	} );
+
+	test( 'uses keyboard-native controls and mobile-safe action markup', async () => {
+		await renderTab();
+		const checkbox = container.querySelector( 'input[type="checkbox"]' );
+		const save = Array.from( container.querySelectorAll( 'button' ) ).find(
+			( button ) => button.textContent === 'Save Local Support Settings'
+		);
+
+		expect( checkbox.id ).toBe( 'ec-am-local-support-available' );
+		expect(
+			container.querySelector( `label[for="${ checkbox.id }"]` )
+		).not.toBeNull();
+		expect( save.type ).toBe( 'button' );
+		expect(
+			container.querySelector( '.ec-am__workspace-action' )
+		).not.toBeNull();
+	} );
+} );

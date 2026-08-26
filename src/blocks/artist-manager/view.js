@@ -606,6 +606,9 @@ const App = () => {
 	};
 
 	const artistName = formState.name || '';
+	const selectedArtistConfig = config.userArtists.find(
+		( managedArtist ) => Number( managedArtist.id ) === Number( selectedId )
+	);
 	const saveButtonLabel = saving ? 'Saving…' : 'Save';
 	const renderPanel = ( id ) => {
 		switch ( id ) {
@@ -623,7 +626,12 @@ const App = () => {
 				return selectedId ? <SubscribersTab artistId={ selectedId } /> : null;
 			case 'local-support':
 				return selectedId ? (
-					<LocalSupportTab artistId={ selectedId } />
+					<LocalSupportTab
+						artistId={ selectedId }
+						workspaceUrl={
+							selectedArtistConfig?.localSupportWorkspaceUrl || ''
+						}
+					/>
 				) : null;
 			default:
 				return null;

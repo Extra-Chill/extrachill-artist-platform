@@ -194,11 +194,18 @@ function ec_get_blog_id( $site ) {
 	if ( 'artist' === $site && ! empty( $GLOBALS['ec_test']['artist_blog_unavailable'] ) ) {
 		return 0;
 	}
+	if ( 'events' === $site && ! empty( $GLOBALS['ec_test']['events_blog_unavailable'] ) ) {
+		return 0;
+	}
 	return array(
 		'main'   => 1,
 		'artist' => 4,
 		'events' => 7,
 	)[ $site ] ?? 0;
+}
+
+function ec_get_site_url( $site ) {
+	return $GLOBALS['ec_test']['site_urls'][ $site ] ?? ( 'events' === $site ? 'https://events.example' : '' );
 }
 
 function get_current_blog_id() {
@@ -915,7 +922,9 @@ function get_posts( $args ) {
 		}
 	}
 	$offset = (int) ( $args['offset'] ?? 0 );
-	$limit  = isset( $args['posts_per_page'] ) && $args['posts_per_page'] >= 0 ? (int) $args['posts_per_page'] : null;
+	$limit  = isset( $args['posts_per_page'] ) && $args['posts_per_page'] >= 0
+		? (int) $args['posts_per_page']
+		: ( isset( $args['numberposts'] ) && $args['numberposts'] >= 0 ? (int) $args['numberposts'] : null );
 	return array_slice( $ids, $offset, $limit );
 }
 
@@ -1203,6 +1212,7 @@ require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-public-project
 require_once dirname( __DIR__ ) . '/inc/local-support/availability.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/helpers.php';
 require_once dirname( __DIR__ ) . '/inc/core/artist-term-binding.php';
+require_once dirname( __DIR__ ) . '/inc/local-support/workspace.php';
 require_once dirname( __DIR__ ) . '/inc/artist-profiles/subscribe-data-functions.php';
 require_once dirname( __DIR__ ) . '/inc/artist-profiles/frontend/shows-section.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/registry.php';

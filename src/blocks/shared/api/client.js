@@ -55,6 +55,17 @@ export const getLocalSupportAvailability = ( artistId ) => {
 	} );
 };
 
+export const getLocalSupportWorkspace = ( artistId ) => {
+	const query = new URLSearchParams();
+	query.set( 'input[id]', String( artistId ) );
+	return apiFetch( {
+		path: `${ abilityPath(
+			'extrachill/artist-get-local-support-workspace'
+		) }?${ query.toString() }`,
+		method: 'GET',
+	} );
+};
+
 export const updateLocalSupportAvailability = (
 	artistId,
 	available,

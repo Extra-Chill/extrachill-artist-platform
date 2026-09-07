@@ -16,6 +16,19 @@ function extrachill_artist_platform_ability_get_local_support_availability( $inp
 	return extrachill_artist_platform_get_local_support_availability( absint( $input['id'] ?? 0 ) );
 }
 
+/** Resolve the Events workspace for one exactly managed artist. */
+function extrachill_artist_platform_ability_get_local_support_workspace( $input ) {
+	if ( ! extrachill_artist_platform_ability_artist_permission( $input ) ) {
+		return new WP_Error( 'artist_access_denied', __( 'You are not allowed to manage this artist.', 'extrachill-artist-platform' ) );
+	}
+
+	$artist_id = absint( $input['id'] ?? 0 );
+	return array(
+		'artist_id'     => $artist_id,
+		'workspace_url' => extrachill_artist_platform_local_support_workspace_url( $artist_id, extrachill_artist_platform_ability_acting_user_id() ),
+	);
+}
+
 /** Update local support availability for an exactly managed artist. */
 function extrachill_artist_platform_ability_update_local_support_availability( $input ) {
 	if ( ! extrachill_artist_platform_ability_artist_permission( $input ) ) {

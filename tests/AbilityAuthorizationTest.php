@@ -19,6 +19,7 @@ final class AbilityAuthorizationTest extends TestCase {
 			'extrachill/save-social-links' => array( array( 'artist_id' => 42, 'social_links' => array() ), 'extrachill_artist_platform_ability_save_social_links' ),
 			'extrachill/artist-get-links' => array( array( 'id' => 42 ), 'extrachill_artist_platform_ability_artist_get_links' ),
 			'extrachill/artist-get-local-support-availability' => array( array( 'id' => 42 ), 'extrachill_artist_platform_ability_get_local_support_availability' ),
+			'extrachill/artist-get-local-support-workspace' => array( array( 'id' => 42 ), 'extrachill_artist_platform_ability_get_local_support_workspace' ),
 			'extrachill/artist-update-local-support-availability' => array( array( 'id' => 42, 'available' => true ), 'extrachill_artist_platform_ability_update_local_support_availability' ),
 			'extrachill/artist-update-links' => array( array( 'id' => 42, 'links' => array() ), 'extrachill_artist_platform_ability_artist_update_links' ),
 			'extrachill/artist-get-roster' => array( array( 'id' => 42 ), 'extrachill_artist_platform_ability_artist_get_roster' ),

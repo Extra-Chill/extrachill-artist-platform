@@ -194,11 +194,18 @@ function ec_get_blog_id( $site ) {
 	if ( 'artist' === $site && ! empty( $GLOBALS['ec_test']['artist_blog_unavailable'] ) ) {
 		return 0;
 	}
+	if ( 'events' === $site && ! empty( $GLOBALS['ec_test']['events_blog_unavailable'] ) ) {
+		return 0;
+	}
 	return array(
 		'main'   => 1,
 		'artist' => 4,
 		'events' => 7,
 	)[ $site ] ?? 0;
+}
+
+function ec_get_site_url( $site ) {
+	return $GLOBALS['ec_test']['site_urls'][ $site ] ?? ( 'events' === $site ? 'https://events.example' : '' );
 }
 
 function get_current_blog_id() {
@@ -438,8 +445,14 @@ function get_post_status( $post_id ) {
 }
 
 function get_post_meta( $post_id, $key = '', $single = false ) {
-	$blog_meta = ec_test_blog_store( 'post_meta' );
-	$meta      = $blog_meta[ $post_id ] ?? ( $GLOBALS['ec_test']['meta'][ $post_id ] ?? array() );
+	$blog_id   = get_current_blog_id();
+	$cache_hit = array_key_exists( $post_id, $GLOBALS['ec_test']['post_meta_cache'][ $blog_id ] ?? array() );
+	if ( $cache_hit ) {
+		$meta = $GLOBALS['ec_test']['post_meta_cache'][ $blog_id ][ $post_id ];
+	} else {
+		$blog_meta = ec_test_blog_store( 'post_meta' );
+		$meta      = $blog_meta[ $post_id ] ?? ( $GLOBALS['ec_test']['meta'][ $post_id ] ?? array() );
+	}
 	if ( '' === $key ) {
 		return $meta;
 	}
@@ -473,6 +486,10 @@ function get_permalink( $post_id ) {
 }
 
 function get_post( $post_id ) {
+	$blog_id = get_current_blog_id();
+	if ( array_key_exists( $post_id, $GLOBALS['ec_test']['post_cache'][ $blog_id ] ?? array() ) ) {
+		return $GLOBALS['ec_test']['post_cache'][ $blog_id ][ $post_id ];
+	}
 	$blog_posts = ec_test_blog_store( 'posts' );
 	return $blog_posts[ $post_id ] ?? ( $GLOBALS['ec_test']['posts'][ $post_id ] ?? null );
 }
@@ -704,10 +721,12 @@ function wp_delete_post( $post_id, $force_delete = false ) {
 function clean_post_cache( $post_id ) {
 	$post_id = is_object( $post_id ) ? $post_id->ID : $post_id;
 	$GLOBALS['ec_test']['clean_post_cache_calls'][] = array( get_current_blog_id(), (int) $post_id );
+	unset( $GLOBALS['ec_test']['post_cache'][ get_current_blog_id() ][ (int) $post_id ] );
 }
 
 function clean_term_cache( $term_id, $taxonomy = '' ) {
 	$GLOBALS['ec_test']['clean_term_cache_calls'][] = array( get_current_blog_id(), (int) $term_id, $taxonomy );
+	unset( $GLOBALS['ec_test']['term_cache'][ get_current_blog_id() ][ (int) $term_id ] );
 }
 
 function clean_taxonomy_cache( $taxonomy ) {
@@ -748,6 +767,11 @@ function delete_post_meta( $post_id, $key, $value = '' ) {
 }
 
 function get_term( $term_id, $taxonomy = '' ) {
+	$blog_id = get_current_blog_id();
+	if ( array_key_exists( $term_id, $GLOBALS['ec_test']['term_cache'][ $blog_id ] ?? array() ) ) {
+		$term = $GLOBALS['ec_test']['term_cache'][ $blog_id ][ $term_id ];
+		return $term && ( '' === $taxonomy || $term->taxonomy === $taxonomy ) ? $term : null;
+	}
 	$terms = ec_test_blog_store( 'terms' );
 	$term  = $terms[ $term_id ] ?? null;
 	if ( $term && ( '' === $taxonomy || $term->taxonomy === $taxonomy ) ) {
@@ -809,11 +833,16 @@ function get_terms( $args = array() ) {
 }
 
 function get_term_meta( $term_id, $key, $single = false ) {
-	$meta = ec_test_blog_store( 'term_meta' );
+	$blog_id = get_current_blog_id();
+	$meta    = array_key_exists( $term_id, $GLOBALS['ec_test']['term_meta_cache'][ $blog_id ] ?? array() )
+		? $GLOBALS['ec_test']['term_meta_cache'][ $blog_id ]
+		: ec_test_blog_store( 'term_meta' );
 	if ( ! array_key_exists( $key, $meta[ $term_id ] ?? array() ) ) {
+		$GLOBALS['ec_test']['term_meta_reads'][] = array( $blog_id, (int) $term_id, $key, array() );
 		return $single ? '' : array();
 	}
 	$values = is_array( $meta[ $term_id ][ $key ] ) ? $meta[ $term_id ][ $key ] : array( $meta[ $term_id ][ $key ] );
+	$GLOBALS['ec_test']['term_meta_reads'][] = array( $blog_id, (int) $term_id, $key, $values );
 	return $single ? ( $values[0] ?? '' ) : $values;
 }
 
@@ -915,7 +944,9 @@ function get_posts( $args ) {
 		}
 	}
 	$offset = (int) ( $args['offset'] ?? 0 );
-	$limit  = isset( $args['posts_per_page'] ) && $args['posts_per_page'] >= 0 ? (int) $args['posts_per_page'] : null;
+	$limit  = isset( $args['posts_per_page'] ) && $args['posts_per_page'] >= 0
+		? (int) $args['posts_per_page']
+		: ( isset( $args['numberposts'] ) && $args['numberposts'] >= 0 ? (int) $args['numberposts'] : null );
 	return array_slice( $ids, $offset, $limit );
 }
 
@@ -1000,6 +1031,14 @@ function get_main_site_id() {
 
 function wp_cache_delete( $key = '', $group = '' ) {
 	$GLOBALS['ec_test']['cache_delete_calls'][] = array( get_current_blog_id(), $key, $group );
+	$blog_id = get_current_blog_id();
+	if ( 'post_meta' === $group ) {
+		unset( $GLOBALS['ec_test']['post_meta_cache'][ $blog_id ][ (int) $key ] );
+	} elseif ( 'term_meta' === $group ) {
+		unset( $GLOBALS['ec_test']['term_meta_cache'][ $blog_id ][ (int) $key ] );
+	} elseif ( 'posts' === $group && 'last_changed' === $key ) {
+		unset( $GLOBALS['ec_test']['post_query_cache'][ $blog_id ] );
+	}
 	return true;
 }
 
@@ -1203,6 +1242,7 @@ require_once dirname( __DIR__ ) . '/inc/abilities/handlers/artist-public-project
 require_once dirname( __DIR__ ) . '/inc/local-support/availability.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/helpers.php';
 require_once dirname( __DIR__ ) . '/inc/core/artist-term-binding.php';
+require_once dirname( __DIR__ ) . '/inc/local-support/workspace.php';
 require_once dirname( __DIR__ ) . '/inc/artist-profiles/subscribe-data-functions.php';
 require_once dirname( __DIR__ ) . '/inc/artist-profiles/frontend/shows-section.php';
 require_once dirname( __DIR__ ) . '/inc/abilities/registry.php';

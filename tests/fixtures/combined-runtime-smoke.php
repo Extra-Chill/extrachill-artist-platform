@@ -1,7 +1,9 @@
 <?php
 
 $artist_root = dirname( __DIR__, 2 );
-$standalone  = getenv( 'LINK_PAGES_WORKTREE' ) ?: '/var/lib/datamachine/workspace/extrachill-link-pages@feat-3-public-runtime';
+require_once __DIR__ . '/link-pages-runtime-fixture.php';
+$standalone = ec_test_link_pages_runtime_path( $artist_root );
+ec_test_load_link_pages_migration_override( $standalone );
 
 define( 'EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR', $artist_root . '/' );
 define( 'EXTRACHILL_ARTIST_PLATFORM_PLUGIN_URL', 'https://artist.example/plugins/artist/' );
@@ -16,7 +18,9 @@ function set_post_thumbnail( $id, $thumb ) { return update_post_meta( $id, '_thu
 function delete_post_thumbnail( $id ) { return delete_post_meta( $id, '_thumbnail_id' ); }
 function wp_get_attachment_image_url( $id ) { return wp_get_attachment_url( $id ); }
 function get_post_status( $id ) { $post = get_post( $id ); return $post ? $post->post_status : false; }
-function maybe_unserialize( $value ) { return $value; }
+if ( ! ec_test_link_pages_bootstrap_defines( $standalone, 'maybe_unserialize' ) ) {
+	function maybe_unserialize( $value ) { return $value; }
+}
 function get_current_user_id() { return 7; }
 function ec_user_can() { return true; }
 function ec_render_template( $template, $args = array() ) {

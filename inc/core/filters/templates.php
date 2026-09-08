@@ -108,14 +108,14 @@ function ec_template_handler( $output, $template_name, $args = array() ) {
 				}
 				return '';
 			}
-		} elseif ( 'artist_id' === $required_arg ) {
+		} elseif ( 'artist_id' === $required_arg ) { // @phpstan-ignore identical.alwaysTrue (data-driven elseif chain over caller-provided template configs.)
 			if ( empty( $args[ $required_arg ] ) || ! is_numeric( $args[ $required_arg ] ) ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 					return '<!-- ec_render_template(' . esc_html( $template_name ) . '): missing or invalid artist_id -->';
 				}
 				return '';
 			}
-		} elseif ( 'target_artist_id' === $required_arg ) {
+		} elseif ( 'target_artist_id' === $required_arg ) { // @phpstan-ignore identical.alwaysFalse (data-driven elseif chain over caller-provided template configs.)
 			// Presence-only check: can be 0 in create mode
 			if ( ! array_key_exists( 'target_artist_id', $args ) ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -123,7 +123,7 @@ function ec_template_handler( $output, $template_name, $args = array() ) {
 				}
 				return '';
 			}
-		} elseif ( in_array( $required_arg, array( 'edit_mode', 'display_artist_name', 'display_artist_bio', 'display_profile_image_url', 'display_header_image_url', 'sidx', 'lidx', 'index' ), true ) ) {
+		} elseif ( in_array( $required_arg, array( 'edit_mode', 'display_artist_name', 'display_artist_bio', 'display_profile_image_url', 'display_header_image_url', 'sidx', 'lidx', 'index' ), true ) ) { // @phpstan-ignore function.alreadyNarrowedType (data-driven elseif chain over caller-provided template configs.)
 			// Presence-only check: these fields can be empty strings or 0 (valid for indices)
 			if ( ! array_key_exists( $required_arg, $args ) ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -150,11 +150,11 @@ function ec_template_handler( $output, $template_name, $args = array() ) {
 
 	ob_start();
 	// Expose args to the included template without renaming/aliases
-	if ( is_array( $args ) && ! empty( $args ) ) {
+	if ( ! empty( $args ) ) {
 		// Use EXTR_SKIP to avoid overwriting any pre-set local vars
 		// phpcs:ignore WordPress.PHP.DontExtract.extract_extract -- WP template-vars contract for the included template; EXTR_SKIP guards pre-set locals.
 		extract( $args, EXTR_SKIP );
 	}
 	include $template_file;
-	return ob_get_clean();
+	return (string) ob_get_clean();
 }

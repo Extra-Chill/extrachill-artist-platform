@@ -65,6 +65,7 @@ function ec_get_artist_profile_sections( $artist_id, $artist_term_id = null ) {
 	 */
 	$sections = apply_filters( 'ec_artist_profile_sections', array(), $artist_id, $artist_term_id );
 
+	// @phpstan-ignore function.alreadyNarrowedType (filter output: other registrants may return a non-array at runtime.)
 	if ( ! is_array( $sections ) ) {
 		return array();
 	}
@@ -72,6 +73,7 @@ function ec_get_artist_profile_sections( $artist_id, $artist_term_id = null ) {
 	// Normalize, drop invalid entries, apply visibility gating.
 	$normalized = array();
 	foreach ( $sections as $section ) {
+		// @phpstan-ignore function.alreadyNarrowedType (filter output: section entries may be malformed at runtime.)
 		if ( ! is_array( $section ) || empty( $section['id'] ) || empty( $section['render'] ) || ! is_callable( $section['render'] ) ) {
 			continue;
 		}

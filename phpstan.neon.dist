@@ -1,0 +1,15 @@
+# Component-level PHPStan additions layered on the shared homeboy-wordpress
+# ruleset. The lint runner includes the extension default config automatically;
+# this file only adds component-specific symbol resolution.
+#
+# scanFiles pins signatures for cross-boundary functions the plugin calls but
+# does not own: theme-provided APIs and the external Extra Chill Link Pages
+# runtime (see tests/phpstan-stubs.php). Plugin dependencies resolve from the
+# Requires Plugins header; their tests are excluded from the symbol graph the
+# same way sibling components exclude ours.
+parameters:
+	excludePaths:
+		analyseAndScan:
+			- %currentWorkingDirectory%/../extrachill-users/tests/*
+	scanFiles:
+		- tests/phpstan-stubs.php

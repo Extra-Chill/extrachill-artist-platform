@@ -87,11 +87,11 @@ function extrachill_artist_link_page_custom_head( $artist_id, $link_page_id ) {
 		echo "t.src=v;s=b.getElementsByTagName(e)[0];\n";
 		echo "s.parentNode.insertBefore(t,s)}(window, document,'script',\n";
 		echo "'https://connect.facebook.net/en_US/fbevents.js');\n";
-		echo "fbq('init', '" . esc_js($meta_pixel_id) . "');\n";
+		echo "fbq('init', '" . esc_js( (string) $meta_pixel_id ) . "');\n";
 		echo "fbq('track', 'PageView');\n";
 		echo "</script>\n";
 		echo "<noscript><img height=\"1\" width=\"1\" style=\"display:none\"\n";
-		echo 'src="https://www.facebook.com/tr?id=' . esc_attr($meta_pixel_id) . "&ev=PageView&noscript=1\"\n";
+		echo 'src="https://www.facebook.com/tr?id=' . esc_attr( (string) $meta_pixel_id ) . "&ev=PageView&noscript=1\"\n";
 		echo "/></noscript>\n";
 		echo "<!-- End Meta Pixel Code -->\n";
 	}

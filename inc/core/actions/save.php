@@ -195,7 +195,7 @@ function ec_finalize_external_artist_link_page_save( $link_page_id, $artist_id, 
 	) as $key => $meta_key ) {
 		if ( array_key_exists( $key, $save_data ) ) {
 			$value = null === $save_data[ $key ] ? '' : sanitize_text_field( wp_unslash( (string) $save_data[ $key ] ) );
-			// @phpstan-ignore phpstan.function.notFound (provided by the extrachill-link-pages runtime at runtime; outside this component's analysis scope.)
+			// @phpstan-ignore function.notFound (provided by the extrachill-link-pages runtime at runtime; outside this component's analysis scope.)
 			if ( ! ec_write_link_page_meta( $link_page_id, $meta_key, $value, '' === $value ) ) {
 				$result = new WP_Error( 'artist_link_page_save_failed', 'Artist subscription settings could not be persisted.' );
 				break;
@@ -271,7 +271,7 @@ if ( ! extrachill_artist_platform_uses_external_link_pages_runtime() ) {
 			return array();
 		}
 
-		// @phpstan-ignore phpstan.argument.type (get_post_field() returns a string for post_name at runtime; falsy values are guarded above.)
+		// @phpstan-ignore argument.type (get_post_field() returns a string for post_name at runtime; falsy values are guarded above.)
 		$urls = array( 'https://extrachill.link/' . rawurlencode( $slug ) . '/' );
 
 		if ( 'extra-chill' === $slug ) {
@@ -667,7 +667,7 @@ function ec_handle_artist_profile_save( $artist_id, $save_data = array(), $files
 		$user_ids_to_remove = array_filter( array_map( 'absint', explode( ',', $save_data['remove_member_ids'] ) ) );
 
 		foreach ( $user_ids_to_remove as $user_id_to_remove ) {
-			// @phpstan-ignore phpstan.greater.alwaysTrue (defensive: absint() yields 0 for empty fragments; guard retained.)
+			// @phpstan-ignore greater.alwaysTrue (defensive: absint() yields 0 for empty fragments; guard retained.)
 			if ( $user_id_to_remove > 0 && $user_id_to_remove !== $current_user_id ) {
 				if ( ! function_exists( 'ec_remove_artist_membership' ) ) {
 					return new WP_Error( 'membership_dependency_missing', 'Artist membership management is unavailable.' );
@@ -809,7 +809,7 @@ function ec_admin_post_save_link_page() {
 		);
 		$error_code     = isset( $error_data['error_code'] ) ? $error_data['error_code'] : 'general';
 		$message        = isset( $error_messages[ $error_code ] ) ? $error_messages[ $error_code ] : $error_messages['general'];
-		// @phpstan-ignore phpstan.function.notFound (provided by the extrachill core plugin at runtime; outside this component's analysis scope.)
+		// @phpstan-ignore function.notFound (provided by the extrachill core plugin at runtime; outside this component's analysis scope.)
 		extrachill_set_notice( $message, 'error' );
 
 		$manage_page = get_page_by_path( 'manage-link-page' );
@@ -819,7 +819,7 @@ function ec_admin_post_save_link_page() {
 	}
 
 	// Success - set notice and redirect
-	// @phpstan-ignore phpstan.function.notFound (provided by the extrachill core plugin at runtime; outside this component's analysis scope.)
+	// @phpstan-ignore function.notFound (provided by the extrachill core plugin at runtime; outside this component's analysis scope.)
 	extrachill_set_notice( __( 'Link page updated successfully!', 'extrachill-artist-platform' ), 'success' );
 	$manage_page = get_page_by_path( 'manage-link-page' );
 	$base_url    = $manage_page ? get_permalink( $manage_page ) : home_url( '/manage-link-page/' );

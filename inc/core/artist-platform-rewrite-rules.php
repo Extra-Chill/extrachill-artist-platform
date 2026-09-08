@@ -134,6 +134,7 @@ function extrachill_prevent_canonical_redirect_for_link_domain( $redirect_url, $
  */
 function extrachill_resolve_link_domain_query() {
 	// Skip if in development mode.
+	// @phpstan-ignore booleanAnd.rightAlwaysFalse (canonical defined() && CONSTANT guard; the constant may be defined at runtime.)
 	if ( defined( 'EXTRCH_LINKPAGE_DEV' ) && EXTRCH_LINKPAGE_DEV ) {
 		return;
 	}
@@ -224,6 +225,7 @@ function extrachill_resolve_link_domain_query() {
  * @return string The template to actually load.
  */
 function extrachill_handle_link_domain_routing( $template ) {
+	// @phpstan-ignore booleanAnd.rightAlwaysFalse (canonical defined() && CONSTANT guard; the constant may be defined at runtime.)
 	if ( defined( 'EXTRCH_LINKPAGE_DEV' ) && EXTRCH_LINKPAGE_DEV ) {
 		return $template;
 	}
@@ -294,11 +296,13 @@ function extrachill_artist_platform_maybe_flush_rewrite_rules() {
  * to their canonical URL on the extrachill.link domain.
  */
 function extrachill_redirect_artist_link_page_cpt_to_custom_domain() {
+	// @phpstan-ignore booleanAnd.rightAlwaysFalse (canonical defined() && CONSTANT guard; the constant may be defined at runtime.)
 	$is_dev_mode             = ( defined( 'EXTRCH_LINKPAGE_DEV' ) && EXTRCH_LINKPAGE_DEV );
 	$is_extrachill_link_host = ( strpos( strtolower( $_SERVER['HTTP_HOST'] ?? '' ), 'extrachill.link' ) !== false );
 
 	if ( is_singular( 'artist_link_page' ) ) {
 		$current_link_page_post = get_queried_object();
+		// @phpstan-ignore property.notFound (is_singular() above guarantees the queried object is a WP_Post.)
 		if ( $current_link_page_post && $current_link_page_post->ID ) {
 			$link_page_id = $current_link_page_post->ID;
 
@@ -310,6 +314,7 @@ function extrachill_redirect_artist_link_page_cpt_to_custom_domain() {
 
 			if ( $temp_redirect_enabled ) {
 				if ( ! empty( $target_redirect_url ) && filter_var( $target_redirect_url, FILTER_VALIDATE_URL ) ) {
+					// @phpstan-ignore booleanNot.alwaysTrue (runtime state check: headers_sent() depends on whether output already flushed.)
 					if ( ! headers_sent() ) {
 						// phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- URL is creator-configured for this link page and validated above; wp_safe_redirect would reject off-site hosts.
 						wp_redirect( esc_url_raw( $target_redirect_url ), 302 );
@@ -317,6 +322,7 @@ function extrachill_redirect_artist_link_page_cpt_to_custom_domain() {
 					}
 				}
 			}
+			// @phpstan-ignore booleanNot.alwaysTrue (dev-mode guard: EXTRCH_LINKPAGE_DEV may be defined true in wp-config for local development.)
 			if ( ! $is_dev_mode && ! $is_extrachill_link_host ) {
 				// Use already retrieved artist_id (avoid duplicate query)
 				if ( $artist_id ) {

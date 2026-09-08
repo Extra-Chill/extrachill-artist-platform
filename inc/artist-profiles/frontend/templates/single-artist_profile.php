@@ -35,6 +35,7 @@ get_header(); ?>
 				// Resolve the bound main-blog `artist` term (Primitive 1) so
 				// term-scoped sections (Shows/Coverage/Community) can query the
 				// network. 0 when the profile has no term yet.
+				// @phpstan-ignore argument.type (inside the have_posts() loop the ID always resolves to a saved post.)
 				$artist_term_id = function_exists( 'ec_get_artist_term_id' ) ? ec_get_artist_term_id( $artist_profile_id ) : 0;
 
 				?>
@@ -46,6 +47,7 @@ get_header(); ?>
 						// The default sections reproduce the previous hardcoded
 						// hero + entry-content blocks (no visual change).
 						if ( function_exists( 'ec_render_artist_profile_sections' ) ) {
+							// @phpstan-ignore argument.type (inside the have_posts() loop the ID always resolves to a saved post.)
 							ec_render_artist_profile_sections( $artist_profile_id, $artist_term_id );
 						}
 						?>

@@ -212,7 +212,7 @@ function ec_create_link_page( $artist_id, $force = false ) {
 	if ( is_wp_error( $new_link_page_id ) ) {
 		return $new_link_page_id;
 	}
-	// @phpstan-ignore phpstan.booleanNot.alwaysFalse (defensive: legacy wp_insert_post paths may return 0.)
+	// @phpstan-ignore booleanNot.alwaysFalse (defensive: legacy wp_insert_post paths may return 0.)
 	if ( ! $new_link_page_id ) {
 		return new WP_Error( 'creation_failed', 'Failed to create link page' );
 	}
@@ -282,7 +282,7 @@ function ec_create_link_page( $artist_id, $force = false ) {
 			if ( $previous_owner_reference ) {
 				update_post_meta( $previous_link_page_id, EC_LINK_PAGE_OWNER_META_KEY, $previous_owner_reference );
 				$restored_owner_references = ec_get_stored_link_page_owner_references( $previous_link_page_id );
-				// @phpstan-ignore phpstan.booleanOr.alwaysTrue,phpstan.notIdentical.alwaysTrue (concurrency guard: another writer may have changed stored references between restore and verification.)
+				// @phpstan-ignore booleanOr.alwaysTrue,notIdentical.alwaysTrue (concurrency guard: another writer may have changed stored references between restore and verification.)
 				if ( 1 !== count( $restored_owner_references ) || $previous_owner_reference !== $restored_owner_references[0] ) {
 					$rollback = ec_rollback_created_link_page( $artist_id, $new_link_page_id, $previous_link_page_id );
 					if ( is_wp_error( $rollback ) ) {

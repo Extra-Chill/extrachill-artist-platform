@@ -15,7 +15,7 @@ function ec_is_user_artist_member( $user_id = null, $artist_id = null ) {
 		return false;
 	}
 
-	// @phpstan-ignore phpstan.arguments.count (provided by extrachill-users at runtime; outside this component's analysis scope.)
+	// @phpstan-ignore arguments.count (provided by extrachill-users at runtime; outside this component's analysis scope.)
 	$user_artist_ids = ec_get_artists_for_user( $user_id );
 	return in_array( (int) $artist_id, $user_artist_ids, true );
 }
@@ -45,7 +45,7 @@ function ec_get_user_artist_profiles( $user_id = null ) {
 		return array();
 	}
 
-	// @phpstan-ignore phpstan.arguments.count (provided by extrachill-users at runtime; outside this component's analysis scope.)
+	// @phpstan-ignore arguments.count (provided by extrachill-users at runtime; outside this component's analysis scope.)
 	$artist_ids = ec_get_artists_for_user( $user_id );
 	if ( empty( $artist_ids ) ) {
 		return array();
@@ -163,10 +163,10 @@ function ec_get_link_page_data( $artist_id, $link_page_id = null, $overrides = a
 	}
 
 	$display_data = array(
-		// @phpstan-ignore phpstan.ternary.alwaysTrue (defensive: $artist_id may be falsy for unsaved drafts at runtime.)
+		// @phpstan-ignore ternary.alwaysTrue (defensive: $artist_id may be falsy for unsaved drafts at runtime.)
 		'display_title'                     => ( isset($overrides['artist_profile_title']) && '' !== $overrides['artist_profile_title'] ) ? $overrides['artist_profile_title'] : ( $artist_id ? get_the_title($artist_id) : '' ),
 		'bio'                               => ( isset($overrides['link_page_bio_text']) && '' !== $overrides['link_page_bio_text'] ) ? $overrides['link_page_bio_text'] : ( $all_meta['_link_page_bio_text'][0] ?? '' ),
-		// @phpstan-ignore phpstan.ternary.alwaysTrue (defensive: $artist_id may be falsy for unsaved drafts at runtime.)
+		// @phpstan-ignore ternary.alwaysTrue (defensive: $artist_id may be falsy for unsaved drafts at runtime.)
 		'profile_img_url'                   => ( isset($overrides['profile_img_url']) && '' !== $overrides['profile_img_url'] ) ? $overrides['profile_img_url'] : ( $artist_id ? ( get_the_post_thumbnail_url($artist_id, 'large') ? get_the_post_thumbnail_url($artist_id, 'large') : '' ) : '' ),
 		'social_links'                      => isset($overrides['social_links']) ? $overrides['social_links'] : $data['socials'],
 		'socials'                           => $data['socials'],
@@ -187,7 +187,7 @@ function ec_get_link_page_data( $artist_id, $link_page_id = null, $overrides = a
 		'_link_page_subscribe_display_mode' => $data['settings']['subscribe_display_mode'],
 		'_link_page_subscribe_description'  => $data['settings']['subscribe_description'],
 		'_actual_link_page_id_for_template' => $link_page_id,
-		// @phpstan-ignore phpstan.ternary.alwaysTrue (defensive: $artist_id may be falsy for unsaved drafts at runtime.)
+		// @phpstan-ignore ternary.alwaysTrue (defensive: $artist_id may be falsy for unsaved drafts at runtime.)
 		'artist_profile'                    => $artist_id ? get_post($artist_id) : null,
 		'settings'                          => $data['settings'],
 		'links'                             => $data['links'],

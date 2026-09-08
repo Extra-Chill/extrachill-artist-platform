@@ -39,7 +39,7 @@ function ec_get_artist_profile_last_activity_timestamp( $artist_profile_id ) {
 		}
 	}
 
-	return $latest_activity_timestamp > 0 ? $latest_activity_timestamp : false;
+	return $latest_activity_timestamp > 0 ? (int) $latest_activity_timestamp : false;
 }
 
 /**
@@ -106,7 +106,7 @@ function ec_display_artist_cards_grid( $limit = 24, $exclude_user_artists = fals
 
 	// Calculate pagination
 	$total_artists = count( $sorted_artist_ids );
-	$total_pages   = ceil( $total_artists / $limit );
+	$total_pages   = (int) ceil( $total_artists / $limit );
 	$current_page  = max( 1, min( $current_page, $total_pages ) );
 	$offset        = ( $current_page - 1 ) * $limit;
 

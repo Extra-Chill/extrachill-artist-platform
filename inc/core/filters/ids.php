@@ -43,18 +43,18 @@ function ec_get_artist_id( $context = null ) {
 		$post_type = get_post_type( $id );
 
 		// If it's already an artist profile, return it
-		if ( $post_type === 'artist_profile' ) {
+		if ( 'artist_profile' === $post_type ) {
 			return $id;
 		}
 
 		// If it's a link page, resolve to artist
-		if ( $post_type === 'artist_link_page' ) {
+		if ( 'artist_link_page' === $post_type ) {
 			$artist_id = get_post_meta( $id, '_associated_artist_profile_id', true );
 			$artist_id = $artist_id ? (int) $artist_id : 0;
 			return $artist_id;
 		}
 
-		if ( $post_type === false ) { // Likely a user ID
+		if ( false === $post_type ) { // Likely a user ID
 			$user_artist_ids = ec_get_artists_for_user( $id );
 			if ( ! empty( $user_artist_ids ) ) {
 				$first_artist_id = (int) $user_artist_ids[0];
@@ -140,12 +140,12 @@ function ec_get_link_page_id( $context = null ) {
 		$post_type = get_post_type( $id );
 
 		// If it's already a link page, return it
-		if ( $post_type === 'artist_link_page' ) {
+		if ( 'artist_link_page' === $post_type ) {
 			return $id;
 		}
 
 		// If it's an artist profile, resolve to link page
-		if ( $post_type === 'artist_profile' ) {
+		if ( 'artist_profile' === $post_type ) {
 			$link_pages   = get_posts( array(
 				'post_type'      => 'artist_link_page',
 				'meta_key'       => '_associated_artist_profile_id',
@@ -157,7 +157,7 @@ function ec_get_link_page_id( $context = null ) {
 			return $link_page_id;
 		}
 
-		if ( $post_type === false ) { // Likely a user ID
+		if ( false === $post_type ) { // Likely a user ID
 			$user_artist_ids = ec_get_artists_for_user( $id );
 			if ( ! empty( $user_artist_ids ) ) {
 				$first_artist_id = (int) $user_artist_ids[0];

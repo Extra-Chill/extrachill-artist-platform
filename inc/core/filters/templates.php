@@ -86,7 +86,7 @@ function ec_template_handler( $output, $template_name, $args = array() ) {
 
 	// Validate required arguments
 	foreach ( $template_config['required'] as $required_arg ) {
-		if ( $required_arg === 'social_data' ) {
+		if ( 'social_data' === $required_arg ) {
 			$social_data = $args['social_data'] ?? array();
 			if ( empty( $social_data['url'] ) || empty( $social_data['type'] ) ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -94,28 +94,28 @@ function ec_template_handler( $output, $template_name, $args = array() ) {
 				}
 				return '';
 			}
-		} elseif ( $required_arg === 'social_links' ) {
+		} elseif ( 'social_links' === $required_arg ) {
 			if ( empty( $args[ $required_arg ] ) || ! is_array( $args[ $required_arg ] ) ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 					return '<!-- ec_render_template(' . esc_html( $template_name ) . '): missing or invalid social_links (array required) -->';
 				}
 				return '';
 			}
-		} elseif ( $required_arg === 'links' ) {
+		} elseif ( 'links' === $required_arg ) {
 			if ( ! isset( $args[ $required_arg ] ) || ! is_array( $args[ $required_arg ] ) ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 					return '<!-- ec_render_template(' . esc_html( $template_name ) . '): missing or invalid links (array required) -->';
 				}
 				return '';
 			}
-		} elseif ( $required_arg === 'artist_id' ) {
+		} elseif ( 'artist_id' === $required_arg ) {
 			if ( empty( $args[ $required_arg ] ) || ! is_numeric( $args[ $required_arg ] ) ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
 					return '<!-- ec_render_template(' . esc_html( $template_name ) . '): missing or invalid artist_id -->';
 				}
 				return '';
 			}
-		} elseif ( $required_arg === 'target_artist_id' ) {
+		} elseif ( 'target_artist_id' === $required_arg ) {
 			// Presence-only check: can be 0 in create mode
 			if ( ! array_key_exists( 'target_artist_id', $args ) ) {
 				if ( defined( 'WP_DEBUG' ) && WP_DEBUG ) {
@@ -152,6 +152,7 @@ function ec_template_handler( $output, $template_name, $args = array() ) {
 	// Expose args to the included template without renaming/aliases
 	if ( is_array( $args ) && ! empty( $args ) ) {
 		// Use EXTR_SKIP to avoid overwriting any pre-set local vars
+		// phpcs:ignore WordPress.PHP.DontExtract.extract_extract -- WP template-vars contract for the included template; EXTR_SKIP guards pre-set locals.
 		extract( $args, EXTR_SKIP );
 	}
 	include $template_file;

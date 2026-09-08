@@ -23,7 +23,7 @@ function extrachill_artist_is_youtube_inline_embed_enabled( $link_page_id ) {
 
 	// Check if inline embed is explicitly disabled
 	$is_disabled = get_post_meta( $link_page_id, '_enable_youtube_inline_embed', true );
-	return $is_disabled !== '0';
+	return '0' !== $is_disabled;
 }
 
 /**

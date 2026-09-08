@@ -15,6 +15,7 @@ extrachill_breadcrumbs();
 	<div class="ec-edge-gutter">
 		<div class="entry-content" itemprop="text">
 			<?php
+			// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- template-local; deliberately reuses the WP $current_user name inside isolated template scope.
 			$current_user       = wp_get_current_user();
 			$is_logged_in       = is_user_logged_in();
 			$can_create_artists = ec_can_create_artist_profiles( get_current_user_id() );

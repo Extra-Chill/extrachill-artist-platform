@@ -18,6 +18,7 @@ add_action( 'extrachill_artist_link_page_minimal_head', 'extrachill_artist_enque
  * @param int $artist_id    Artist profile post ID.
  * @return void
  */
+// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- shared enqueue hook signature; IDs reserved for parity with the full head path.
 function extrachill_artist_enqueue_link_page_minimal_assets( $link_page_id, $artist_id ) {
 	$plugin_dir = EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR;
 	$plugin_url = EXTRACHILL_ARTIST_PLATFORM_PLUGIN_URL;
@@ -31,6 +32,7 @@ function extrachill_artist_enqueue_link_page_minimal_assets( $link_page_id, $art
 
 	foreach ( $styles as $handle => $path ) {
 		if ( 0 === strpos( $path, 'http' ) ) {
+			// phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- remote CDN asset; version param intentionally null.
 			wp_enqueue_style( $handle, $path, array(), null );
 			continue;
 		}

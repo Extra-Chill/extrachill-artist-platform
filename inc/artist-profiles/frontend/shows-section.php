@@ -36,6 +36,7 @@ defined( 'ABSPATH' ) || exit;
  * @param int     $artist_term_id Bound main-blog `artist` term_id.
  * @return array[]
  */
+// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- shared section-registration filter signature; IDs unused for this static section.
 function ec_register_artist_profile_shows_section( $sections, $artist_id, $artist_term_id ) {
 	$sections[] = array(
 		'id'       => 'shows',
@@ -131,7 +132,7 @@ function ec_artist_shows_gather( $artist_term_id ) {
 	// Scope the loopback opt-in to this one call so the seam's global default
 	// (in-process) is unchanged for every other cross-site caller. Add/remove
 	// around the single dispatch.
-	$force_loopback = static function ( $enabled ) {
+	$force_loopback = static function ( $enabled ) { // phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- force-loopback contract always reports enabled regardless of input.
 		return true;
 	};
 	add_filter( 'ec_cross_site_use_http_loopback', $force_loopback, 10 );

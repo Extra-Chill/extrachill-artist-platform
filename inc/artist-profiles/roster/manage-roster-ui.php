@@ -51,7 +51,7 @@ if ( ! function_exists('ec_display_manage_members_section') ) {
 							? extrachill_get_user_community_profile_url( $user_info->ID )
 							: '';
 						?>
-						<li data-user-id="<?php echo esc_attr( $user_info->ID ); ?>" class="ec-member-linked">
+						<li data-user-id="<?php echo esc_attr( (string) $user_info->ID ); ?>" class="ec-member-linked">
 							<?php echo get_avatar( $user_info->ID, 32 ); ?>
 							<span class="member-name">
 							<?php
@@ -66,7 +66,7 @@ if ( ! function_exists('ec_display_manage_members_section') ) {
 							(<?php echo esc_html( $user_info->user_login ); ?>)</span>
 							<span class="member-status-label">(Linked Account)</span>
 							<?php if ( $user_info->ID !== $current_user_id ) : ?>
-								<button type="button" class="button-2 button-small ec-remove-member-button" data-user-id="<?php echo esc_attr( $user_info->ID ); ?>" title="<?php esc_attr_e( 'Remove this member from artist', 'extrachill-artist-platform' ); ?>">&times; <?php esc_html_e('Remove', 'extrachill-artist-platform'); ?></button>
+								<button type="button" class="button-2 button-small ec-remove-member-button" data-user-id="<?php echo esc_attr( (string) $user_info->ID ); ?>" title="<?php esc_attr_e( 'Remove this member from artist', 'extrachill-artist-platform' ); ?>">&times; <?php esc_html_e('Remove', 'extrachill-artist-platform'); ?></button>
 							<?php else : ?>
 								<span class="is-current-user"><?php esc_html_e('You', 'extrachill-artist-platform'); ?></span>
 							<?php endif; ?>
@@ -79,7 +79,7 @@ if ( ! function_exists('ec_display_manage_members_section') ) {
 			// 2. Display Pending Invitations (for users not already linked)
 			if ( ! empty( $pending_invitations_raw ) ) :
 				foreach ( $pending_invitations_raw as $invite ) :
-					if ( in_array( strtolower($invite['email']), $processed_emails ) ) {
+					if ( in_array( strtolower($invite['email']), $processed_emails, true ) ) {
 						continue;
 					}
 					$has_any_members    = true;

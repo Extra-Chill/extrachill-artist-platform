@@ -61,22 +61,25 @@ function ec_handle_artist_relationship_admin_action() {
 
 /** Render the relationship list, link form, and orphan cleanup workflow. */
 function ec_render_artist_relationship_admin_page() {
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only view filter on a capability-gated admin page; no data mutation.
 	$requested_view = isset( $_GET['view'] ) ? sanitize_key( wp_unslash( $_GET['view'] ) ) : 'artists';
 	$view           = in_array( $requested_view, array( 'artists', 'users', 'orphans' ), true ) ? $requested_view : 'artists';
-	$search         = isset( $_GET['search'] ) ? sanitize_text_field( wp_unslash( $_GET['search'] ) ) : '';
-	$name           = 'orphans' === $view ? 'extrachill/admin-list-orphan-artist-relationships' : 'extrachill/admin-list-artist-relationships';
-	$input          = 'orphans' === $view ? array() : array(
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only search filter on a capability-gated admin page; value sanitized below.
+	$search  = isset( $_GET['search'] ) ? sanitize_text_field( wp_unslash( $_GET['search'] ) ) : '';
+	$name    = 'orphans' === $view ? 'extrachill/admin-list-orphan-artist-relationships' : 'extrachill/admin-list-artist-relationships';
+	$input   = 'orphans' === $view ? array() : array(
 		'view'   => $view,
 		'search' => $search,
 	);
-	$ability        = wp_get_ability( $name );
-	$result         = $ability ? $ability->execute( $input ) : new WP_Error( 'ability_not_found', __( 'Relationship ability is unavailable.', 'extrachill-artist-platform' ) );
-	$notice_type    = isset( $_GET['type'] ) && 'error' === sanitize_key( wp_unslash( $_GET['type'] ) ) ? 'error' : 'success';
+	$ability = wp_get_ability( $name );
+	$result  = $ability ? $ability->execute( $input ) : new WP_Error( 'ability_not_found', __( 'Relationship ability is unavailable.', 'extrachill-artist-platform' ) );
+	// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only flash-notice type flag set by our own redirect; display-only.
+	$notice_type = isset( $_GET['type'] ) && 'error' === sanitize_key( wp_unslash( $_GET['type'] ) ) ? 'error' : 'success';
 	?>
 	<div class="wrap">
 		<h1><?php esc_html_e( 'Artist Relationships', 'extrachill-artist-platform' ); ?></h1>
-		<?php if ( isset( $_GET['notice'] ) ) : ?>
-			<div class="notice notice-<?php echo esc_attr( $notice_type ); ?> is-dismissible"><p><?php echo esc_html( wp_unslash( $_GET['notice'] ) ); ?></p></div>
+		<?php if ( isset( $_GET['notice'] ) ) : // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only flash notice set by our own redirect; display-only. ?>
+			<div class="notice notice-<?php echo esc_attr( $notice_type ); ?> is-dismissible"><p><?php echo esc_html( wp_unslash( $_GET['notice'] ) ); // phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only flash notice text set by our own redirect; escaped on output. ?></p></div>
 		<?php endif; ?>
 		<p><?php esc_html_e( 'Manage bidirectional links between network users and artist profiles.', 'extrachill-artist-platform' ); ?></p>
 		<nav class="nav-tab-wrapper">

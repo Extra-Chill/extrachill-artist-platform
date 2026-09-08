@@ -1,5 +1,7 @@
 <?php
 
+// phpcs:ignoreFile Universal.Namespaces.DisallowCurlyBraceSyntax.Forbidden,Universal.Namespaces.OneDeclarationPerFile.MultipleFound,Universal.Namespaces.DisallowDeclarationWithoutName.Forbidden,Generic.Files.OneObjectStructurePerFile.MultipleFound -- fixture intentionally bundles multiple namespaced and global stub classes for isolated analysis.
+
 namespace {
 	final class WP_Agent_Capability_Ceiling {
 		public int $user_id;

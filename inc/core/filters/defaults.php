@@ -66,6 +66,7 @@ function ec_get_link_page_defaults() {
 
 		'subscription' => array(
 			'default_mode'         => 'icon_modal',
+			// translators: %s: artist or site name shown in the subscribe description.
 			'description_template' => __( 'Enter your email address to receive occasional news and updates from %s.', 'extrachill-artist-platform' ),
 			'fallback_artist'      => __( 'this artist', 'extrachill-artist-platform' ),
 		),

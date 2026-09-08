@@ -33,6 +33,9 @@ if ( file_exists( EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'vendor/autoload.php' 
 
 class ExtraChillArtistPlatform {
 
+	/**
+	 * @var self|null
+	 */
 	private static $instance = null;
 
 	public static function instance() {
@@ -183,6 +186,7 @@ class ExtraChillArtistPlatform {
 	}
 }
 
+// phpcs:ignore Universal.Files.SeparateFunctionsFromOO.Mixed -- WordPress plugin bootstrap: procedural loader helpers plus the plugin class.
 function extrachill_artist_platform() {
 	return ExtraChillArtistPlatform::instance();
 }

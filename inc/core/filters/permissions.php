@@ -47,6 +47,7 @@ function ec_get_permission_link_page_id( $data ) {
  * @param array $data Request data (POST, GET, or other)
  * @return bool True if user can manage options
  */
+// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- permission-callback signature parity; request data unused for this check.
 function ec_get_permission_is_admin( $data ) {
 	return current_user_can( 'manage_options' );
 }
@@ -57,7 +58,9 @@ function ec_get_permission_is_admin( $data ) {
  * @param array $data Request data (POST, GET, or other)
  * @return bool True if user can create artist profiles
  */
+// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- permission-callback signature parity; request data unused for this check.
 function ec_get_permission_can_create_artists( $data ) {
+	// @phpstan-ignore phpstan.function.notFound (provided by extrachill-users at runtime; outside this component's analysis scope.)
 	return ec_can_create_artist_profiles( get_current_user_id() );
 }
 

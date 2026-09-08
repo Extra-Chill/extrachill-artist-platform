@@ -31,7 +31,7 @@ foreach ( $links as $link_item ) {
 }
 ?>
 
-<?php if ( $section_title !== '' ) : ?>
+<?php if ( '' !== $section_title ) : ?>
 <div class="extrch-link-page-section-title"><?php echo esc_html( $section_title ); ?></div>
 <?php endif; ?>
 
@@ -56,7 +56,7 @@ foreach ( $links as $link_item ) {
 			'youtube_embed' => $is_youtube_link,
 		);
 
-		echo ec_render_template( 'single-link', $link_args );
+		echo ec_render_template( 'single-link', $link_args ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal template renderer; link values escaped inside the template.
 	endforeach;
 	?>
 </div>

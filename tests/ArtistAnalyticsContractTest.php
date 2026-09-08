@@ -85,7 +85,9 @@ final class ArtistAnalyticsContractTest extends TestCase {
 	}
 
 	public function test_analytics_assets_use_shared_script_and_style_handles(): void {
-		$render  = file_get_contents( dirname( __DIR__ ) . '/src/blocks/artist-analytics/render.php' );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local source-file read, not a remote URL.
+		$render = file_get_contents( dirname( __DIR__ ) . '/src/blocks/artist-analytics/render.php' );
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local source-file read, not a remote URL.
 		$webpack = file_get_contents( dirname( __DIR__ ) . '/webpack.config.js' );
 
 		$this->assertStringContainsString( "'extrachill-analytics-date-range'", $render );

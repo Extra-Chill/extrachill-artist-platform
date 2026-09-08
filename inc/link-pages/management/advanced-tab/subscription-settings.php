@@ -60,7 +60,7 @@ function extrachill_artist_get_subscription_description( $artist_id, $link_page_
  */
 function extrachill_artist_is_subscription_enabled( $link_page_id ) {
 	$display_mode = extrachill_artist_get_subscription_display_mode( $link_page_id );
-	return $display_mode !== 'disabled';
+	return 'disabled' !== $display_mode;
 }
 
 /**

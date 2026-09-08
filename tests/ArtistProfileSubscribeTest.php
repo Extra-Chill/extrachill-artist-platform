@@ -113,6 +113,7 @@ if ( ! function_exists( 'ec_render_template' ) ) {
 			return '';
 		}
 
+		// phpcs:ignore WordPress.PHP.DontExtract.extract_extract -- mirrors the WP template-vars contract of the included template; EXTR_SKIP guards collisions.
 		extract( $args, EXTR_SKIP );
 		ob_start();
 		include dirname( __DIR__ ) . '/inc/link-pages/live/templates/subscribe-inline-form.php';
@@ -122,6 +123,7 @@ if ( ! function_exists( 'ec_render_template' ) ) {
 
 require_once dirname( __DIR__ ) . '/inc/artist-profiles/frontend/subscribe-section.php';
 
+// phpcs:ignore Universal.Files.SeparateFunctionsFromOO.Mixed -- test file keeps a template-loading helper plus the test class; intentional.
 final class ArtistProfileSubscribeTest extends TestCase {
 	protected function setUp(): void {
 		$GLOBALS['ec_test'] = array(
@@ -210,6 +212,7 @@ final class ArtistProfileSubscribeTest extends TestCase {
 	}
 
 	public function test_profile_styles_include_mobile_single_column_layout(): void {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local asset read, not a remote URL.
 		$styles = file_get_contents( dirname( __DIR__ ) . '/assets/css/artist-profile-subscribe.css' );
 
 		$this->assertStringContainsString( '@media (max-width: 600px)', $styles );

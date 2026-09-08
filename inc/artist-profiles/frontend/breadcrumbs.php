@@ -19,6 +19,7 @@ defined( 'ABSPATH' ) || exit;
  * @param string $root_link Default root breadcrumb link HTML
  * @return string Modified root link
  */
+// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.Found -- WP filter signature; $root_link deliberately replaced by this callback.
 function ec_artist_platform_breadcrumb_root( $root_link ) {
 	// On homepage, just "Extra Chill" (trail will add "Artist Platform")
 	if ( is_front_page() ) {
@@ -94,6 +95,7 @@ add_filter( 'extrachill_breadcrumbs_override_trail', 'ec_artist_profile_breadcru
  * @param string $url   Back-to-home link URL
  * @return string Modified label
  */
+// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- WP filter signature; $url unused because the label only changes on the homepage.
 function ec_artist_platform_back_to_home_label( $label, $url ) {
 	// Don't override on homepage (homepage should say "Back to Extra Chill")
 	if ( is_front_page() ) {

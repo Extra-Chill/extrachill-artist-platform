@@ -1,5 +1,7 @@
 <?php
 
+// phpcs:ignoreFile WordPress.WP.GlobalVariablesOverride.Prohibited,Universal.Operators.DisallowShortTernary.Found,Universal.Files.SeparateFunctionsFromOO.Mixed,Universal.NamingConventions.NoReservedKeywordParameterNames.defaultFound,WordPress.WP.AlternativeFunctions.json_encode_json_encode -- standalone smoke harness mirroring the plugin bootstrap under test; runs outside WP with mirrored signatures.
+
 $mode       = $argv[1] ?? '';
 $artist     = dirname( __DIR__, 2 );
 $standalone = getenv( 'LINK_PAGES_WORKTREE' ) ?: '/var/lib/datamachine/workspace/extrachill-link-pages@feat-3-public-runtime';

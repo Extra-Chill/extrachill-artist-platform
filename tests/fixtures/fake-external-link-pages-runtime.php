@@ -1,5 +1,7 @@
 <?php
 
+// phpcs:ignoreFile Generic.CodeAnalysis.UnusedFunctionParameter.Found,Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- stub fixture mirroring upstream link-pages function signatures; unused params are part of the mirrored contracts.
+
 if ( empty( $GLOBALS['smoke']['omit_api_version'] ) ) {
 	define( 'EC_LINK_PAGES_RUNTIME_API_VERSION', $GLOBALS['smoke']['api_version'] ?? '3' );
 }

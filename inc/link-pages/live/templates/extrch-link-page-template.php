@@ -84,18 +84,18 @@ $is_preview_iframe_context    = false;
 // Determine profile image shape class
 $profile_img_shape_class = 'shape-square'; // Default to square
 if ( isset($data['profile_img_shape']) ) {
-	if ( $data['profile_img_shape'] === 'circle' ) {
+	if ( 'circle' === $data['profile_img_shape'] ) {
 		$profile_img_shape_class = 'shape-circle';
-	} elseif ( $data['profile_img_shape'] === 'rectangle' ) {
+	} elseif ( 'rectangle' === $data['profile_img_shape'] ) {
 		$profile_img_shape_class = 'shape-rectangle';
-	} elseif ( $data['profile_img_shape'] === 'square' ) {
+	} elseif ( 'square' === $data['profile_img_shape'] ) {
 		$profile_img_shape_class = 'shape-square';
 	} else {
 		$profile_img_shape_class = 'shape-square'; // fallback for unknown values
 	}
 }
 
-$overlay_enabled = isset($data['css_vars']['overlay']) ? $data['css_vars']['overlay'] === '1' : true;
+$overlay_enabled = isset($data['css_vars']['overlay']) ? '1' === $data['css_vars']['overlay'] : true;
 $wrapper_class   = 'extrch-link-page-content-wrapper' . ( $overlay_enabled ? '' : ' no-overlay' );
 
 // Ensure all variables used in data attributes are defined in the scope
@@ -125,12 +125,12 @@ $body_bg_style = '';
 ?>
 <div class="<?php echo esc_attr($container_classes); ?>"
 	data-bg-type="<?php echo esc_attr($bg_type); ?>"
-	<?php echo $initial_container_style_attr; ?>>
+	<?php echo $initial_container_style_attr; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- style attribute built from sanitized link-page settings upstream. ?>>
 	<div class="<?php echo esc_attr($wrapper_class); ?>" style="flex-grow:1;">
 		<div class="extrch-link-page-header-content">
 			<?php
 			// Absolutely positioned bell (subscribe) and ellipses (share) triggers in top left/right
-			if ( $subscribe_display_mode === 'icon_modal' ) :
+			if ( 'icon_modal' === $subscribe_display_mode ) :
 				?>
 				<button class="extrch-share-trigger extrch-subscribe-icon-trigger extrch-bell-page-trigger" aria-label="Subscribe to this artist">
 					<i class="fas fa-bell"></i>
@@ -160,8 +160,8 @@ $body_bg_style = '';
 
 		<?php
 		// Conditionally render social icons ABOVE regular links using filter system
-		if ( $social_icons_position === 'above' && ! empty($data['social_links']) ) {
-			echo ec_render_social_icons_container($data['social_links'], 'above');
+		if ( 'above' === $social_icons_position && ! empty($data['social_links']) ) {
+			echo ec_render_social_icons_container($data['social_links'], 'above'); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- container renders sanitized icon templates internally.
 		} // end if $social_icons_position === 'above'
 
 		// Prepare for rendering actual link sections
@@ -175,29 +175,29 @@ $body_bg_style = '';
 					'links'         => $section['links'] ?? array(),
 					'link_page_id'  => $link_page_id,
 				);
-				echo ec_render_link_section( $section, $section_args );
+				echo ec_render_link_section( $section, $section_args ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal renderer; link values escaped inside the section template.
 			endforeach;
 			?>
 		<?php endif; ?>
 		<?php
 		// Output the inline subscribe form below all links if in inline_form mode
-		if ( $subscribe_display_mode === 'inline_form' ) {
-			echo ec_render_template('subscribe-inline-form', array(
+		if ( 'inline_form' === $subscribe_display_mode ) {
+			echo ec_render_template('subscribe-inline-form', array( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal template renderer; values escaped inside the template.
 				'artist_id' => $artist_id,
 				'data'      => $data,
 			));
 		}
 		// Output the modal partial (but not the bell icon) if in icon_modal mode
-		if ( $subscribe_display_mode === 'icon_modal' ) {
-			echo ec_render_template('subscribe-modal', array(
+		if ( 'icon_modal' === $subscribe_display_mode ) {
+			echo ec_render_template('subscribe-modal', array( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal template renderer; values escaped inside the template.
 				'artist_id' => $artist_id,
 				'data'      => $data,
 			));
 		}
 
 		// Conditionally render social icons below links (and below subscribe form if present) using filter system
-		if ( $social_icons_position === 'below' && ! empty($data['social_links']) ) {
-			echo ec_render_social_icons_container($data['social_links'], 'below');
+		if ( 'below' === $social_icons_position && ! empty($data['social_links']) ) {
+			echo ec_render_social_icons_container($data['social_links'], 'below'); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- container renders sanitized icon templates internally.
 		}
 		?>
 
@@ -215,7 +215,7 @@ $body_bg_style = '';
 
 	<?php
 	// Include reusable share modal template (JS populates and controls it)
-	echo ec_render_template('share-modal');
+	echo ec_render_template('share-modal'); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal template renderer; static modal markup.
 	?>
 
 	<?php

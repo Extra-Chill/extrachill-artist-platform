@@ -52,7 +52,7 @@ if ( empty( $valid_social_links ) ) {
 			'social_data'    => $social_link,
 			'social_manager' => $social_manager,
 		);
-		echo ec_render_template( 'social-icon', $icon_args );
+		echo ec_render_template( 'social-icon', $icon_args ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal template renderer; icon values escaped inside the template.
 	endforeach;
 	?>
 </div>

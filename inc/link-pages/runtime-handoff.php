@@ -275,6 +275,7 @@ function extrachill_artist_platform_validate_link_pages_runtime() {
 	if ( ! defined( 'EC_LINK_PAGE_POST_TYPE' ) || ! defined( 'EC_LINK_PAGE_OWNER_META_KEY' ) ) {
 		return new WP_Error( 'extrachill_link_pages_runtime_incomplete', 'The configured Extra Chill Link Pages runtime did not load its complete generic API.' );
 	}
+	// @phpstan-ignore phpstan.booleanOr.alwaysFalse,phpstan.notIdentical.alwaysFalse (contract validation: the comparison must stay so an incompatible runtime is still rejected.)
 	if ( 'artist_link_page' !== EC_LINK_PAGE_POST_TYPE || '_ec_link_page_owner_reference' !== EC_LINK_PAGE_OWNER_META_KEY ) {
 		return new WP_Error( 'extrachill_link_pages_runtime_incompatible', 'The configured Extra Chill Link Pages runtime uses an incompatible storage contract.' );
 	}
@@ -317,6 +318,7 @@ function extrachill_artist_platform_validate_link_pages_runtime() {
 			return new WP_Error( 'extrachill_link_pages_runtime_incompatible', 'The configured Extra Chill Link Pages runtime exposes an incompatible readiness marker.' );
 		}
 		try {
+			// @phpstan-ignore phpstan.arguments.count (arity is verified via ReflectionFunction immediately above; dependency signatures may vary by runtime version.)
 			$ready = ec_link_pages_runtime_ready();
 		} catch ( Throwable $throwable ) {
 			$ready = false;

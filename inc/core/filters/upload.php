@@ -30,7 +30,7 @@ function ec_handle_link_page_file_uploads( $link_page_id, $files_data, $save_dat
 	$max_file_size = 5 * 1024 * 1024; // 5MB
 
 	// Profile image removal
-	if ( isset( $save_data['remove_profile_image'] ) && $save_data['remove_profile_image'] === true ) {
+	if ( isset( $save_data['remove_profile_image'] ) && true === $save_data['remove_profile_image'] ) {
 		$associated_artist_id = apply_filters('ec_get_artist_id', $link_page_id);
 		if ( $associated_artist_id ) {
 			// Get current profile image ID before removing
@@ -57,7 +57,7 @@ function ec_handle_link_page_file_uploads( $link_page_id, $files_data, $save_dat
 
 			if ( is_numeric( $new_bg_image_id ) ) {
 				update_post_meta( $link_page_id, '_link_page_background_image_id', $new_bg_image_id );
-				if ( $old_bg_image_id && $old_bg_image_id != $new_bg_image_id ) {
+				if ( $old_bg_image_id && (int) $old_bg_image_id !== (int) $new_bg_image_id ) {
 					/**
 					 * Fires when an old background image should be deleted.
 					 *
@@ -76,7 +76,7 @@ function ec_handle_link_page_file_uploads( $link_page_id, $files_data, $save_dat
 
 	// Profile image upload
 	if ( ! empty( $files_data['link_page_profile_image_upload']['tmp_name'] ) ) {
-		if ( $files_data['link_page_profile_image_upload']['size'] <= $max_file_size && $files_data['link_page_profile_image_upload']['error'] == UPLOAD_ERR_OK ) {
+		if ( $files_data['link_page_profile_image_upload']['size'] <= $max_file_size && UPLOAD_ERR_OK === $files_data['link_page_profile_image_upload']['error'] ) {
 			$associated_artist_id = apply_filters('ec_get_artist_id', $link_page_id);
 			if ( $associated_artist_id ) {
 				// Get old image from filter BEFORE updating (single source of truth)
@@ -85,13 +85,14 @@ function ec_handle_link_page_file_uploads( $link_page_id, $files_data, $save_dat
 				$attach_id            = media_handle_upload( 'link_page_profile_image_upload', $associated_artist_id );
 				if ( is_wp_error( $attach_id ) ) {
 					// Upload failed - log error and return error code
+					// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional upload-failure diagnostics written to the site error log.
 					error_log( 'Profile image upload failed: ' . $attach_id->get_error_message() );
 					return 'upload_failed';
 				}
 				if ( is_numeric( $attach_id ) ) {
 					set_post_thumbnail( $associated_artist_id, $attach_id );
 					update_post_meta( $link_page_id, '_link_page_profile_image_id', $attach_id );
-					if ( $old_profile_image_id && $old_profile_image_id != $attach_id ) {
+					if ( $old_profile_image_id && (int) $old_profile_image_id !== (int) $attach_id ) {
 						/**
 						 * Fires when an old profile image should be deleted.
 						 *
@@ -106,11 +107,9 @@ function ec_handle_link_page_file_uploads( $link_page_id, $files_data, $save_dat
 					}
 				}
 			}
-		} else {
+		} elseif ( $files_data['link_page_profile_image_upload']['size'] > $max_file_size ) {
 			// File size exceeded or upload error
-			if ( $files_data['link_page_profile_image_upload']['size'] > $max_file_size ) {
-				return 'profile_image_size';
-			}
+			return 'profile_image_size';
 		}
 	}
 }
@@ -131,13 +130,13 @@ function ec_handle_artist_profile_file_uploads( $artist_id, $files_data ) {
 
 	// Featured image upload
 	if ( ! empty( $files_data['featured_image']['tmp_name'] ) ) {
-		if ( $files_data['featured_image']['size'] <= $max_file_size && $files_data['featured_image']['error'] == UPLOAD_ERR_OK ) {
+		if ( $files_data['featured_image']['size'] <= $max_file_size && UPLOAD_ERR_OK === $files_data['featured_image']['error'] ) {
 			$old_thumbnail_id = get_post_thumbnail_id( $artist_id );
 			$new_image_id     = media_handle_upload( 'featured_image', $artist_id );
 
 			if ( is_numeric( $new_image_id ) ) {
 				set_post_thumbnail( $artist_id, $new_image_id );
-				if ( $old_thumbnail_id && $old_thumbnail_id != $new_image_id ) {
+				if ( $old_thumbnail_id && (int) $old_thumbnail_id !== (int) $new_image_id ) {
 					wp_delete_attachment( $old_thumbnail_id, true );
 				}
 			}
@@ -152,13 +151,13 @@ function ec_handle_artist_profile_file_uploads( $artist_id, $files_data ) {
 
 	// Artist header image upload
 	if ( ! empty( $files_data['artist_header_image']['tmp_name'] ) ) {
-		if ( $files_data['artist_header_image']['size'] <= $max_file_size && $files_data['artist_header_image']['error'] == UPLOAD_ERR_OK ) {
+		if ( $files_data['artist_header_image']['size'] <= $max_file_size && UPLOAD_ERR_OK === $files_data['artist_header_image']['error'] ) {
 			$old_header_image_id = get_post_meta( $artist_id, '_artist_profile_header_image_id', true );
 			$new_header_image_id = media_handle_upload( 'artist_header_image', $artist_id );
 
 			if ( is_numeric( $new_header_image_id ) ) {
 				update_post_meta( $artist_id, '_artist_profile_header_image_id', $new_header_image_id );
-				if ( $old_header_image_id && $old_header_image_id != $new_header_image_id ) {
+				if ( $old_header_image_id && (int) $old_header_image_id !== (int) $new_header_image_id ) {
 					wp_delete_attachment( $old_header_image_id, true );
 				}
 			}

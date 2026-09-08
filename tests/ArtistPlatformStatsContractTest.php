@@ -18,6 +18,7 @@ if ( ! class_exists( 'WP_Query' ) ) {
 
 require_once dirname( __DIR__ ) . '/inc/abilities/handlers/get-artist-platform-stats.php';
 
+// phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound -- second stub class in this test file is intentional; not restructuring tests.
 final class ArtistPlatformStatsContractTest extends TestCase {
 	protected function setUp(): void {
 		$GLOBALS['ec_test'] = array(

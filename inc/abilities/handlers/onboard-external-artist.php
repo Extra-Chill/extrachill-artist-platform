@@ -351,8 +351,8 @@ function extrachill_artist_platform_ability_onboard_external_artist( $input ) {
 		),
 		'artist'      => array(
 			'name'       => $name,
-			'profile_id' => $profile_id ?: null,
-			'term_id'    => $term_id ?: null,
+			'profile_id' => ( $profile_id ? $profile_id : null ),
+			'term_id'    => ( $term_id ? $term_id : null ),
 			'state'      => $profile_id ? 'existing_profile' : ( $term_id ? 'existing_canonical_identity' : 'new_eligible' ),
 		),
 		'membership'  => array( 'state' => $managed ? 'managed' : ( $profile_id || $term_id ? 'request_required' : 'not_applicable' ) ),
@@ -413,8 +413,8 @@ function extrachill_artist_platform_ability_onboard_external_artist( $input ) {
 		$managed           = $profile_id && function_exists( 'ec_can_manage_artist' ) && ec_can_manage_artist( $user_id, $profile_id );
 		$context['artist'] = array(
 			'name'       => $name,
-			'profile_id' => $profile_id ?: null,
-			'term_id'    => $term_id ?: null,
+			'profile_id' => ( $profile_id ? $profile_id : null ),
+			'term_id'    => ( $term_id ? $term_id : null ),
 			'state'      => $profile_id ? 'existing_profile' : ( $term_id ? 'existing_canonical_identity' : 'new_eligible' ),
 		);
 		if ( $disclosure ) {

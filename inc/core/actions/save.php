@@ -36,7 +36,7 @@ function ec_handle_link_page_save( $link_page_id, $save_data = array(), $files_d
 
 	// Short bio displayed on the public link page.
 	if ( array_key_exists( 'bio', $save_data ) ) {
-		if ( $save_data['bio'] === '' || $save_data['bio'] === null ) {
+		if ( '' === $save_data['bio'] || null === $save_data['bio'] ) {
 			delete_post_meta( $link_page_id, '_link_page_bio_text' );
 		} else {
 			update_post_meta( $link_page_id, '_link_page_bio_text', $save_data['bio'] );
@@ -60,7 +60,7 @@ function ec_handle_link_page_save( $link_page_id, $save_data = array(), $files_d
 
 	foreach ( $advanced_fields as $key => $meta_key ) {
 		if ( array_key_exists( $key, $save_data ) ) {
-			if ( $save_data[ $key ] === '' || $save_data[ $key ] === null ) {
+			if ( '' === $save_data[ $key ] || null === $save_data[ $key ] ) {
 				delete_post_meta( $link_page_id, $meta_key );
 			} else {
 				update_post_meta( $link_page_id, $meta_key, $save_data[ $key ] );
@@ -83,7 +83,7 @@ function ec_handle_link_page_save( $link_page_id, $save_data = array(), $files_d
 			$social_manager = extrachill_artist_platform_social_links();
 			$social_result  = $social_manager->save( $artist_id, $save_data['social_icons'] );
 
-			if ( is_wp_error( $social_result ) ) {
+			if ( is_wp_error( $social_result ) ) { // phpcs:ignore Generic.CodeAnalysis.EmptyStatement.DetectedIf -- deliberate no-op: social save issues must not fail the whole save.
 				// Don't fail entire save for social issues
 			}
 		}
@@ -134,11 +134,11 @@ function ec_handle_link_page_save( $link_page_id, $save_data = array(), $files_d
 /** Save generic fields through standalone and retain artist-owned side effects. */
 function ec_handle_external_artist_link_page_save( $link_page_id, $save_data, $files_data = array() ) {
 	$owner = ec_get_link_page_owner( $link_page_id );
-	if ( is_wp_error( $owner ) || 'post' !== ( $owner['kind'] ?? '' ) || 'artist_profile' !== ( $owner['subtype'] ?? '' ) ) {
+	if ( is_wp_error( $owner ) || 'post' !== $owner['kind'] || 'artist_profile' !== $owner['subtype'] ) {
 		return new WP_Error( 'invalid_artist_link_page_owner', 'The Link Page is not canonically owned by an artist.' );
 	}
 	$artist_id = (int) $owner['object_id'];
-	if ( $artist_id !== (int) get_post_meta( $link_page_id, '_associated_artist_profile_id', true ) ) {
+	if ( (int) get_post_meta( $link_page_id, '_associated_artist_profile_id', true ) !== $artist_id ) {
 		return new WP_Error( 'artist_link_page_owner_mismatch', 'The canonical and legacy Link Page owners do not match.' );
 	}
 	$generic_keys            = array( 'links', 'css_vars', 'bio', 'link_expiration_enabled', 'redirect_enabled', 'redirect_target_url', 'youtube_embed_enabled', 'meta_pixel_id', 'google_tag_id', 'google_tag_manager_id', 'social_icons_position', 'profile_image_shape', 'background_image_id' );
@@ -195,6 +195,7 @@ function ec_finalize_external_artist_link_page_save( $link_page_id, $artist_id, 
 	) as $key => $meta_key ) {
 		if ( array_key_exists( $key, $save_data ) ) {
 			$value = null === $save_data[ $key ] ? '' : sanitize_text_field( wp_unslash( (string) $save_data[ $key ] ) );
+			// @phpstan-ignore phpstan.function.notFound (provided by the extrachill-link-pages runtime at runtime; outside this component's analysis scope.)
 			if ( ! ec_write_link_page_meta( $link_page_id, $meta_key, $value, '' === $value ) ) {
 				$result = new WP_Error( 'artist_link_page_save_failed', 'Artist subscription settings could not be persisted.' );
 				break;
@@ -270,6 +271,7 @@ if ( ! extrachill_artist_platform_uses_external_link_pages_runtime() ) {
 			return array();
 		}
 
+		// @phpstan-ignore phpstan.argument.type (get_post_field() returns a string for post_name at runtime; falsy values are guarded above.)
 		$urls = array( 'https://extrachill.link/' . rawurlencode( $slug ) . '/' );
 
 		if ( 'extra-chill' === $slug ) {
@@ -472,7 +474,7 @@ function ec_prepare_link_page_save_data( $post_data ) {
 	// Background
 	if ( isset( $post_data['link_page_background_type'] ) ) {
 		$bg_type = sanitize_text_field( $post_data['link_page_background_type'] );
-		if ( in_array( $bg_type, array( 'color', 'gradient', 'image' ) ) ) {
+		if ( in_array( $bg_type, array( 'color', 'gradient', 'image' ), true ) ) {
 			$css_vars['--link-page-background-type'] = $bg_type;
 		}
 	}
@@ -487,7 +489,7 @@ function ec_prepare_link_page_save_data( $post_data ) {
 	}
 	if ( isset( $post_data['link_page_background_gradient_direction'] ) ) {
 		$direction = sanitize_text_field( $post_data['link_page_background_gradient_direction'] );
-		if ( in_array( $direction, array( 'to right', 'to bottom', '135deg' ) ) ) {
+		if ( in_array( $direction, array( 'to right', 'to bottom', '135deg' ), true ) ) {
 			$css_vars['--link-page-background-gradient-direction'] = $direction;
 		}
 	}
@@ -522,14 +524,14 @@ function ec_prepare_link_page_save_data( $post_data ) {
 	}
 	if ( isset( $post_data['link_page_profile_img_shape'] ) ) {
 		$profile_shape = sanitize_text_field( $post_data['link_page_profile_img_shape'] );
-		if ( in_array( $profile_shape, array( 'circle', 'square', 'rectangle' ) ) ) {
+		if ( in_array( $profile_shape, array( 'circle', 'square', 'rectangle' ), true ) ) {
 			$css_vars['--link-page-profile-img-shape'] = $profile_shape;
 		}
 	}
 
 	// Overlay
 	if ( isset( $post_data['link_page_overlay_toggle_present'] ) ) {
-		$css_vars['overlay'] = isset( $post_data['link_page_overlay_toggle'] ) && $post_data['link_page_overlay_toggle'] === '1' ? '1' : '0';
+		$css_vars['overlay'] = isset( $post_data['link_page_overlay_toggle'] ) && '1' === $post_data['link_page_overlay_toggle'] ? '1' : '0';
 	}
 
 	if ( ! empty( $css_vars ) ) {
@@ -537,15 +539,15 @@ function ec_prepare_link_page_save_data( $post_data ) {
 	}
 
 	// Advanced settings
-	$save_data['link_expiration_enabled'] = isset( $post_data['link_expiration_enabled_advanced'] ) && $post_data['link_expiration_enabled_advanced'] == '1' ? '1' : '0';
-	$save_data['redirect_enabled']        = isset( $post_data['link_page_redirect_enabled'] ) && $post_data['link_page_redirect_enabled'] == '1' ? '1' : '0';
+	$save_data['link_expiration_enabled'] = isset( $post_data['link_expiration_enabled_advanced'] ) && '1' === $post_data['link_expiration_enabled_advanced'] ? '1' : '0';
+	$save_data['redirect_enabled']        = isset( $post_data['link_page_redirect_enabled'] ) && '1' === $post_data['link_page_redirect_enabled'] ? '1' : '0';
 
-	if ( $save_data['redirect_enabled'] === '1' && isset( $post_data['link_page_redirect_target_url'] ) ) {
+	if ( '1' === $save_data['redirect_enabled'] && isset( $post_data['link_page_redirect_target_url'] ) ) {
 		$save_data['redirect_target_url'] = esc_url_raw( wp_unslash( $post_data['link_page_redirect_target_url'] ) );
 	}
 
 	// YouTube embed (inverted logic - checkbox disables feature)
-	$save_data['youtube_embed_enabled'] = isset( $post_data['disable_youtube_inline_embed'] ) && $post_data['disable_youtube_inline_embed'] == '1' ? '0' : '1';
+	$save_data['youtube_embed_enabled'] = isset( $post_data['disable_youtube_inline_embed'] ) && '1' === $post_data['disable_youtube_inline_embed'] ? '0' : '1';
 
 	// Tracking IDs
 	if ( isset( $post_data['link_page_meta_pixel_id'] ) ) {
@@ -572,12 +574,12 @@ function ec_prepare_link_page_save_data( $post_data ) {
 
 	if ( isset( $post_data['link_page_subscribe_description'] ) ) {
 		$description                        = trim( wp_unslash( $post_data['link_page_subscribe_description'] ) );
-		$save_data['subscribe_description'] = $description !== '' ? $description : '';
+		$save_data['subscribe_description'] = '' !== $description ? $description : '';
 	}
 
 	// Profile image removal
 	if ( isset( $post_data['remove_link_page_profile_image'] ) ) {
-		$save_data['remove_profile_image'] = $post_data['remove_link_page_profile_image'] === '1';
+		$save_data['remove_profile_image'] = '1' === $post_data['remove_link_page_profile_image'];
 	}
 
 	return $save_data;
@@ -638,7 +640,7 @@ function ec_handle_artist_profile_save( $artist_id, $save_data = array(), $files
 
 	foreach ( $meta_fields as $key => $meta_key ) {
 		if ( array_key_exists( $key, $save_data ) ) {
-			if ( $save_data[ $key ] === '' || $save_data[ $key ] === null ) {
+			if ( '' === $save_data[ $key ] || null === $save_data[ $key ] ) {
 				delete_post_meta( $artist_id, $meta_key );
 			} else {
 				update_post_meta( $artist_id, $meta_key, $save_data[ $key ] );
@@ -665,6 +667,7 @@ function ec_handle_artist_profile_save( $artist_id, $save_data = array(), $files
 		$user_ids_to_remove = array_filter( array_map( 'absint', explode( ',', $save_data['remove_member_ids'] ) ) );
 
 		foreach ( $user_ids_to_remove as $user_id_to_remove ) {
+			// @phpstan-ignore phpstan.greater.alwaysTrue (defensive: absint() yields 0 for empty fragments; guard retained.)
 			if ( $user_id_to_remove > 0 && $user_id_to_remove !== $current_user_id ) {
 				if ( ! function_exists( 'ec_remove_artist_membership' ) ) {
 					return new WP_Error( 'membership_dependency_missing', 'Artist membership management is unavailable.' );
@@ -767,12 +770,12 @@ function ec_admin_post_save_link_page() {
 	// Verify nonce
 	if ( ! isset( $_POST['ec_save_link_page_nonce'] ) ||
 		! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['ec_save_link_page_nonce'] ) ), 'ec_save_link_page_action' ) ) {
-		wp_die( __( 'Security check failed.', 'extrachill-artist-platform' ) );
+		wp_die( esc_html__( 'Security check failed.', 'extrachill-artist-platform' ) );
 	}
 
 	// Check user is logged in
 	if ( ! is_user_logged_in() ) {
-		wp_die( __( 'Permission denied: You must be logged in to save changes.', 'extrachill-artist-platform' ) );
+		wp_die( esc_html__( 'Permission denied: You must be logged in to save changes.', 'extrachill-artist-platform' ) );
 	}
 
 	// Get link page and artist IDs directly from form data
@@ -780,15 +783,15 @@ function ec_admin_post_save_link_page() {
 	$artist_id    = isset( $_POST['artist_id'] ) ? absint( $_POST['artist_id'] ) : 0;
 
 	if ( ! $link_page_id || get_post_type( $link_page_id ) !== 'artist_link_page' ) {
-		wp_die( __( 'Invalid link page.', 'extrachill-artist-platform' ) );
+		wp_die( esc_html__( 'Invalid link page.', 'extrachill-artist-platform' ) );
 	}
 
 	// Check user permissions
 	if ( ! ec_can_manage_artist( get_current_user_id(), $artist_id ) ) {
-		wp_die( __( 'Permission denied: You do not have access to manage this artist.', 'extrachill-artist-platform' ) );
+		wp_die( esc_html__( 'Permission denied: You do not have access to manage this artist.', 'extrachill-artist-platform' ) );
 	}
 	if ( ! function_exists( 'extrachill_artist_platform_ability_link_page_belongs_to_artist' ) || ! extrachill_artist_platform_ability_link_page_belongs_to_artist( $artist_id, $link_page_id ) ) {
-		wp_die( __( 'Permission denied: This Link Page does not belong to the submitted artist.', 'extrachill-artist-platform' ) );
+		wp_die( esc_html__( 'Permission denied: This Link Page does not belong to the submitted artist.', 'extrachill-artist-platform' ) );
 	}
 
 	// Prepare and save data using centralized functions
@@ -806,6 +809,7 @@ function ec_admin_post_save_link_page() {
 		);
 		$error_code     = isset( $error_data['error_code'] ) ? $error_data['error_code'] : 'general';
 		$message        = isset( $error_messages[ $error_code ] ) ? $error_messages[ $error_code ] : $error_messages['general'];
+		// @phpstan-ignore phpstan.function.notFound (provided by the extrachill core plugin at runtime; outside this component's analysis scope.)
 		extrachill_set_notice( $message, 'error' );
 
 		$manage_page = get_page_by_path( 'manage-link-page' );
@@ -815,6 +819,7 @@ function ec_admin_post_save_link_page() {
 	}
 
 	// Success - set notice and redirect
+	// @phpstan-ignore phpstan.function.notFound (provided by the extrachill core plugin at runtime; outside this component's analysis scope.)
 	extrachill_set_notice( __( 'Link page updated successfully!', 'extrachill-artist-platform' ), 'success' );
 	$manage_page = get_page_by_path( 'manage-link-page' );
 	$base_url    = $manage_page ? get_permalink( $manage_page ) : home_url( '/manage-link-page/' );
@@ -824,9 +829,12 @@ function ec_admin_post_save_link_page() {
 add_action( 'template_redirect', 'ec_handle_link_page_form_submission' );
 
 function ec_handle_link_page_form_submission() {
-	if ( $_SERVER['REQUEST_METHOD'] === 'POST' &&
-		isset($_POST['action']) &&
-		$_POST['action'] === 'ec_save_link_page' ) {
+	// phpcs:ignore WordPress.Security.NonceVerification.Missing -- routing only; the nonce is verified inside ec_admin_post_save_link_page() before any data is processed.
+	if ( 'POST' === $_SERVER['REQUEST_METHOD'] &&
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- routing only; the nonce is verified inside ec_admin_post_save_link_page() before any data is processed.
+		isset( $_POST['action'] ) &&
+		// phpcs:ignore WordPress.Security.NonceVerification.Missing -- routing only; the nonce is verified inside ec_admin_post_save_link_page() before any data is processed.
+		'ec_save_link_page' === $_POST['action'] ) {
 		ec_admin_post_save_link_page();
 	}
 }

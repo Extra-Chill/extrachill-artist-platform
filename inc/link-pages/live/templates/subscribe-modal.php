@@ -32,7 +32,9 @@ $artist_name = isset($artist_name) ? $artist_name : ( isset($data['display_title
 			</h3>
 			<p>
 			<?php
-			$subscribe_description = isset($data['_link_page_subscribe_description']) && $data['_link_page_subscribe_description'] !== '' ? $data['_link_page_subscribe_description'] : sprintf(__('Enter your email address to receive occasional news and updates from %s.', 'extrachill-artist-platform'), $artist_name);
+			$subscribe_description = isset($data['_link_page_subscribe_description']) && '' !== $data['_link_page_subscribe_description'] ? $data['_link_page_subscribe_description'] : sprintf(
+				// translators: %s: artist name.
+				__('Enter your email address to receive occasional news and updates from %s.', 'extrachill-artist-platform'), $artist_name);
 			echo esc_html($subscribe_description);
 			?>
 			</p>

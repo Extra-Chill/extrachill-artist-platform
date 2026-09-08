@@ -11,6 +11,7 @@ final class SanitizeCssVarsTest extends TestCase {
 	 */
 	private function run_without_warnings( $callback ) {
 		$captured = array();
+		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_set_error_handler -- test asserts sanitized output emits no warnings; the handler captures them.
 		set_error_handler(
 			static function ( $errno, $errstr ) use ( &$captured ) {
 				$captured[] = $errstr;

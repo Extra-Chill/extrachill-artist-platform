@@ -1,5 +1,7 @@
 <?php
 
+// phpcs:ignoreFile Universal.Files.SeparateFunctionsFromOO.Mixed,Universal.NamingConventions.NoReservedKeywordParameterNames.defaultFound,WordPress.WP.AlternativeFunctions.json_encode_json_encode -- standalone smoke harness mirroring the plugin bootstrap under test; runs outside WP with mirrored signatures.
+
 $root = dirname( __DIR__, 2 );
 
 define( 'ABSPATH', __DIR__ . '/' );

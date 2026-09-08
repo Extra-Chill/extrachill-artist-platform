@@ -108,6 +108,7 @@ class ExtraChillArtistPlatform_Assets {
 			true
 		);
 
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only screen-locator param used for asset targeting; no data is processed.
 		$current_artist_id = apply_filters('ec_get_artist_id', $_GET);
 		$link_page_data    = $current_artist_id > 0 ? ec_get_link_page_data( $current_artist_id ) : array();
 
@@ -227,6 +228,7 @@ class ExtraChillArtistPlatform_Assets {
 
 	private function enqueue_link_page_google_fonts() {
 		// Get current artist and link page IDs
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only screen-locator param used for asset targeting; no data is processed.
 		$artist_id = apply_filters('ec_get_artist_id', $_GET);
 		if ( ! $artist_id ) {
 			return;
@@ -254,7 +256,8 @@ class ExtraChillArtistPlatform_Assets {
 					'extrachill-link-page-title-font',
 					'https://fonts.googleapis.com/css2?family=' . $google_font_param . '&display=swap',
 					array(),
-					null // Google Fonts don't need versioning
+					// phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- remote Google Fonts URL; version param intentionally omitted.
+					null
 				);
 			}
 		}
@@ -270,7 +273,8 @@ class ExtraChillArtistPlatform_Assets {
 					'extrachill-link-page-body-font',
 					'https://fonts.googleapis.com/css2?family=' . $google_font_param . '&display=swap',
 					array(),
-					null // Google Fonts don't need versioning
+					// phpcs:ignore WordPress.WP.EnqueuedResourceParameters.MissingVersion -- remote Google Fonts URL; version param intentionally omitted.
+					null
 				);
 			}
 		}
@@ -286,7 +290,9 @@ class ExtraChillArtistPlatform_Assets {
 	}
 
 	private function is_link_page_context() {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only screen-locator param used for asset targeting; no data is processed.
 		return is_singular( 'artist_link_page' ) ||
+				// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only screen-locator param used for asset targeting; no data is processed.
 				( isset( $_GET['artist_link_page'] ) && ! empty( $_GET['artist_link_page'] ) );
 	}
 
@@ -319,8 +325,8 @@ class ExtraChillArtistPlatform_Assets {
 	private function is_artist_platform_admin_page( $hook ) {
 		global $post_type;
 
-		return in_array( $post_type, array( 'artist_profile', 'artist_link_page' ) ) ||
-				in_array( $hook, array( 'edit.php', 'post.php', 'post-new.php' ) );
+		return in_array( $post_type, array( 'artist_profile', 'artist_link_page' ), true ) ||
+				in_array( $hook, array( 'edit.php', 'post.php', 'post-new.php' ), true );
 	}
 
 	/**
@@ -330,7 +336,8 @@ class ExtraChillArtistPlatform_Assets {
 	 * with dependencies on community plugin's login/register interface.
 	 */
 	public function enqueue_join_flow_assets() {
-		if ( ! isset( $_GET['from_join'] ) || $_GET['from_join'] !== 'true' ) {
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only referral flag from the community login form; display-only asset decision.
+		if ( ! isset( $_GET['from_join'] ) || 'true' !== $_GET['from_join'] ) {
 			return;
 		}
 

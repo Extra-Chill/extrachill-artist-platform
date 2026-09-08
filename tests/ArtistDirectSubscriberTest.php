@@ -67,6 +67,7 @@ final class ArtistDirectSubscriberWpdb extends EcTestWpdb {
 	}
 }
 
+// phpcs:ignore Generic.Files.OneObjectStructurePerFile.MultipleFound -- second stub class in this test file is intentional; not restructuring tests.
 final class ArtistDirectSubscriberTest extends TestCase {
 	private $original_wpdb;
 

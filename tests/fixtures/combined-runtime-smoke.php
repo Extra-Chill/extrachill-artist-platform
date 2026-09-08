@@ -1,5 +1,7 @@
 <?php
 
+// phpcs:ignoreFile Universal.Files.SeparateFunctionsFromOO.Mixed,Generic.Files.OneObjectStructurePerFile.MultipleFound,WordPress.WP.GlobalVariablesOverride.Prohibited,Universal.Operators.DisallowShortTernary.Found -- standalone smoke harness; procedural helpers plus stub classes are intentional and globals/ternaries mirror the plugin bootstrap under test.
+
 $artist_root = dirname( __DIR__, 2 );
 $standalone  = getenv( 'LINK_PAGES_WORKTREE' ) ?: '/var/lib/datamachine/workspace/extrachill-link-pages@feat-3-public-runtime';
 

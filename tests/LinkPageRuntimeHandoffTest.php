@@ -10,6 +10,7 @@ final class LinkPageRuntimeHandoffTest extends TestCase {
 		if ( '' !== $argument ) {
 			$command .= ' ' . escapeshellarg( $argument );
 		}
+		// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec -- intentionally shells out to a helper binary for the runtime-handoff proof.
 		exec( $command, $output, $status );
 
 		$this->assertSame( 0, $status, implode( "\n", $output ) );
@@ -298,6 +299,7 @@ final class LinkPageRuntimeHandoffTest extends TestCase {
 	}
 
 	public function test_fallback_mode_remains_configured_without_a_hard_plugin_dependency(): void {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local source-file read, not a remote URL.
 		$source = file_get_contents( dirname( __DIR__ ) . '/extrachill-artist-platform.php' );
 
 		$this->assertStringNotContainsString( 'Requires Plugins: extrachill-link-pages', $source );

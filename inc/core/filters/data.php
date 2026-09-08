@@ -15,8 +15,9 @@ function ec_is_user_artist_member( $user_id = null, $artist_id = null ) {
 		return false;
 	}
 
+	// @phpstan-ignore phpstan.arguments.count (provided by extrachill-users at runtime; outside this component's analysis scope.)
 	$user_artist_ids = ec_get_artists_for_user( $user_id );
-	return in_array( (int) $artist_id, $user_artist_ids );
+	return in_array( (int) $artist_id, $user_artist_ids, true );
 }
 
 function ec_get_link_page_for_artist( $artist_id ) {
@@ -44,6 +45,7 @@ function ec_get_user_artist_profiles( $user_id = null ) {
 		return array();
 	}
 
+	// @phpstan-ignore phpstan.arguments.count (provided by extrachill-users at runtime; outside this component's analysis scope.)
 	$artist_ids = ec_get_artists_for_user( $user_id );
 	if ( empty( $artist_ids ) ) {
 		return array();
@@ -139,10 +141,10 @@ function ec_get_link_page_data( $artist_id, $link_page_id = null, $overrides = a
 	if ( is_array( $artist_social_links ) ) {
 		$data['socials'] = $artist_social_links;
 	}
-	$data['settings']['link_expiration_enabled'] = isset( $all_meta['_link_expiration_enabled'][0] ) && $all_meta['_link_expiration_enabled'][0] === '1';
-	$data['settings']['redirect_enabled']        = isset( $all_meta['_link_page_redirect_enabled'][0] ) && $all_meta['_link_page_redirect_enabled'][0] === '1';
+	$data['settings']['link_expiration_enabled'] = isset( $all_meta['_link_expiration_enabled'][0] ) && '1' === $all_meta['_link_expiration_enabled'][0];
+	$data['settings']['redirect_enabled']        = isset( $all_meta['_link_page_redirect_enabled'][0] ) && '1' === $all_meta['_link_page_redirect_enabled'][0];
 	$data['settings']['redirect_target_url']     = $all_meta['_link_page_redirect_target_url'][0] ?? '';
-	$data['settings']['youtube_embed_enabled']   = ! isset( $all_meta['_enable_youtube_inline_embed'][0] ) || $all_meta['_enable_youtube_inline_embed'][0] !== '0';
+	$data['settings']['youtube_embed_enabled']   = ! isset( $all_meta['_enable_youtube_inline_embed'][0] ) || '0' !== $all_meta['_enable_youtube_inline_embed'][0];
 	$data['settings']['meta_pixel_id']           = $all_meta['_link_page_meta_pixel_id'][0] ?? '';
 	$data['settings']['google_tag_id']           = $all_meta['_link_page_google_tag_id'][0] ?? '';
 	$data['settings']['google_tag_manager_id']   = $all_meta['_link_page_google_tag_manager_id'][0] ?? '';
@@ -150,17 +152,22 @@ function ec_get_link_page_data( $artist_id, $link_page_id = null, $overrides = a
 	$data['settings']['subscribe_description']   = $all_meta['_link_page_subscribe_description'][0] ?? '';
 	$data['settings']['social_icons_position']   = $all_meta['_link_page_social_icons_position'][0] ?? 'above';
 	$data['settings']['profile_image_shape']     = $all_meta['_link_page_profile_img_shape'][0] ?? 'circle';
-	$data['settings']['profile_image_id']        = get_post_thumbnail_id( $artist_id ) ?: '';
-	$data['settings']['background_image_id']     = $all_meta['_link_page_background_image_id'][0] ?? '';
+
+	$thumb_id = get_post_thumbnail_id( $artist_id );
+
+	$data['settings']['profile_image_id']    = ( $thumb_id ? $thumb_id : '' );
+	$data['settings']['background_image_id'] = $all_meta['_link_page_background_image_id'][0] ?? '';
 
 	if ( isset( $data['css_vars']['overlay'] ) ) {
-		$data['settings']['overlay_enabled'] = $data['css_vars']['overlay'] === '1';
+		$data['settings']['overlay_enabled'] = '1' === $data['css_vars']['overlay'];
 	}
 
 	$display_data = array(
-		'display_title'                     => ( isset($overrides['artist_profile_title']) && $overrides['artist_profile_title'] !== '' ) ? $overrides['artist_profile_title'] : ( $artist_id ? get_the_title($artist_id) : '' ),
-		'bio'                               => ( isset($overrides['link_page_bio_text']) && $overrides['link_page_bio_text'] !== '' ) ? $overrides['link_page_bio_text'] : ( $all_meta['_link_page_bio_text'][0] ?? '' ),
-		'profile_img_url'                   => ( isset($overrides['profile_img_url']) && $overrides['profile_img_url'] !== '' ) ? $overrides['profile_img_url'] : ( $artist_id ? ( get_the_post_thumbnail_url($artist_id, 'large') ?: '' ) : '' ),
+		// @phpstan-ignore phpstan.ternary.alwaysTrue (defensive: $artist_id may be falsy for unsaved drafts at runtime.)
+		'display_title'                     => ( isset($overrides['artist_profile_title']) && '' !== $overrides['artist_profile_title'] ) ? $overrides['artist_profile_title'] : ( $artist_id ? get_the_title($artist_id) : '' ),
+		'bio'                               => ( isset($overrides['link_page_bio_text']) && '' !== $overrides['link_page_bio_text'] ) ? $overrides['link_page_bio_text'] : ( $all_meta['_link_page_bio_text'][0] ?? '' ),
+		// @phpstan-ignore phpstan.ternary.alwaysTrue (defensive: $artist_id may be falsy for unsaved drafts at runtime.)
+		'profile_img_url'                   => ( isset($overrides['profile_img_url']) && '' !== $overrides['profile_img_url'] ) ? $overrides['profile_img_url'] : ( $artist_id ? ( get_the_post_thumbnail_url($artist_id, 'large') ? get_the_post_thumbnail_url($artist_id, 'large') : '' ) : '' ),
 		'social_links'                      => isset($overrides['social_links']) ? $overrides['social_links'] : $data['socials'],
 		'socials'                           => $data['socials'],
 		'link_sections'                     => isset($data['links'][0]['links']) || empty($data['links']) ? $data['links'] : array(
@@ -180,6 +187,7 @@ function ec_get_link_page_data( $artist_id, $link_page_id = null, $overrides = a
 		'_link_page_subscribe_display_mode' => $data['settings']['subscribe_display_mode'],
 		'_link_page_subscribe_description'  => $data['settings']['subscribe_description'],
 		'_actual_link_page_id_for_template' => $link_page_id,
+		// @phpstan-ignore phpstan.ternary.alwaysTrue (defensive: $artist_id may be falsy for unsaved drafts at runtime.)
 		'artist_profile'                    => $artist_id ? get_post($artist_id) : null,
 		'settings'                          => $data['settings'],
 		'links'                             => $data['links'],
@@ -234,15 +242,15 @@ function ec_get_external_artist_link_page_data( $artist_id, $link_page_id, $over
 	$settings = array_merge(
 		$persistence['settings'],
 		array(
-			'subscribe_display_mode' => get_post_meta( $link_page_id, '_link_page_subscribe_display_mode', true ) ?: 'icon_modal',
+			'subscribe_display_mode' => ( get_post_meta( $link_page_id, '_link_page_subscribe_display_mode', true ) ? get_post_meta( $link_page_id, '_link_page_subscribe_display_mode', true ) : 'icon_modal' ),
 			'subscribe_description'  => (string) get_post_meta( $link_page_id, '_link_page_subscribe_description', true ),
-			'profile_image_id'       => get_post_thumbnail_id( $artist_id ) ?: '',
+			'profile_image_id'       => ( get_post_thumbnail_id( $artist_id ) ? get_post_thumbnail_id( $artist_id ) : '' ),
 		)
 	);
 	$data     = array(
 		'display_title'                     => ! empty( $overrides['artist_profile_title'] ) ? $overrides['artist_profile_title'] : (string) get_the_title( $artist_id ),
 		'bio'                               => ! empty( $overrides['link_page_bio_text'] ) ? $overrides['link_page_bio_text'] : $persistence['bio'],
-		'profile_img_url'                   => ! empty( $overrides['profile_img_url'] ) ? $overrides['profile_img_url'] : ( get_the_post_thumbnail_url( $artist_id, 'large' ) ?: '' ),
+		'profile_img_url'                   => ! empty( $overrides['profile_img_url'] ) ? $overrides['profile_img_url'] : ( get_the_post_thumbnail_url( $artist_id, 'large' ) ? get_the_post_thumbnail_url( $artist_id, 'large' ) : '' ),
 		'social_links'                      => isset( $overrides['social_links'] ) ? $overrides['social_links'] : $socials,
 		'socials'                           => $socials,
 		'link_sections'                     => $persistence['link_sections'],
@@ -310,13 +318,13 @@ function ec_get_artist_profile_data( $artist_id, $overrides = array() ) {
 	}
 
 	$header_image_id  = $meta['_artist_profile_header_image_id'][0] ?? '';
-	$profile_image_id = get_post_thumbnail_id( $artist_id ) ?: '';
+	$profile_image_id = ( get_post_thumbnail_id( $artist_id ) ? get_post_thumbnail_id( $artist_id ) : '' );
 
 	$data = array(
 		'artist_id'         => (int) $artist_id,
-		'title'             => get_the_title( $artist_id ) ?: '',
-		'slug'              => get_post_field( 'post_name', $artist_id ) ?: '',
-		'permalink'         => get_permalink( $artist_id ) ?: '',
+		'title'             => ( get_the_title( $artist_id ) ? get_the_title( $artist_id ) : '' ),
+		'slug'              => ( get_post_field( 'post_name', $artist_id ) ? get_post_field( 'post_name', $artist_id ) : '' ),
+		'permalink'         => ( get_permalink( $artist_id ) ? get_permalink( $artist_id ) : '' ),
 		'bio'               => ( get_post( $artist_id )->post_content ?? '' ),
 		'genres'            => ec_artist_get_genres( $artist_id ),
 		'genre_labels'      => ec_artist_get_genre_labels( $artist_id ),
@@ -369,7 +377,7 @@ if ( ( ! function_exists( 'extrachill_artist_platform_uses_external_link_pages_r
 
 		$output = '<style id="' . esc_attr( $element_id ) . '">:root {';
 		foreach ( $css_vars as $key => $value ) {
-			if ( $value !== null && $value !== false ) {
+			if ( null !== $value && false !== $value ) {
 				$output .= esc_html( $key ) . ':' . $value . ';';
 			}
 		}

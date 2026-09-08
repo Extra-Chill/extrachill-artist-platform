@@ -18,7 +18,7 @@ if ( isset( $args ) && is_array( $args ) && array_key_exists( 'artist_id', $args
 	$template_artist_id = absint( $args['artist_id'] );
 }
 
-$artist_id = $template_artist_id ? $template_artist_id : get_the_ID();
+$artist_id = $template_artist_id ? $template_artist_id : (int) get_the_ID();
 
 $artist_post = get_post( $artist_id );
 if ( ! $artist_post ) {
@@ -71,7 +71,7 @@ $hero_style = $header_image_url ? 'background-image: url(' . esc_url( $header_im
 
 			<div class="artist-info-overlay">
 				<h4 class="artist-name">
-					<a href="<?php echo esc_url($artist_url); ?>"><?php echo esc_html($artist_name); ?></a>
+					<a href="<?php echo esc_url( (string) $artist_url ); ?>"><?php echo esc_html($artist_name); ?></a>
 				</h4>
 
 				<?php if ( $genre || $local_city ) : ?>
@@ -99,7 +99,7 @@ $hero_style = $header_image_url ? 'background-image: url(' . esc_url( $header_im
 		<?php endif; ?>
 
 		<div class="artist-card-actions">
-			<a href="<?php echo esc_url($artist_url); ?>" class="button-1 button-medium" data-action-button>
+			<a href="<?php echo esc_url( (string) $artist_url ); ?>" class="button-1 button-medium" data-action-button>
 				<?php esc_html_e('View Profile', 'extrachill-artist-platform'); ?>
 			</a>
 			<?php

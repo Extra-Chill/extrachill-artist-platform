@@ -10,7 +10,7 @@ add_action('extrachill_artist_cleanup_expired_links_event', function() {
 		'fields'         => 'ids',
 	);
 	$link_pages = get_posts($args);
-	$now        = current_time('timestamp');
+	$now        = current_time('timestamp'); // phpcs:ignore WordPress.DateTime.CurrentTimeTimestamp.Requested -- behaviour-preserving: intentionally matches current_time-derived expires_at comparisons on the site timezone.
 	foreach ( $link_pages as $link_page_id ) {
 		$artist_id = apply_filters('ec_get_artist_id', $link_page_id);
 		if ( ! $artist_id ) {
@@ -34,7 +34,7 @@ add_action('extrachill_artist_cleanup_expired_links_event', function() {
 				foreach ( $section['links'] as $link_idx => $link ) {
 					if ( ! empty($link['expires_at']) ) {
 						$expires = strtotime($link['expires_at']);
-						if ( $expires !== false && $expires <= $now ) {
+						if ( false !== $expires && $expires <= $now ) {
 							unset($section['links'][ $link_idx ]);
 							$changed = true;
 						}

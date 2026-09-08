@@ -733,6 +733,7 @@ final class LinkPageOwnerReferenceTest extends TestCase {
 	}
 
 	public function test_generic_owner_reference_helpers_have_no_domain_owner_knowledge(): void {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local source-file read, not a remote URL.
 		$source = strtolower( file_get_contents( dirname( __DIR__ ) . '/inc/link-pages/owner-reference.php' ) );
 
 		$this->assertStringNotContainsString( 'artist', $source );

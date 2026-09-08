@@ -110,9 +110,10 @@ function extrachill_add_query_vars( $vars ) {
  * @param string $requested_url The originally requested URL
  * @return string|false The redirect URL, or false to prevent redirection
  */
+// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- WP canonical_redirect filter signature; $requested_url unused by design.
 function extrachill_prevent_canonical_redirect_for_link_domain( $redirect_url, $requested_url ) {
 	$current_host = strtolower( $_SERVER['SERVER_NAME'] ?? '' );
-	if ( $current_host === 'extrachill.link' ) {
+	if ( 'extrachill.link' === $current_host ) {
 		return false;
 	}
 	return $redirect_url;
@@ -144,12 +145,13 @@ function extrachill_resolve_link_domain_query() {
 
 	global $wp_query;
 	$request_uri  = $_SERVER['REQUEST_URI'] ?? '';
-	$request_path = trim( (string) parse_url( $request_uri, PHP_URL_PATH ), '/' );
+	$request_path = trim( (string) wp_parse_url( $request_uri, PHP_URL_PATH ), '/' );
 
 	// Handle join redirect.
-	if ( $request_path === 'join' ) {
+	if ( 'join' === $request_path ) {
 		$redirect_url = ec_get_site_url( 'artist' ) . '/login/?from_join=true';
 		if ( ! headers_sent() ) {
+			// phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- deliberate redirect to a trusted Extra Chill property; wp_safe_redirect would reject the cross-network host.
 			wp_redirect( esc_url_raw( $redirect_url ), 301 );
 			exit;
 		}
@@ -157,12 +159,13 @@ function extrachill_resolve_link_domain_query() {
 	}
 
 	// Determine slug to look up.
-	$is_root_or_extra_chill = ( empty( $request_path ) || $request_path === 'extra-chill' );
+	$is_root_or_extra_chill = ( empty( $request_path ) || 'extra-chill' === $request_path );
 
 	if ( $is_root_or_extra_chill ) {
 		// Redirect /extra-chill to root.
-		if ( $request_path === 'extra-chill' ) {
+		if ( 'extra-chill' === $request_path ) {
 			if ( ! headers_sent() ) {
+				// phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- deliberate redirect to this exact trusted link domain root.
 				wp_redirect( esc_url_raw( 'https://extrachill.link/' ), 301 );
 				exit;
 			}
@@ -201,12 +204,11 @@ function extrachill_resolve_link_domain_query() {
 	} elseif ( $is_root_or_extra_chill ) {
 		// Root domain but no default link page — genuine 404.
 		status_header( 404 );
-	} else {
+	} elseif ( ! headers_sent() ) {
 		// No link page found — redirect to root.
-		if ( ! headers_sent() ) {
-			wp_redirect( esc_url_raw( 'https://extrachill.link/' ), 301 );
-			exit;
-		}
+		// phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- deliberate redirect to this exact trusted link domain root.
+		wp_redirect( esc_url_raw( 'https://extrachill.link/' ), 301 );
+		exit;
 	}
 }
 
@@ -274,7 +276,7 @@ function extrachill_init_rewrite_rules() {
 function extrachill_artist_platform_maybe_flush_rewrite_rules() {
 	$stored_version = get_option( 'ec_artist_platform_rewrite_version' );
 
-	if ( $stored_version === EXTRCH_ARTIST_PLATFORM_REWRITE_VERSION ) {
+	if ( EXTRCH_ARTIST_PLATFORM_REWRITE_VERSION === $stored_version ) {
 		return;
 	}
 
@@ -309,6 +311,7 @@ function extrachill_redirect_artist_link_page_cpt_to_custom_domain() {
 			if ( $temp_redirect_enabled ) {
 				if ( ! empty( $target_redirect_url ) && filter_var( $target_redirect_url, FILTER_VALIDATE_URL ) ) {
 					if ( ! headers_sent() ) {
+						// phpcs:ignore WordPress.Security.SafeRedirect.wp_redirect_wp_redirect -- URL is creator-configured for this link page and validated above; wp_safe_redirect would reject off-site hosts.
 						wp_redirect( esc_url_raw( $target_redirect_url ), 302 );
 						exit;
 					}

@@ -23,6 +23,7 @@ ob_start();
 require dirname( __DIR__, 2 ) . '/src/blocks/link-page-editor/render.php';
 $html = ob_get_clean();
 
+// phpcs:ignore WordPress.WP.AlternativeFunctions.json_encode_json_encode -- standalone smoke harness output; runs outside WP.
 echo json_encode(
 	array(
 		'writes'      => $GLOBALS['writes'],

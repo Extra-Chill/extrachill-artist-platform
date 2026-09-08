@@ -22,7 +22,7 @@ function ec_artist_restore_owned_meta_snapshots( $post_id, $snapshots ) {
 	foreach ( $snapshots as $meta_key => $snapshot ) {
 		if ( $snapshot['exists'] ) {
 			update_post_meta( $post_id, $meta_key, $snapshot['value'] );
-			$success = metadata_exists( 'post', $post_id, $meta_key ) && $snapshot['value'] === get_post_meta( $post_id, $meta_key, true );
+			$success = metadata_exists( 'post', $post_id, $meta_key ) && get_post_meta( $post_id, $meta_key, true ) === $snapshot['value'];
 		} else {
 			delete_post_meta( $post_id, $meta_key );
 			$success = ! metadata_exists( 'post', $post_id, $meta_key );
@@ -55,7 +55,7 @@ function ec_get_reciprocal_link_page_id( $artist_id, $repair = true ) {
 	}
 
 	$link_page_id = function_exists( 'ec_get_link_page_id' ) ? (int) ec_get_link_page_id( $artist_id ) : 0;
-	if ( ! $link_page_id || 'artist_link_page' !== get_post_type( $link_page_id ) || $artist_id !== (int) get_post_meta( $link_page_id, '_associated_artist_profile_id', true ) ) {
+	if ( ! $link_page_id || 'artist_link_page' !== get_post_type( $link_page_id ) || (int) get_post_meta( $link_page_id, '_associated_artist_profile_id', true ) !== $artist_id ) {
 		return 0;
 	}
 	if ( ! $repair ) {
@@ -212,6 +212,7 @@ function ec_create_link_page( $artist_id, $force = false ) {
 	if ( is_wp_error( $new_link_page_id ) ) {
 		return $new_link_page_id;
 	}
+	// @phpstan-ignore phpstan.booleanNot.alwaysFalse (defensive: legacy wp_insert_post paths may return 0.)
 	if ( ! $new_link_page_id ) {
 		return new WP_Error( 'creation_failed', 'Failed to create link page' );
 	}
@@ -277,10 +278,11 @@ function ec_create_link_page( $artist_id, $force = false ) {
 			}
 		}
 		delete_post_meta( $previous_link_page_id, '_associated_artist_profile_id', $artist_id );
-		if ( $artist_id === (int) get_post_meta( $previous_link_page_id, '_associated_artist_profile_id', true ) ) {
+		if ( (int) get_post_meta( $previous_link_page_id, '_associated_artist_profile_id', true ) === $artist_id ) {
 			if ( $previous_owner_reference ) {
 				update_post_meta( $previous_link_page_id, EC_LINK_PAGE_OWNER_META_KEY, $previous_owner_reference );
 				$restored_owner_references = ec_get_stored_link_page_owner_references( $previous_link_page_id );
+				// @phpstan-ignore phpstan.booleanOr.alwaysTrue,phpstan.notIdentical.alwaysTrue (concurrency guard: another writer may have changed stored references between restore and verification.)
 				if ( 1 !== count( $restored_owner_references ) || $previous_owner_reference !== $restored_owner_references[0] ) {
 					$rollback = ec_rollback_created_link_page( $artist_id, $new_link_page_id, $previous_link_page_id );
 					if ( is_wp_error( $rollback ) ) {
@@ -290,7 +292,7 @@ function ec_create_link_page( $artist_id, $force = false ) {
 						'link_page_association_compensation_failed',
 						'The previous Link Page canonical owner could not be restored. Manual reconciliation is required.',
 						array( 'retryable' => false )
-					);
+						);
 				}
 			}
 			$rollback = ec_rollback_created_link_page( $artist_id, $new_link_page_id, $previous_link_page_id );
@@ -393,6 +395,7 @@ function ec_finalize_external_artist_link_page_provision( $link_page_id, $artist
  * @param int $link_page_id The link page ID
  * @param int $artist_id    The associated artist profile ID
  */
+// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- shared default-data hook signature; $artist_id reserved for caller parity.
 function ec_setup_default_link_page_data( $link_page_id, $artist_id ) {
 	// Apply default styles using centralized filter system
 	$default_styles = ec_get_link_page_defaults_for( 'styles' );

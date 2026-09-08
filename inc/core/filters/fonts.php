@@ -185,7 +185,7 @@ class ExtraChillArtistPlatform_Fonts {
 		$fonts = $this->get_supported_fonts();
 
 		foreach ( $fonts as $font ) {
-			if ( $font['value'] === $font_value ) {
+			if ( $font_value === $font['value'] ) {
 				return $font['stack'];
 			}
 		}
@@ -197,7 +197,7 @@ class ExtraChillArtistPlatform_Fonts {
 			return "'" . $font_value . "', " . self::DEFAULT_FONT_STACK;
 		}
 
-		return $font_value ?: self::DEFAULT_FONT_STACK;
+		return ( $font_value ? $font_value : self::DEFAULT_FONT_STACK );
 	}
 
 	/**
@@ -211,8 +211,8 @@ class ExtraChillArtistPlatform_Fonts {
 		$fonts = $this->get_supported_fonts();
 
 		foreach ( $fonts as $font ) {
-			if ( $font['value'] === $font_value ) {
-				return ( $font['google_font_param'] !== 'local_default' ) ? $font['google_font_param'] : null;
+			if ( $font_value === $font['value'] ) {
+				return ( 'local_default' !== $font['google_font_param'] ) ? $font['google_font_param'] : null;
 			}
 		}
 
@@ -305,8 +305,8 @@ class ExtraChillArtistPlatform_Fonts {
 
 			if ( $font_config &&
 				isset( $font_config['google_font_param'] ) &&
-				$font_config['google_font_param'] === 'local_default' ) {
-				if ( $normalized_value === 'Loft Sans' ) {
+				'local_default' === $font_config['google_font_param'] ) {
+				if ( 'Loft Sans' === $normalized_value ) {
 					$local_fonts_css .= $this->get_loft_sans_font_face();
 				}
 			}
@@ -347,7 +347,7 @@ class ExtraChillArtistPlatform_Fonts {
 		}
 
 		$font_value = trim( $font_value );
-		if ( $font_value === '' ) {
+		if ( '' === $font_value ) {
 			return '';
 		}
 
@@ -366,6 +366,7 @@ class ExtraChillArtistPlatform_Fonts {
 		global $pagenow;
 
 		// Only localize on block editors and artist contexts
+		// phpcs:ignore WordPress.Security.NonceVerification.Recommended -- read-only screen-locator param used to decide asset localization; no data is processed.
 		if ( 'post.php' === $pagenow || 'page.php' === $pagenow || isset( $_GET['artist_id'] ) ) {
 			wp_localize_script( 'extrachill-manage-link-page-fonts', 'extrchFontData', array(
 				'fonts'   => $this->get_supported_fonts(),

@@ -16,6 +16,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 }
 
 // Extract parameters from action hook
+// phpcs:ignore WordPress.WP.GlobalVariablesOverride.Prohibited -- template-local fallback; deliberately reuses the WP $current_user name inside isolated template scope.
 $current_user       = isset( $current_user ) ? $current_user : wp_get_current_user();
 $is_logged_in       = isset( $is_logged_in ) ? $is_logged_in : is_user_logged_in();
 $can_create_artists = isset( $can_create_artists ) ? $can_create_artists : false;
@@ -44,6 +45,7 @@ $user_artist_ids    = isset( $user_artist_ids ) ? $user_artist_ids : array();
 <?php elseif ( empty( $user_artist_ids ) && $can_create_artists ) : ?>
 	<!-- Logged In, No Artists, CAN Create -->
 	<div class="artist-home-hero">
+		<?php /* translators: %s: user display name. */ ?>
 		<h2><?php printf( esc_html__( 'Welcome, %s!', 'extrachill-artist-platform' ), esc_html( $current_user->display_name ) ); ?></h2>
 		<p><?php esc_html_e( 'Create your artist profile to get a custom link page at extrachill.link, analytics dashboard, and subscriber tools.', 'extrachill-artist-platform' ); ?></p>
 		<div class="welcome-actions">
@@ -59,6 +61,7 @@ $user_artist_ids    = isset( $user_artist_ids ) ? $user_artist_ids : array();
 <?php elseif ( empty( $user_artist_ids ) ) : ?>
 	<!-- Logged In, No Artists, CANNOT Create -->
 	<div class="artist-home-hero">
+		<?php /* translators: %s: user display name. */ ?>
 		<h2><?php printf( esc_html__( 'Welcome, %s!', 'extrachill-artist-platform' ), esc_html( $current_user->display_name ) ); ?></h2>
 		<p><?php esc_html_e( 'Request artist access to create profiles and custom link pages on extrachill.link.', 'extrachill-artist-platform' ); ?></p>
 		<div class="welcome-actions">
@@ -74,8 +77,10 @@ $user_artist_ids    = isset( $user_artist_ids ) ? $user_artist_ids : array();
 <?php else : ?>
 	<!-- Logged In, Has Artists - Dashboard Welcome -->
 	<div class="artist-home-hero">
+		<?php /* translators: %s: user display name. */ ?>
 		<h2><?php printf( esc_html__( 'Welcome back, %s!', 'extrachill-artist-platform' ), esc_html( $current_user->display_name ) ); ?></h2>
-		<p><?php printf( esc_html( _n( 'Manage your artist profile and platform features below.', 'Manage your %d artist profiles and platform features below.', count( $user_artist_ids ), 'extrachill-artist-platform' ) ), count( $user_artist_ids ) ); ?></p>
+		<?php /* translators: %d: number of artist profiles. */ ?>
+		<p><?php printf( esc_html( _n( 'Manage your artist profile and platform features below.', 'Manage your %d artist profiles and platform features below.', count( $user_artist_ids ), 'extrachill-artist-platform' ) ), count( $user_artist_ids ) ); // phpcs:ignore WordPress.WP.I18n.MissingSingularPlaceholder -- singular string intentionally has no %d placeholder; behaviour-preserving. ?></p>
 	</div>
 
 <?php endif; ?>

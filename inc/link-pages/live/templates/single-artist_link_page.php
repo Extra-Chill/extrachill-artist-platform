@@ -15,7 +15,7 @@ global $wp_query; // Make sure $wp_query is available
 // Use the current post as the link page
 $link_page = $wp_query->get_queried_object(); // Get the post object from the main query
 
-if ( ! $link_page || ! isset($link_page->ID) || $link_page->post_type !== 'artist_link_page' ) {
+if ( ! $link_page || ! isset($link_page->ID) || 'artist_link_page' !== $link_page->post_type ) {
 
 	// If the queried object isn't what we expect, then it's a genuine issue.
 	http_response_code(404);
@@ -54,11 +54,11 @@ $background_gradient_start     = isset($data['background_gradient_start']) ? $da
 $background_gradient_end       = isset($data['background_gradient_end']) ? $data['background_gradient_end'] : ec_get_link_page_default( 'styles', '--link-page-background-gradient-end', '#53940b' );
 $background_gradient_direction = isset($data['background_gradient_direction']) ? $data['background_gradient_direction'] : ec_get_link_page_default( 'styles', '--link-page-background-gradient-direction', 'to right' );
 
-if ( $background_type === 'image' && ! empty($background_image_url) ) {
+if ( 'image' === $background_type && ! empty($background_image_url) ) {
 	$body_bg_style = 'background-image:url(' . esc_url($background_image_url) . ');background-size:cover;background-position:center;background-repeat:no-repeat;background-attachment:fixed;';
-} elseif ( $background_type === 'gradient' ) {
+} elseif ( 'gradient' === $background_type ) {
 	$body_bg_style = 'background:linear-gradient(' . esc_attr($background_gradient_direction) . ', ' . esc_attr($background_gradient_start) . ', ' . esc_attr($background_gradient_end) . ');background-attachment:fixed;';
-} else { // 'color' or default
+} else { // Fallback: solid background color (default case).
 	$body_bg_style = 'background-color:' . esc_attr($background_color) . ';';
 }
 // Ensure body takes full height

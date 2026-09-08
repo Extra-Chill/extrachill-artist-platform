@@ -76,6 +76,7 @@ if ( ! defined( 'EC_ARTIST_COVERAGE_CARD_LIMIT' ) ) {
  * @param int     $artist_term_id Bound main-blog `artist` term_id.
  * @return array[]
  */
+// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- shared section-registration filter signature; IDs unused for this static section.
 function ec_register_artist_profile_coverage_cards_section( $sections, $artist_id, $artist_term_id ) {
 	// Drop the multisite-registered button-row Coverage section (id 'coverage')
 	// so the hub renders the cards version below instead of both.

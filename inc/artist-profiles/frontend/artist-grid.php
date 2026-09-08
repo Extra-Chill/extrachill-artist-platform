@@ -28,7 +28,7 @@ function ec_get_artist_profile_last_activity_timestamp( $artist_profile_id ) {
 		$profile_modified_gmt = get_post_time( 'U', true, $artist_profile_id );
 	}
 
-	$latest_activity_timestamp = $profile_modified_gmt ?: 0;
+	$latest_activity_timestamp = ( $profile_modified_gmt ? $profile_modified_gmt : 0 );
 
 	// Check link page activity
 	$link_page_id = apply_filters( 'ec_get_link_page_id', $artist_profile_id );
@@ -92,7 +92,7 @@ function ec_display_artist_cards_grid( $limit = 24, $exclude_user_artists = fals
 		$activity_timestamp      = ec_get_artist_profile_last_activity_timestamp( $artist_profile_id );
 		$artists_with_activity[] = array(
 			'id'       => $artist_profile_id,
-			'activity' => $activity_timestamp ?: 0,
+			'activity' => ( $activity_timestamp ? $activity_timestamp : 0 ),
 		);
 	}
 

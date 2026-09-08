@@ -401,9 +401,7 @@ class ExtraChillArtistPlatform_SocialLinks {
 			// Allow Font Awesome prefixes and icon classes
 			if ( preg_match( '/^(fab|fas|far|fal|fat|fad|fa-brands|fa-solid|fa-regular|fa-light|fa-thin|fa-duotone)$/i', $class ) ) {
 				$sanitized_classes[] = strtolower( $class );
-			}
-			// Allow Font Awesome icon names (fa-*)
-			elseif ( preg_match( '/^fa-[a-z0-9-]+$/i', $class ) ) {
+			} elseif ( preg_match( '/^fa-[a-z0-9-]+$/i', $class ) ) { // Allow Font Awesome icon names (fa-*)
 				$sanitized_classes[] = strtolower( $class );
 			}
 		}
@@ -418,9 +416,7 @@ class ExtraChillArtistPlatform_SocialLinks {
 			// If only one class and it's an icon, add default prefix
 			if ( preg_match( '/^fa-/', $sanitized_classes[0] ) ) {
 				array_unshift( $sanitized_classes, 'fas' );
-			}
-			// If only prefix, add default icon
-			elseif ( in_array( $sanitized_classes[0], array( 'fab', 'fas', 'far', 'fal', 'fat', 'fad' ) ) ) {
+			} elseif ( in_array( $sanitized_classes[0], array( 'fab', 'fas', 'far', 'fal', 'fat', 'fad' ), true ) ) { // If only prefix, add default icon
 				$sanitized_classes[] = 'fa-globe';
 			}
 		}
@@ -450,7 +446,7 @@ class ExtraChillArtistPlatform_SocialLinks {
 		}
 
 		// Third priority: Generate FontAwesome class from type
-		if ( $type !== 'custom' && $type !== 'website' ) {
+		if ( 'custom' !== $type && 'website' !== $type ) {
 			$icon_name = sanitize_html_class( str_replace( '_', '-', $type ) );
 			return $this->sanitize_icon_class( 'fab fa-' . $icon_name );
 		}
@@ -573,7 +569,7 @@ class ExtraChillArtistPlatform_SocialLinks {
 	 * @param mixed $meta_value Meta value
 	 */
 	public function on_social_links_updated( $meta_id, $object_id, $meta_key, $meta_value ) {
-		if ( $meta_key === self::META_KEY && get_post_type( $object_id ) === 'artist_profile' ) {
+		if ( self::META_KEY === $meta_key && 'artist_profile' === get_post_type( $object_id ) ) {
 			/**
 			 * Action fired when artist social links are updated via update_post_meta
 			 *
@@ -617,6 +613,7 @@ class ExtraChillArtistPlatform_SocialLinks {
 }
 
 // Initialize the social links manager
+// phpcs:ignore Universal.Files.SeparateFunctionsFromOO.Mixed -- WordPress plugin idiom: class plus its global accessor function.
 function extrachill_artist_platform_social_links() {
 	return ExtraChillArtistPlatform_SocialLinks::instance();
 }

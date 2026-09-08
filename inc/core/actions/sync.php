@@ -35,9 +35,10 @@ class ArtistDataSyncManager {
  * @param int $artist_id The artist profile ID to sync
  * @return bool|WP_Error True on success, WP_Error on failure
  */
+// phpcs:ignore Universal.Files.SeparateFunctionsFromOO.Mixed -- WordPress plugin idiom: sync class plus procedural hook wiring in one module.
 function ec_handle_artist_platform_sync( $artist_id ) {
 
-	if ( ! $artist_id || get_post_type( $artist_id ) !== 'artist_profile' ) {
+	if ( ! $artist_id || 'artist_profile' !== get_post_type( $artist_id ) ) {
 		return new WP_Error( 'invalid_artist_profile', 'Invalid artist profile ID for sync' );
 	}
 
@@ -124,7 +125,7 @@ function ec_perform_complete_sync( $artist_id, $link_page_id ) {
 	$current_link_thumbnail_id = $data['settings']['profile_image_id'] ?? '';
 
 	if ( $artist_thumbnail_id ) {
-		if ( $current_link_thumbnail_id != $artist_thumbnail_id ) {
+		if ( (int) $current_link_thumbnail_id !== (int) $artist_thumbnail_id ) {
 			update_post_meta( $link_page_id, '_link_page_profile_image_id', $artist_thumbnail_id );
 		}
 	} elseif ( $current_link_thumbnail_id ) {

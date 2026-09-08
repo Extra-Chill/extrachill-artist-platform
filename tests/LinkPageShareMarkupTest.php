@@ -26,6 +26,7 @@ if ( ! function_exists( 'esc_url' ) ) {
 	}
 }
 
+// phpcs:ignore Universal.Files.SeparateFunctionsFromOO.Mixed -- test file keeps a render helper plus the test class; intentional.
 final class LinkPageShareMarkupTest extends TestCase {
 	private function render_single_link( array $args ): string {
 		ob_start();
@@ -60,6 +61,7 @@ final class LinkPageShareMarkupTest extends TestCase {
 	}
 
 	public function test_share_trigger_retains_its_modal_click_handler_without_link_propagation_workaround(): void {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local asset read, not a remote URL.
 		$script = file_get_contents( dirname( __DIR__ ) . '/inc/link-pages/live/assets/js/extrch-share-modal.js' );
 
 		$this->assertStringContainsString( "trigger.addEventListener('click'", $script );
@@ -69,6 +71,7 @@ final class LinkPageShareMarkupTest extends TestCase {
 	}
 
 	public function test_share_modal_overlay_has_a_valid_background_color_declaration(): void {
+		// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- local asset read, not a remote URL.
 		$styles = file_get_contents( dirname( __DIR__ ) . '/assets/css/extrch-share-modal.css' );
 
 		$this->assertStringContainsString( 'background-color: var(--link-page-overlay-color);', $styles );

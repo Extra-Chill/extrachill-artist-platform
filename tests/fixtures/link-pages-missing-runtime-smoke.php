@@ -48,7 +48,7 @@ $result = extrachill_artist_platform_boot_link_pages_runtime();
 
 echo json_encode(
 	array(
-		'error_code'   => is_wp_error( $result ) ? $result->get_error_code() : '',
-		'notice_hooked'=> in_array( array( 'admin_notices', 'extrachill_artist_platform_link_pages_runtime_notice' ), $GLOBALS['smoke_actions'], true ),
+		'error_code'    => is_wp_error( $result ) ? $result->get_error_code() : '',
+		'notice_hooked' => in_array( array( 'admin_notices', 'extrachill_artist_platform_link_pages_runtime_notice' ), $GLOBALS['smoke_actions'], true ),
 	)
 );

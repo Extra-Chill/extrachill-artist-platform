@@ -40,7 +40,7 @@ final class SanitizeCssVarsTest extends TestCase {
 			static function () {
 				return extrachill_artist_platform_sanitize_css_vars(
 					array(
-						'--link-page-text-color' => null,
+						'--link-page-text-color'   => null,
 						'--link-page-accent-color' => '#ff5733',
 					)
 				);
@@ -56,7 +56,7 @@ final class SanitizeCssVarsTest extends TestCase {
 			static function () {
 				return extrachill_artist_platform_sanitize_css_vars(
 					array(
-						'--link-page-bg' => array( '#ffffff' ),
+						'--link-page-bg'       => array( '#ffffff' ),
 						'--link-page-bg-color' => '#000000',
 					)
 				);
@@ -69,12 +69,12 @@ final class SanitizeCssVarsTest extends TestCase {
 
 	public function test_valid_color_formats_are_preserved(): void {
 		$input = array(
-			'--link-page-short-hex-color'   => '#abc',
-			'--link-page-long-hex-color'    => '#aabbcc',
-			'--link-page-rgb-color'         => 'rgb(255, 0, 0)',
-			'--link-page-rgba-color'        => 'rgba(255, 0, 0, 0.5)',
-			'--link-page-hsl-color'         => 'hsl(120, 100%, 50%)',
-			'--link-page-hsla-color'        => 'hsla(120, 100%, 50%, 0.3)',
+			'--link-page-short-hex-color' => '#abc',
+			'--link-page-long-hex-color'  => '#aabbcc',
+			'--link-page-rgb-color'       => 'rgb(255, 0, 0)',
+			'--link-page-rgba-color'      => 'rgba(255, 0, 0, 0.5)',
+			'--link-page-hsl-color'       => 'hsl(120, 100%, 50%)',
+			'--link-page-hsla-color'      => 'hsla(120, 100%, 50%, 0.3)',
 		);
 
 		$result = $this->run_without_warnings(
@@ -89,7 +89,7 @@ final class SanitizeCssVarsTest extends TestCase {
 	public function test_invalid_color_string_is_skipped_silently(): void {
 		$result = extrachill_artist_platform_sanitize_css_vars(
 			array(
-				'--link-page-text-color' => 'not-a-color',
+				'--link-page-text-color'   => 'not-a-color',
 				'--link-page-accent-color' => '#00ff00',
 			)
 		);
@@ -101,8 +101,8 @@ final class SanitizeCssVarsTest extends TestCase {
 	public function test_ordinary_non_color_values_pass_through(): void {
 		$result = extrachill_artist_platform_sanitize_css_vars(
 			array(
-				'overlay'             => '0.5',
-				'--link-page-radius'  => '8px',
+				'overlay'            => '0.5',
+				'--link-page-radius' => '8px',
 			)
 		);
 
@@ -113,7 +113,7 @@ final class SanitizeCssVarsTest extends TestCase {
 	public function test_keys_outside_allowlist_are_ignored(): void {
 		$result = extrachill_artist_platform_sanitize_css_vars(
 			array(
-				'--evil-injected-css' => 'background:url(javascript:alert(1))',
+				'--evil-injected-css'    => 'background:url(javascript:alert(1))',
 				'--link-page-text-color' => '#123456',
 			)
 		);

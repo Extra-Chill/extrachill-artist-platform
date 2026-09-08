@@ -44,17 +44,17 @@ if ( ! function_exists( 'ec_get_link_page_defaults_for' ) ) {
 	function ec_get_link_page_defaults_for() {
 		return array(
 			'--link-page-card-bg-color'         => '#fff',
-			'--link-page-link-text-color'        => '#000',
-			'--link-page-title-font-family'      => 'sans-serif',
-			'--link-page-body-font-family'       => 'sans-serif',
-			'--link-page-background-type'        => 'color',
-			'--link-page-background-color'       => '#fff',
-			'--link-page-button-hover-bg-color'  => '#000',
-			'--link-page-button-border-color'    => '#000',
-			'--link-page-button-bg-color'        => '#fff',
-			'--link-page-muted-text-color'       => '#555',
-			'--link-page-input-bg'               => '#fff',
-			'--link-page-button-radius'          => '4px',
+			'--link-page-link-text-color'       => '#000',
+			'--link-page-title-font-family'     => 'sans-serif',
+			'--link-page-body-font-family'      => 'sans-serif',
+			'--link-page-background-type'       => 'color',
+			'--link-page-background-color'      => '#fff',
+			'--link-page-button-hover-bg-color' => '#000',
+			'--link-page-button-border-color'   => '#000',
+			'--link-page-button-bg-color'       => '#fff',
+			'--link-page-muted-text-color'      => '#555',
+			'--link-page-input-bg'              => '#fff',
+			'--link-page-button-radius'         => '4px',
 		);
 	}
 }
@@ -153,7 +153,7 @@ final class ArtistProfileSubscribeTest extends TestCase {
 		$GLOBALS['ec_test']['meta'][84]['_link_page_subscribe_display_mode'] = array( 'disabled' );
 		$this->assertFalse( ec_is_artist_profile_subscribe_section_visible( 42 ) );
 
-		$GLOBALS['ec_test']['meta'][84] = array();
+		$GLOBALS['ec_test']['meta'][84]               = array();
 		$GLOBALS['ec_test']['posts'][42]->post_status = 'draft';
 		$this->assertFalse( ec_is_artist_profile_subscribe_section_visible( 42 ) );
 	}
@@ -176,9 +176,9 @@ final class ArtistProfileSubscribeTest extends TestCase {
 		libxml_use_internal_errors( true );
 		$document->loadHTML( '<!DOCTYPE html><html><body>' . $html . '</body></html>' );
 		libxml_clear_errors();
-		$xpath = new DOMXPath( $document );
-		$input = $xpath->query( '//input[@type="email"]' )->item( 0 );
-		$label = $xpath->query( '//label[@for="' . $input->getAttribute( 'id' ) . '"]' )->item( 0 );
+		$xpath  = new DOMXPath( $document );
+		$input  = $xpath->query( '//input[@type="email"]' )->item( 0 );
+		$label  = $xpath->query( '//label[@for="' . $input->getAttribute( 'id' ) . '"]' )->item( 0 );
 		$status = $xpath->query( '//*[@role="status" and @aria-live="polite"]' )->item( 0 );
 
 		$this->assertNotNull( $label );

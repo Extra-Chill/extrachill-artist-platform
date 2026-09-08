@@ -318,8 +318,8 @@ function ec_artist_membership_database_supports_advisory_locks() {
  */
 function ec_acquire_artist_membership_network_lock( $lock_name ) {
 	global $wpdb;
-	$option  = 'ec_artist_membership_lock_' . md5( $lock_name );
-	$payload = array(
+	$option   = 'ec_artist_membership_lock_' . md5( $lock_name );
+	$payload  = array(
 		'owner'   => wp_generate_uuid4(),
 		'expires' => time() + 30,
 	);

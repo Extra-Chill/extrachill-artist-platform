@@ -101,7 +101,7 @@ function ec_artist_shows_gather( $artist_term_id ) {
 		return $memo[ $artist_term_id ];
 	}
 
-	$empty                  = array(
+	$empty                   = array(
 		'term_id'   => 0,
 		'term_slug' => '',
 		'upcoming'  => array(),
@@ -159,7 +159,7 @@ function ec_artist_shows_gather( $artist_term_id ) {
 		return $empty;
 	}
 
-	$found                  = array(
+	$found                   = array(
 		'term_id'   => $result['term_id'],
 		'term_slug' => $result['term_slug'],
 		'upcoming'  => $result['upcoming'],

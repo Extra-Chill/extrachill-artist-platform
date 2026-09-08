@@ -43,7 +43,7 @@ final class LinkPageShareMarkupTest extends TestCase {
 
 		$document = new DOMDocument();
 		$document->loadHTML( '<!DOCTYPE html><html><body>' . $html . '</body></html>' );
-		$xpath = new DOMXPath( $document );
+		$xpath   = new DOMXPath( $document );
 		$wrapper = $xpath->query( '//div[contains(concat(" ", normalize-space(@class), " "), " extrch-link-button-wrapper ")]' )->item( 0 );
 		$link    = $xpath->query( './a[contains(concat(" ", normalize-space(@class), " "), " extrch-link-page-link ")]', $wrapper )->item( 0 );
 		$button  = $xpath->query( './button[contains(concat(" ", normalize-space(@class), " "), " extrch-share-item-trigger ")]', $wrapper )->item( 0 );

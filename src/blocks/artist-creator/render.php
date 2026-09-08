@@ -7,25 +7,25 @@
  */
 
 if ( ! defined( 'ABSPATH' ) ) {
-    exit;
+	exit;
 }
 
 // Require login
 if ( ! is_user_logged_in() ) {
-    echo '<div class="notice notice-info">';
-    echo '<p>' . esc_html__( 'Please log in to create an artist profile.', 'extrachill-artist-platform' ) . '</p>';
-    echo '</div>';
-    return;
+	echo '<div class="notice notice-info">';
+	echo '<p>' . esc_html__( 'Please log in to create an artist profile.', 'extrachill-artist-platform' ) . '</p>';
+	echo '</div>';
+	return;
 }
 
 $current_user_id = get_current_user_id();
 
 // Ensure required functions exist
 if ( ! function_exists( 'ec_can_create_artist_profiles' ) ) {
-    echo '<div class="notice notice-error">';
-    echo '<p>' . esc_html__( 'Artist platform is not properly configured.', 'extrachill-artist-platform' ) . '</p>';
-    echo '</div>';
-    return;
+	echo '<div class="notice notice-error">';
+	echo '<p>' . esc_html__( 'Artist platform is not properly configured.', 'extrachill-artist-platform' ) . '</p>';
+	echo '</div>';
+	return;
 }
 
 // Check permission
@@ -92,42 +92,42 @@ if ( function_exists( 'ec_artist_platform_emit_funnel_event' )
 // who submits without changing it creates a profile literally named after
 // themselves. The field renders empty with a placeholder so the user must
 // consciously type the act's name.
-$prefill = array();
+$prefill      = array();
 $current_user = wp_get_current_user();
 if ( $current_user && $current_user->ID ) {
-    $prefill['avatar_id']   = get_user_meta( $current_user->ID, 'custom_avatar_id', true );
-    if ( $prefill['avatar_id'] ) {
-        $prefill['avatar_thumb'] = wp_get_attachment_image_url( $prefill['avatar_id'], 'thumbnail' );
-    }
+	$prefill['avatar_id'] = get_user_meta( $current_user->ID, 'custom_avatar_id', true );
+	if ( $prefill['avatar_id'] ) {
+		$prefill['avatar_thumb'] = wp_get_attachment_image_url( $prefill['avatar_id'], 'thumbnail' );
+	}
 }
 
 // Build config payload for frontend
 $config = array(
-    'restUrl'           => rest_url( 'extrachill/v1/' ),
-    'nonce'             => wp_create_nonce( 'wp_rest' ),
-    'prefill'           => $prefill,
-    'manageArtistUrl'   => home_url( '/manage-artist/' ),
-    'createLinkPageUrl' => home_url( '/manage-link-page/' ),
-    // Admin-only during development
-    'createShopUrl'     => current_user_can( 'manage_options' ) ? home_url( '/manage-shop/' ) : '',
+	'restUrl'           => rest_url( 'extrachill/v1/' ),
+	'nonce'             => wp_create_nonce( 'wp_rest' ),
+	'prefill'           => $prefill,
+	'manageArtistUrl'   => home_url( '/manage-artist/' ),
+	'createLinkPageUrl' => home_url( '/manage-link-page/' ),
+	// Admin-only during development
+	'createShopUrl'     => current_user_can( 'manage_options' ) ? home_url( '/manage-shop/' ) : '',
 );
 
 // Enqueue frontend script and styles
 $asset_file = include EXTRACHILL_ARTIST_PLATFORM_PLUGIN_DIR . 'build/blocks/artist-creator/view.asset.php';
 
 wp_enqueue_script(
-    'ec-artist-creator-frontend',
-    EXTRACHILL_ARTIST_PLATFORM_PLUGIN_URL . 'build/blocks/artist-creator/view.js',
-    $asset_file['dependencies'],
-    $asset_file['version'],
-    true
+	'ec-artist-creator-frontend',
+	EXTRACHILL_ARTIST_PLATFORM_PLUGIN_URL . 'build/blocks/artist-creator/view.js',
+	$asset_file['dependencies'],
+	$asset_file['version'],
+	true
 );
 
 wp_localize_script( 'ec-artist-creator-frontend', 'ecArtistCreatorConfig', $config );
 
 // Render mount point
 $wrapper_attributes = get_block_wrapper_attributes( array(
-    'class' => 'ec-artist-creator',
+	'class' => 'ec-artist-creator',
 ) );
 
 echo '<div ' . $wrapper_attributes . '>';

@@ -68,3 +68,5 @@ build/
 .claude/
 .buildignore
 build.sh.phpunit.result.cache
+
+.phpunit.result.cache

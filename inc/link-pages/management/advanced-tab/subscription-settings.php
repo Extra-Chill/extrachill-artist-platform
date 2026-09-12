@@ -59,7 +59,7 @@ function extrachill_artist_get_subscription_description( $artist_id, $link_page_
  * @return bool True if subscription is enabled, false if disabled
  */
 function extrachill_artist_is_subscription_enabled( $link_page_id ) {
-	$display_mode = extrachill_artist_get_subscription_display_mode( $link_page_id );
+	$display_mode = extrachill_artist_get_subscription_display_mode( (int) apply_filters( 'ec_get_artist_id', $link_page_id ), $link_page_id );
 	return 'disabled' !== $display_mode;
 }
 
@@ -70,10 +70,11 @@ function extrachill_artist_is_subscription_enabled( $link_page_id ) {
  * @param string $artist_name  Optional artist name for default description
  * @return array Array containing all subscription settings
  */
+// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- legacy BC param; description now resolves from link-page data.
 function extrachill_artist_get_subscription_settings( $link_page_id, $artist_name = '' ) {
 	return array(
-		'display_mode'    => extrachill_artist_get_subscription_display_mode( $link_page_id ),
-		'description'     => extrachill_artist_get_subscription_description( $link_page_id, $artist_name ),
+		'display_mode'    => extrachill_artist_get_subscription_display_mode( (int) apply_filters( 'ec_get_artist_id', $link_page_id ), $link_page_id ),
+		'description'     => extrachill_artist_get_subscription_description( (int) apply_filters( 'ec_get_artist_id', $link_page_id ), $link_page_id ),
 		'available_modes' => extrachill_artist_get_subscription_display_options(),
 		'is_enabled'      => extrachill_artist_is_subscription_enabled( $link_page_id ),
 	);

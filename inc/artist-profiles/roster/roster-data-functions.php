@@ -199,7 +199,9 @@ function ec_accept_artist_membership_invitation( $user_id, $artist_id, $pending_
 					__( 'Artist invitation rollback failed. Manual reconciliation is required.', 'extrachill-artist-platform' ),
 					array(
 						'status'           => 500,
+						// @phpstan-ignore ternary.alwaysTrue (defensive: the failure getter may return null if a failure path ever skips the setter.)
 						'membership_error' => $membership_failure ? $membership_failure->get_error_code() : 'unknown',
+						// @phpstan-ignore ternary.alwaysTrue (defensive: the failure getter may return null if a failure path ever skips the setter.)
 						'rollback_error'   => $rollback_failure ? $rollback_failure->get_error_code() : 'unknown',
 						'retryable'        => false,
 					)
@@ -210,6 +212,7 @@ function ec_accept_artist_membership_invitation( $user_id, $artist_id, $pending_
 				__( 'The partial membership was removed. The invitation remains available to retry.', 'extrachill-artist-platform' ),
 				array(
 					'status'           => 503,
+					// @phpstan-ignore ternary.alwaysTrue (defensive: the failure getter may return null if a failure path ever skips the setter.)
 					'membership_error' => $membership_failure ? $membership_failure->get_error_code() : 'unknown',
 					'retryable'        => true,
 				)

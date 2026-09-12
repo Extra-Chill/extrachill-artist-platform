@@ -110,6 +110,7 @@ $share_page_url = ! empty($artist_slug) ? 'https://extrachill.link/' . $artist_s
 $bg_type = isset($data['css_vars']['--link-page-background-type']) ? $data['css_vars']['--link-page-background-type'] : 'color';
 
 if ( isset($data) && is_array($data) ) {
+	// @phpstan-ignore variable.undefined (provided by the caller via extract(), or defined by the self-fetch branch above.)
 	$data['original_link_page_id'] = $link_page_id;
 }
 
@@ -143,6 +144,7 @@ $body_bg_style = '';
 			<?php
 			$img_container_classes = 'extrch-link-page-profile-img ' . $profile_img_shape_class;
 			$no_image_class        = empty($data['profile_img_url']) ? ' no-image' : '';
+			// @phpstan-ignore if.alwaysFalse (preview-iframe scaffolding retained for upcoming preview wiring; mid-migration.)
 			if ( $is_preview_iframe_context ) :
 				?>
 				<div class="<?php echo esc_attr($img_container_classes . $no_image_class); ?>">
@@ -173,6 +175,7 @@ $body_bg_style = '';
 				$section_args = array(
 					'section_title' => $section['section_title'] ?? '',
 					'links'         => $section['links'] ?? array(),
+					// @phpstan-ignore variable.undefined (provided by the caller via extract(), or defined by the self-fetch branch above.)
 					'link_page_id'  => $link_page_id,
 				);
 				echo ec_render_link_section( $section, $section_args ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal renderer; link values escaped inside the section template.
@@ -183,6 +186,7 @@ $body_bg_style = '';
 		// Output the inline subscribe form below all links if in inline_form mode
 		if ( 'inline_form' === $subscribe_display_mode ) {
 			echo ec_render_template('subscribe-inline-form', array( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal template renderer; values escaped inside the template.
+				// @phpstan-ignore variable.undefined (provided by the caller via extract(), or defined by the self-fetch branch above.)
 				'artist_id' => $artist_id,
 				'data'      => $data,
 			));
@@ -190,6 +194,7 @@ $body_bg_style = '';
 		// Output the modal partial (but not the bell icon) if in icon_modal mode
 		if ( 'icon_modal' === $subscribe_display_mode ) {
 			echo ec_render_template('subscribe-modal', array( // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- internal template renderer; values escaped inside the template.
+				// @phpstan-ignore variable.undefined (provided by the caller via extract(), or defined by the self-fetch branch above.)
 				'artist_id' => $artist_id,
 				'data'      => $data,
 			));

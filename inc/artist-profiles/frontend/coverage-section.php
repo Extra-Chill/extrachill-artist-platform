@@ -80,11 +80,13 @@ if ( ! defined( 'EC_ARTIST_COVERAGE_CARD_LIMIT' ) ) {
 function ec_register_artist_profile_coverage_cards_section( $sections, $artist_id, $artist_term_id ) {
 	// Drop the multisite-registered button-row Coverage section (id 'coverage')
 	// so the hub renders the cards version below instead of both.
+	// @phpstan-ignore function.alreadyNarrowedType (filter callback: other registrants may return a non-array at runtime.)
 	if ( is_array( $sections ) ) {
 		$sections = array_values(
 			array_filter(
 				$sections,
 				static function ( $section ) {
+					// @phpstan-ignore function.alreadyNarrowedType (filter callback: section entries may be malformed at runtime.)
 					return ! ( is_array( $section ) && isset( $section['id'] ) && 'coverage' === $section['id'] );
 				}
 			)

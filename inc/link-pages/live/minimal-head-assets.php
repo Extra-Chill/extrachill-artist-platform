@@ -42,6 +42,7 @@ function extrachill_artist_enqueue_link_page_minimal_assets( $link_page_id, $art
 			continue;
 		}
 
+		// @phpstan-ignore argument.type (file_exists() above guarantees filemtime() never returns false here.)
 		wp_enqueue_style( $handle, $plugin_url . $path, array(), filemtime( $abs_path ) );
 	}
 
@@ -59,6 +60,7 @@ function extrachill_artist_enqueue_link_page_minimal_assets( $link_page_id, $art
 			continue;
 		}
 
+		// @phpstan-ignore argument.type (file_exists() above guarantees filemtime() never returns false here.)
 		wp_enqueue_script( $handle, $plugin_url . $path, array(), filemtime( $abs_path ), true );
 	}
 }

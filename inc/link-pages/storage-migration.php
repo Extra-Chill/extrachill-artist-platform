@@ -48,8 +48,8 @@ function ec_artist_link_page_migration_plan( $context ) {
 			}
 			$legacy_profile_image = (int) get_post_meta( $link_page_id, '_link_page_profile_image_id', true );
 			$background_image     = (int) get_post_meta( $link_page_id, '_link_page_background_image_id', true );
-			$profile         = get_post( $artist_id );
-			$reciprocal_rows = get_post_meta( $artist_id, '_extrch_link_page_id', false );
+			$profile              = get_post( $artist_id );
+			$reciprocal_rows      = get_post_meta( $artist_id, '_extrch_link_page_id', false );
 			// phpcs:disable WordPress.DB.SlowDBQuery -- Exact reciprocal uniqueness audit.
 			$other_profiles = get_posts(
 				array(
@@ -80,7 +80,7 @@ function ec_artist_link_page_migration_plan( $context ) {
 				if ( isset( $attachment_owners[ $attachment_id ] ) && $owner['reference'] !== $attachment_owners[ $attachment_id ] ) {
 					return new WP_Error( 'artist_link_page_migration_attachment_owner_mismatch', 'An Artist attachment is shared by multiple Link Page owners.', array( 'attachment_id' => $attachment_id ) );
 				}
-				$attachments[]                        = $attachment_id;
+				$attachments[]                       = $attachment_id;
 				$attachment_owners[ $attachment_id ] = $owner['reference'];
 			}
 			$projection = ec_read_link_page( $link_page_id );
@@ -119,7 +119,7 @@ function ec_artist_link_page_migration_plan( $context ) {
 				'reason'             => $parent ? 'migrated-link-page-parent-preserved' : 'external-owner-parent-remapped',
 			);
 		}
-		$data                = array(
+		$data    = array(
 			'profiles'             => $rows,
 			'attachment_ids'       => $attachments,
 			'attachment_semantics' => $semantics,

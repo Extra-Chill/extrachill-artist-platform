@@ -47,7 +47,9 @@ function wp_print_styles() {}
 function wp_print_footer_scripts() {}
 function untrailingslashit( $value ) { return rtrim( $value, '/' ); }
 function wp_parse_args( $args, $defaults ) { return array_merge( $defaults, is_array( $args ) ? $args : array() ); }
-function wp_get_ability() { return null; }
+if ( ! ec_test_link_pages_bootstrap_defines( $standalone, 'wp_get_ability' ) ) {
+	function wp_get_ability() { return null; }
+}
 function ec_combined_cache_purge_post( $post_id ) {
 	$urls                                       = apply_filters( 'extrachill_cache_post_change_urls', null, $post_id, get_post_type( $post_id ) );
 	$GLOBALS['ec_test']['cache_action_blogs'][] = get_current_blog_id();
@@ -100,6 +102,7 @@ add_filter( 'ec_get_artist_id', static function ( $value, $input = null ) {
 
 require_once $artist_root . '/inc/link-pages/runtime-handoff.php';
 require_once $artist_root . '/inc/core/filters/data.php';
+require_once $artist_root . '/inc/core/artist-genres.php';
 require_once $artist_root . '/inc/core/filters/create.php';
 require_once $artist_root . '/inc/core/actions/save.php';
 require_once $artist_root . '/inc/abilities/helpers.php';

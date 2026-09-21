@@ -12,7 +12,8 @@
  * @param mixed $context Context for ID resolution (int, array, or null)
  * @return int Artist profile ID (0 if not found)
  */
-function ec_get_artist_id( $context = null ) {
+// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- filter registered with accepted_args 2; the second filter argument is unused.
+function ec_get_artist_id( $context = null, $unused_filter_arg = null ) {
 	// Handle array context ($_GET, $_POST, query vars)
 	if ( is_array( $context ) ) {
 		// Check for all artist ID key variations
@@ -103,7 +104,8 @@ function ec_get_artist_id( $context = null ) {
  * @param mixed $context Context for ID resolution (int, array, or null)
  * @return int Link page ID (0 if not found)
  */
-function ec_get_link_page_id( $context = null ) {
+// phpcs:ignore Generic.CodeAnalysis.UnusedFunctionParameter.FoundAfterLastUsed -- filter registered with accepted_args 2; the second filter argument is unused.
+function ec_get_link_page_id( $context = null, $unused_filter_arg = null ) {
 	// Handle array context ($_GET, $_POST, query vars)
 	if ( is_array( $context ) ) {
 		// Check for all link page ID key variations

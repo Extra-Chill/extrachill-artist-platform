@@ -15,6 +15,7 @@ global $wp_query; // Make sure $wp_query is available
 // Use the current post as the link page
 $link_page = $wp_query->get_queried_object(); // Get the post object from the main query
 
+// @phpstan-ignore property.notFound (runtime shape guard: the queried object is validated before use.)
 if ( ! $link_page || ! isset($link_page->ID) || 'artist_link_page' !== $link_page->post_type ) {
 
 	// If the queried object isn't what we expect, then it's a genuine issue.
@@ -75,6 +76,7 @@ $body_bg_style .= 'min-height:100vh;';
 		// Fallback basic meta if the function isn't loaded, though it should be.
 		echo '<meta charset="' . esc_attr( get_bloginfo( 'charset' ) ) . '">';
 		echo '<meta name="viewport" content="width=device-width,initial-scale=1">';
+		// @phpstan-ignore ternary.alwaysTrue (filter output: ec_get_artist_id may return 0 at runtime.)
 		$artist_title_fallback = $artist_id ? get_the_title( $artist_id ) : 'Link Page';
 		echo '<title>' . esc_html( $artist_title_fallback ) . ' | extrachill.link</title>';
 	}
@@ -94,6 +96,7 @@ $token_handoff_url = $artist_site_url . '/wp-admin/admin-post.php?action=ec_link
 ?>
 <body class="extrch-link-page"
 <?php
+// @phpstan-ignore if.alwaysTrue (style string is built from non-empty parts above; guard retained for template reuse.)
 if ( $body_bg_style ) {
 	echo ' style="' . esc_attr( $body_bg_style ) . '"';}
 ?>

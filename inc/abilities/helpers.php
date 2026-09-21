@@ -37,6 +37,7 @@ function extrachill_artist_platform_ability_actor( $capability ) {
 	$principal       = null;
 
 	if ( class_exists( $principal_class ) ) {
+		// @phpstan-ignore booleanAnd.rightAlwaysTrue (canonical WP_CLI context guard; the constant is only defined under WP-CLI at runtime.)
 		$request_context = ( defined( 'WP_CLI' ) && WP_CLI ) ? 'cli' : ( function_exists( 'wp_doing_cron' ) && wp_doing_cron() ? 'cron' : 'rest' );
 		try {
 			$principal = $principal_class::resolve( array( 'request_context' => $request_context ) );
@@ -84,6 +85,7 @@ function extrachill_artist_platform_ability_actor( $capability ) {
 		);
 	}
 
+	// @phpstan-ignore booleanAnd.rightAlwaysTrue (canonical WP_CLI context guard; the constant is only defined under WP-CLI at runtime.)
 	if ( ( defined( 'WP_CLI' ) && WP_CLI ) || ( class_exists( 'ActionScheduler' ) && did_action( 'action_scheduler_before_execute' ) ) ) {
 		return array(
 			'user_id'        => get_current_user_id(),
@@ -128,7 +130,7 @@ function extrachill_artist_platform_ability_artist_permission( $input ) {
 
 	return $artist_id
 		&& function_exists( 'ec_user_can' )
-		// @phpstan-ignore phpstan.arguments.count (provided by extrachill-users at runtime; outside this component's analysis scope.)
+		// @phpstan-ignore arguments.count (provided by extrachill-users at runtime; outside this component's analysis scope.)
 		&& ec_user_can(
 			'manage_artist',
 			array(
@@ -162,7 +164,7 @@ function extrachill_artist_platform_ability_create_permission( $input ) {
 	}
 
 	return function_exists( 'ec_user_can' )
-		// @phpstan-ignore phpstan.arguments.count (provided by extrachill-users at runtime; outside this component's analysis scope.)
+		// @phpstan-ignore arguments.count (provided by extrachill-users at runtime; outside this component's analysis scope.)
 		&& ec_user_can( 'create_artist_profile', array( 'user_id' => $actor_user_id ) );
 }
 
@@ -298,7 +300,7 @@ function extrachill_artist_platform_sync_counter_from_id( $link_page_id, $type, 
  * @return array Sanitized links array.
  */
 function extrachill_artist_platform_sanitize_links( $links, $link_page_id = 0 ) {
-	// @phpstan-ignore phpstan.function.alreadyNarrowedType (deliberate defensive guard on untyped public API input.)
+	// @phpstan-ignore function.alreadyNarrowedType (deliberate defensive guard on untyped public API input.)
 	if ( ! is_array( $links ) ) {
 		return array();
 	}
@@ -366,7 +368,7 @@ function extrachill_artist_platform_sanitize_css_vars( $vars ) {
 	if ( function_exists( 'extrachill_artist_platform_uses_external_link_pages_runtime' ) && extrachill_artist_platform_uses_external_link_pages_runtime() && function_exists( 'ec_sanitize_link_page_css_vars' ) ) {
 		return ec_sanitize_link_page_css_vars( $vars );
 	}
-	// @phpstan-ignore phpstan.function.alreadyNarrowedType (deliberate defensive guard on untyped public API input.)
+	// @phpstan-ignore function.alreadyNarrowedType (deliberate defensive guard on untyped public API input.)
 	if ( ! is_array( $vars ) ) {
 		return array();
 	}
@@ -408,7 +410,7 @@ function extrachill_artist_platform_sanitize_css_vars( $vars ) {
  * @return array Sanitized settings as flat keys for ec_handle_link_page_save().
  */
 function extrachill_artist_platform_sanitize_link_settings( $settings ) {
-	// @phpstan-ignore phpstan.function.alreadyNarrowedType (deliberate defensive guard on untyped public API input.)
+	// @phpstan-ignore function.alreadyNarrowedType (deliberate defensive guard on untyped public API input.)
 	if ( ! is_array( $settings ) ) {
 		return array();
 	}
@@ -456,7 +458,7 @@ function extrachill_artist_platform_sanitize_link_settings( $settings ) {
  * @return array Sanitized social links array.
  */
 function extrachill_artist_platform_sanitize_socials( $socials, $link_page_id = 0 ) {
-	// @phpstan-ignore phpstan.function.alreadyNarrowedType (deliberate defensive guard on untyped public API input.)
+	// @phpstan-ignore function.alreadyNarrowedType (deliberate defensive guard on untyped public API input.)
 	if ( ! is_array( $socials ) ) {
 		return array();
 	}

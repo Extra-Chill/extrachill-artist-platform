@@ -89,22 +89,20 @@ function ec_handle_link_page_file_uploads( $link_page_id, $files_data, $save_dat
 					error_log( 'Profile image upload failed: ' . $attach_id->get_error_message() );
 					return 'upload_failed';
 				}
-				if ( is_numeric( $attach_id ) ) {
-					set_post_thumbnail( $associated_artist_id, $attach_id );
-					update_post_meta( $link_page_id, '_link_page_profile_image_id', $attach_id );
-					if ( $old_profile_image_id && (int) $old_profile_image_id !== (int) $attach_id ) {
-						/**
-						 * Fires when an old profile image should be deleted.
-						 *
-						 * This action hook allows cleanup of old profile images when
-						 * a new one is uploaded, helping maintain storage efficiency.
-						 *
-						 * @since 1.0.0
-						 *
-						 * @param int $old_profile_image_id The attachment ID of the old profile image to delete.
-						 */
-						do_action( 'ec_delete_old_profile_image', $old_profile_image_id );
-					}
+				set_post_thumbnail( $associated_artist_id, $attach_id );
+				update_post_meta( $link_page_id, '_link_page_profile_image_id', $attach_id );
+				if ( $old_profile_image_id && (int) $old_profile_image_id !== (int) $attach_id ) {
+					/**
+					 * Fires when an old profile image should be deleted.
+					 *
+					 * This action hook allows cleanup of old profile images when
+					 * a new one is uploaded, helping maintain storage efficiency.
+					 *
+					 * @since 1.0.0
+					 *
+					 * @param int $old_profile_image_id The attachment ID of the old profile image to delete.
+					 */
+					do_action( 'ec_delete_old_profile_image', $old_profile_image_id );
 				}
 			}
 		} elseif ( $files_data['link_page_profile_image_upload']['size'] > $max_file_size ) {
@@ -112,6 +110,8 @@ function ec_handle_link_page_file_uploads( $link_page_id, $files_data, $save_dat
 			return 'profile_image_size';
 		}
 	}
+
+	return null;
 }
 
 /**

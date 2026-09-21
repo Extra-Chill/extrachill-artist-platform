@@ -113,9 +113,9 @@ add_action( 'template_redirect', 'ec_join_flow_login_page_redirect' );
  * Intercepts the login redirect to route users who log in via join flow
  * to either their link page management or artist profile creation.
  *
- * @param string  $redirect_to           Default redirect URL
- * @param string  $requested_redirect_to Requested redirect URL
- * @param WP_User $user                  User object
+ * @param string                $redirect_to           Default redirect URL
+ * @param string                $requested_redirect_to Requested redirect URL
+ * @param WP_User|WP_Error|null $user                  User object, or error/null when not logged in.
  * @return string Modified redirect URL
  */
 function ec_join_flow_login_redirect( $redirect_to, $requested_redirect_to, $user ) {

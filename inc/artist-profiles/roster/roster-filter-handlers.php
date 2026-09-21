@@ -30,17 +30,15 @@ function extrachill_handle_invite_member( $result, $artist_id, $email ) {
 
 	// Check if email is already linked to a member
 	$linked_members = ec_get_linked_members( $artist_id );
-	if ( is_array( $linked_members ) ) {
-		foreach ( $linked_members as $linked_member_obj ) {
-			if ( isset( $linked_member_obj->ID ) ) {
-				$user_info = get_userdata( $linked_member_obj->ID );
-				if ( $user_info && strtolower( $user_info->user_email ) === strtolower( $email ) ) {
-					return new WP_Error(
-						'already_member',
-						__( 'This email address is already linked to a member of this artist.', 'extrachill-artist-platform' ),
-						array( 'status' => 409 )
-					);
-				}
+	foreach ( $linked_members as $linked_member_obj ) {
+		if ( isset( $linked_member_obj->ID ) ) {
+			$user_info = get_userdata( $linked_member_obj->ID );
+			if ( $user_info && strtolower( $user_info->user_email ) === strtolower( $email ) ) {
+				return new WP_Error(
+					'already_member',
+					__( 'This email address is already linked to a member of this artist.', 'extrachill-artist-platform' ),
+					array( 'status' => 409 )
+				);
 			}
 		}
 	}

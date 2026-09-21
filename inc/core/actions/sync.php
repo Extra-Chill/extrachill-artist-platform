@@ -14,6 +14,9 @@ defined( 'ABSPATH' ) || exit;
  * Manages a flag to prevent recursive synchronization.
  */
 class ArtistDataSyncManager {
+	/**
+	 * @var bool
+	 */
 	private static $is_syncing = false;
 
 	public static function is_syncing() {

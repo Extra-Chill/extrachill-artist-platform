@@ -154,7 +154,7 @@ function ec_render_artist_profile_hero_section( $artist_profile_id, $artist_term
 										$public_url_href         = '';
 										$public_url_display_text = '';
 
-										// @phpstan-ignore phpstan.booleanAnd.rightAlwaysFalse (canonical defined() && CONSTANT guard; the constant may be defined at runtime.)
+										// @phpstan-ignore booleanAnd.rightAlwaysFalse (canonical defined() && CONSTANT guard; the constant may be defined at runtime.)
 										if ( defined('EXTRCH_LINKPAGE_DEV') && EXTRCH_LINKPAGE_DEV ) {
 											$public_url_href = get_permalink( $link_page_id_for_url_display );
 										} else {
@@ -162,7 +162,7 @@ function ec_render_artist_profile_hero_section( $artist_profile_id, $artist_term
 											$public_url_href = 'https://extrachill.link/' . $artist_slug_for_url;
 										}
 
-										// @phpstan-ignore phpstan.empty.variable (defensive: kept intentionally.)
+										// @phpstan-ignore empty.variable (defensive: kept intentionally.)
 										if ( ! empty( $public_url_href ) ) {
 											$public_url_display_text = preg_replace( '#^https?://#', '', $public_url_href );
 
@@ -206,7 +206,7 @@ function ec_render_artist_profile_overview_section( $artist_profile_id, $artist_
 							echo '<h2 class="section-title">' . esc_html( sprintf( __( 'About %s', 'extrachill-artist-platform' ), $artist_name ) ) . '</h2>';
 							if ( ! empty( $artist_bio ) ) {
 								echo '<div class="artist-bio">';
-								// @phpstan-ignore phpstan.argument.type (get_post_field() returns a string for post_content at runtime.)
+								// @phpstan-ignore argument.type (get_post_field() returns a string for post_content at runtime.)
 								echo wpautop( $artist_bio ); // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- bio is authored post content; wpautop output is the intended HTML.
 								echo '</div>';
 							} else {

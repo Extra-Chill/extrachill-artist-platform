@@ -30,7 +30,7 @@ if ( ! function_exists( 'ec_get_artists_for_user' ) ) {
 	return;
 }
 
-// @phpstan-ignore phpstan.arguments.count (provided by extrachill-users at runtime; outside this component's analysis scope.)
+// @phpstan-ignore arguments.count (provided by extrachill-users at runtime; outside this component's analysis scope.)
 $user_artists = ec_get_artists_for_user( $current_user_id, true );
 
 // No artists: show the creation prompt.

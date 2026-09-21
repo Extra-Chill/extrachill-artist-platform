@@ -10,10 +10,16 @@ defined( 'ABSPATH' ) || exit;
 
 class ExtraChillArtistPlatform_SocialLinks {
 
+	/**
+	 * @var self|null
+	 */
 	private static $instance = null;
 
 	const META_KEY = '_artist_profile_social_links';
 
+	/**
+	 * @var array<string,array<string,mixed>>|null
+	 */
 	private $supported_types = null;
 
 	public static function instance() {
@@ -275,6 +281,7 @@ class ExtraChillArtistPlatform_SocialLinks {
 	 * @return array|false Normalized link or false if invalid
 	 */
 	private function validate_and_normalize_link( $link ) {
+		// @phpstan-ignore function.alreadyNarrowedType (defensive: link items arrive from unvalidated filter/user input.)
 		if ( ! is_array( $link ) || empty( $link['type'] ) || empty( $link['url'] ) ) {
 			return false;
 		}
@@ -317,6 +324,7 @@ class ExtraChillArtistPlatform_SocialLinks {
 	 * @return array|WP_Error Sanitized links array or WP_Error on failure
 	 */
 	public function sanitize_links( $social_links ) {
+		// @phpstan-ignore function.alreadyNarrowedType (defensive: public entry point; input may arrive from filters at runtime.)
 		if ( ! is_array( $social_links ) ) {
 			return new WP_Error( 'invalid_data', __( 'Social links must be an array.', 'extrachill-artist-platform' ) );
 		}
@@ -463,6 +471,7 @@ class ExtraChillArtistPlatform_SocialLinks {
 	 * @return string Link label
 	 */
 	public function get_link_label( $link ) {
+		// @phpstan-ignore function.alreadyNarrowedType (defensive: public entry point; link data is unvalidated at runtime.)
 		if ( ! is_array( $link ) || empty( $link['type'] ) ) {
 			return __( 'Social Link', 'extrachill-artist-platform' );
 		}
@@ -590,7 +599,7 @@ class ExtraChillArtistPlatform_SocialLinks {
 	 */
 	public function get_json( $artist_id ) {
 		$social_links = $this->get( $artist_id );
-		return wp_json_encode( $social_links );
+		return (string) wp_json_encode( $social_links );
 	}
 
 	/**

@@ -50,7 +50,7 @@ function extrachill_artist_get_meta_pixel_id( $artist_id, $link_page_id ) {
  * @return bool True if Meta Pixel is enabled, false otherwise
  */
 function extrachill_artist_is_meta_pixel_enabled( $link_page_id ) {
-	$pixel_id = extrachill_artist_get_meta_pixel_id( $link_page_id );
+	$pixel_id = extrachill_artist_get_meta_pixel_id( (int) apply_filters( 'ec_get_artist_id', $link_page_id ), $link_page_id );
 	return ! empty( $pixel_id ) && extrachill_artist_validate_meta_pixel_id( $pixel_id );
 }
 
@@ -63,8 +63,8 @@ function extrachill_artist_is_meta_pixel_enabled( $link_page_id ) {
  */
 function extrachill_artist_get_meta_pixel_settings( $link_page_id ) {
 	return array(
-		'pixel_id'   => extrachill_artist_get_meta_pixel_id( $link_page_id ),
+		'pixel_id'   => extrachill_artist_get_meta_pixel_id( (int) apply_filters( 'ec_get_artist_id', $link_page_id ), $link_page_id ),
 		'is_enabled' => extrachill_artist_is_meta_pixel_enabled( $link_page_id ),
-		'is_valid'   => extrachill_artist_validate_meta_pixel_id( extrachill_artist_get_meta_pixel_id( $link_page_id ) ),
+		'is_valid'   => extrachill_artist_validate_meta_pixel_id( extrachill_artist_get_meta_pixel_id( (int) apply_filters( 'ec_get_artist_id', $link_page_id ), $link_page_id ) ),
 	);
 }

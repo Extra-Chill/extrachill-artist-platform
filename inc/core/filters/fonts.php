@@ -197,7 +197,7 @@ class ExtraChillArtistPlatform_Fonts {
 			return "'" . $font_value . "', " . self::DEFAULT_FONT_STACK;
 		}
 
-		return ( $font_value ? $font_value : self::DEFAULT_FONT_STACK );
+		return $font_value;
 	}
 
 	/**
@@ -282,7 +282,7 @@ class ExtraChillArtistPlatform_Fonts {
 	 * @return string CSS @font-face definitions for local fonts
 	 */
 	public function get_local_fonts_css( $font_values ) {
-		if ( empty( $font_values ) || ! is_array( $font_values ) ) {
+		if ( empty( $font_values ) ) {
 			return '';
 		}
 

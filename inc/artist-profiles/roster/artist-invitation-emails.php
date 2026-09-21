@@ -106,11 +106,14 @@ function ec_send_artist_invitation_email( $recipient_email, $artist_name, $membe
 		),
 	) );
 
+	// @phpstan-ignore function.alreadyNarrowedType (cross-plugin return: ec_send_email() is provided by extrachill-network and its contract may evolve.)
 	$sent = is_array( $result ) && ! empty( $result['success'] );
 
 	if ( ! $sent ) {
+		// @phpstan-ignore function.alreadyNarrowedType (cross-plugin return: ec_send_email() is provided by extrachill-network and its contract may evolve.)
 		$error_message = is_array( $result ) && ! empty( $result['error'] )
 			? (string) $result['error']
+			// @phpstan-ignore function.alreadyNarrowedType (cross-plugin return: ec_send_email() is provided by extrachill-network and its contract may evolve.)
 			: ( is_array( $result ) && ! empty( $result['message'] ) ? (string) $result['message'] : 'unknown error' );
 		// phpcs:ignore WordPress.PHP.DevelopmentFunctions.error_log_error_log -- intentional send-failure diagnostics for the site error log.
 		error_log( 'Artist Invitation Email Error: ' . $error_message );

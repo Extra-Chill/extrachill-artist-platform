@@ -47,12 +47,12 @@ if ( empty( $user_artist_ids ) ) {
 							alt="<?php echo esc_attr( $artist_post->post_title ); ?>" 
 							class="artist-card-minimal-avatar">
 					<?php endif; ?>
-					<a href="<?php echo esc_url( $artist_url ); ?>" class="artist-card-minimal-name">
+					<a href="<?php echo esc_url( (string) $artist_url ); ?>" class="artist-card-minimal-name">
 						<?php echo esc_html( $artist_post->post_title ); ?>
 					</a>
 				</div>
 				<div class="artist-card-minimal-actions">
-					<a href="<?php echo esc_url( $artist_url ); ?>" class="button-1 button-small">
+					<a href="<?php echo esc_url( (string) $artist_url ); ?>" class="button-1 button-small">
 						<?php esc_html_e( 'View Profile', 'extrachill-artist-platform' ); ?>
 					</a>
 					<?php if ( $manage_artist_url ) : ?>

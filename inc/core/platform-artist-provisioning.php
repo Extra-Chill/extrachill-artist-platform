@@ -102,6 +102,7 @@ function ec_provision_platform_artist() {
 		update_site_option( 'ec_platform_artist_id', $artist_id );
 
 		// Trigger shop to re-sync lifetime membership product with new platform artist.
+		// @phpstan-ignore ternary.alwaysTrue (cross-plugin guard: ec_get_blog_id() is provided by extrachill-network at runtime.)
 		$shop_blog_id = function_exists( 'ec_get_blog_id' ) ? ec_get_blog_id( 'shop' ) : null;
 		if ( $shop_blog_id ) {
 			switch_to_blog( $shop_blog_id );

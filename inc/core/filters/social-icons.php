@@ -50,7 +50,15 @@ class ExtraChillArtistPlatform_SocialLinks {
 	 */
 	public function get_supported_types() {
 		if ( null === $this->supported_types ) {
-			$this->supported_types = function_exists( 'ec_social_link_types' ) ? ec_social_link_types() : array();
+			if ( function_exists( 'ec_social_link_types' ) ) {
+				$this->supported_types = ec_social_link_types();
+			} elseif ( function_exists( 'ec_link_page_social_types' ) ) {
+				// Link Pages runtimes before the shared primitive expose the
+				// same catalog under its historical name.
+				$this->supported_types = ec_link_page_social_types();
+			} else {
+				$this->supported_types = array();
+			}
 		}
 		return $this->supported_types;
 	}
@@ -400,7 +408,11 @@ class ExtraChillArtistPlatform_SocialLinks {
 	public function get_icon_class( $type, $link_data = array() ) {
 		$link_data         = is_array( $link_data ) ? $link_data : array();
 		$link_data['type'] = $type;
-		return function_exists( 'ec_social_link_icon_class' ) ? ec_social_link_icon_class( $link_data ) : 'fas fa-globe';
+		if ( function_exists( 'ec_social_link_icon_class' ) ) {
+			return ec_social_link_icon_class( $link_data );
+		}
+		$types = $this->get_supported_types();
+		return isset( $types[ $type ]['icon'] ) && preg_match( '/^[a-z0-9 -]+$/', (string) $types[ $type ]['icon'] ) ? (string) $types[ $type ]['icon'] : 'fas fa-globe';
 	}
 
 	/**
@@ -411,7 +423,17 @@ class ExtraChillArtistPlatform_SocialLinks {
 	 * @return string Link label
 	 */
 	public function get_link_label( $link ) {
-		return function_exists( 'ec_social_link_label' ) ? ec_social_link_label( $link ) : __( 'Social Link', 'extrachill-artist-platform' );
+		if ( function_exists( 'ec_social_link_label' ) ) {
+			return ec_social_link_label( $link );
+		}
+		if ( ! is_array( $link ) || empty( $link['type'] ) ) {
+			return __( 'Social Link', 'extrachill-artist-platform' );
+		}
+		if ( ! empty( $link['custom_label'] ) ) {
+			return sanitize_text_field( (string) $link['custom_label'] );
+		}
+		$types = $this->get_supported_types();
+		return isset( $types[ $link['type'] ]['label'] ) ? (string) $types[ $link['type'] ]['label'] : ucfirst( str_replace( '_', ' ', (string) $link['type'] ) );
 	}
 
 	/**

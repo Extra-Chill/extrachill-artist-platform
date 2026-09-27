@@ -23,6 +23,9 @@ function extrachill_artist_platform_ability_create_artist_link_page( $input ) {
 	if ( ! $artist_id || ! $artist_blog_id ) {
 		return new WP_Error( 'invalid_artist_profile', 'A valid artist_id is required.', array( 'status' => 400 ) );
 	}
+	if ( ! extrachill_artist_platform_ability_artist_permission( $input ) ) {
+		return new WP_Error( 'artist_access_denied', 'You are not allowed to manage this artist.', array( 'status' => 403 ) );
+	}
 	$switched = get_current_blog_id() !== $artist_blog_id;
 	if ( $switched ) {
 		switch_to_blog( $artist_blog_id );

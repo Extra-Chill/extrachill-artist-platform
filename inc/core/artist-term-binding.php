@@ -53,9 +53,9 @@ function ec_acquire_artist_binding_lock() {
 		$code = '0' === (string) $result ? 'artist_binding_busy' : 'artist_binding_lock_failed';
 		return new WP_Error( $code, __( 'Canonical artist binding is temporarily unavailable.', 'extrachill-artist-platform' ), array( 'retryable' => true ) );
 	}
-	$GLOBALS['ec_artist_binding_lock'] = $lock_name;
+	$GLOBALS['ec_artist_binding_lock']         = $lock_name;
 	$GLOBALS['ec_artist_binding_lock_backend'] = $backend;
-	$handed_off                        = false;
+	$handed_off                                = false;
 	try {
 		$boundary = ec_artist_binding_prepare_mutation_boundary();
 		if ( is_wp_error( $boundary ) ) {

@@ -232,10 +232,13 @@ final class ArtistTermBindingTest extends EC_Artist_Platform_TestCase {
 
 		$lock = ec_acquire_artist_binding_lock();
 		$GLOBALS['wpdb']->query( 'START TRANSACTION' );
-		$this->assertSame( array(
-			'profile_id' => $pair['profile_id'],
-			'term_id'    => $pair['term_id'],
-		), ec_read_locked_artist_binding( $pair['profile_id'], $pair['term_id'] ) );
+		$this->assertSame(
+			array(
+				'profile_id' => $pair['profile_id'],
+				'term_id'    => $pair['term_id'],
+			),
+			ec_read_locked_artist_binding( $pair['profile_id'], $pair['term_id'] )
+		);
 		$this->assertSame( 'artist_binding_release_transaction_active', ec_release_artist_binding_lock( $lock )->get_error_code() );
 		$GLOBALS['wpdb']->query( 'COMMIT' );
 		$this->assertTrue( ec_release_artist_binding_lock( $lock ) );
@@ -294,10 +297,13 @@ final class ArtistTermBindingTest extends EC_Artist_Platform_TestCase {
 
 		$binding_lock = ec_acquire_artist_binding_lock();
 		$this->assertNotInstanceOf( WP_Error::class, $binding_lock );
-		$this->assertSame( array(
-			'profile_id' => $pair['profile_id'],
-			'term_id'    => $pair['term_id'],
-		), ec_read_locked_artist_binding( $pair['profile_id'], $pair['term_id'] ) );
+		$this->assertSame(
+			array(
+				'profile_id' => $pair['profile_id'],
+				'term_id'    => $pair['term_id'],
+			),
+			ec_read_locked_artist_binding( $pair['profile_id'], $pair['term_id'] )
+		);
 		$this->assertTrue( ec_acquire_artist_membership_lock( 7, $pair['profile_id'] ) );
 
 		ec_release_artist_membership_lock( 7, $pair['profile_id'] );
@@ -305,7 +311,9 @@ final class ArtistTermBindingTest extends EC_Artist_Platform_TestCase {
 	}
 
 	public function test_sqlite_sync_creates_and_binds_terms_and_releases_portable_lock(): void {
-		$backend = static function () { return 'sqlite'; };
+		$backend = static function () {
+			return 'sqlite';
+		};
 		$queries = array();
 		$capture = static function ( $query ) use ( &$queries ) {
 			$queries[] = $query;
@@ -319,7 +327,7 @@ final class ArtistTermBindingTest extends EC_Artist_Platform_TestCase {
 				$slug       = $existing ? 'portable-existing' : 'portable-new';
 				$profile_id = $this->create_artist_profile( $slug, array( 'post_name' => $slug ) );
 				$expected   = $existing ? $this->create_artist_term( $slug ) : null;
-				$result  = ec_sync_artist_profile_term_binding( $profile_id );
+				$result     = ec_sync_artist_profile_term_binding( $profile_id );
 				$this->assertNotWPError( $result );
 				$term_id = (int) $this->profile_meta_value( $profile_id, '_artist_term_id' );
 				$this->assertSame( $term_id, $result );
@@ -339,7 +347,9 @@ final class ArtistTermBindingTest extends EC_Artist_Platform_TestCase {
 	}
 
 	public function test_sqlite_portable_lock_is_exclusive_and_deferred_release_removes_option(): void {
-		$backend = static function () { return 'sqlite'; };
+		$backend = static function () {
+			return 'sqlite';
+		};
 		add_filter( 'ec_artist_binding_database_backend', $backend );
 		try {
 			$lock = ec_acquire_artist_binding_lock();

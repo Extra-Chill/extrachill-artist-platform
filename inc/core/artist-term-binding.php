@@ -15,7 +15,12 @@ defined( 'ABSPATH' ) || exit;
 function ec_artist_binding_database_backend() {
 	global $wpdb;
 	$class_name = strtolower( (string) get_class( $wpdb ) );
-	$backend    = preg_match( '/sqlite/', $class_name ) ? 'sqlite' : ( ec_artist_membership_database_supports_advisory_locks() ? 'mysql' : 'unsupported' );
+	$backend    = 'mysql';
+	if ( false !== strpos( $class_name, 'sqlite' ) ) {
+		$backend = 'sqlite';
+	} elseif ( preg_match( '/pgsql|postgres/', $class_name ) ) {
+		$backend = 'unsupported';
+	}
 	return apply_filters( 'ec_artist_binding_database_backend', $backend );
 }
 
@@ -44,7 +49,10 @@ function ec_acquire_artist_binding_lock() {
 		if ( 'mysql' === $backend ) {
 			$result = $wpdb->get_var( $wpdb->prepare( 'SELECT GET_LOCK(%s, %d)', $lock_name, 5 ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- One network-wide lock covers both multisite metadata tables and absent rows.
 		} else {
-			$result = ec_acquire_artist_membership_network_lock( $lock_name ) ? '1' : '0';
+			$result = null;
+			if ( function_exists( 'ec_acquire_artist_membership_network_lock' ) ) {
+				$result = ec_acquire_artist_membership_network_lock( $lock_name ) ? '1' : '0';
+			}
 		}
 	} finally {
 		unset( $GLOBALS['ec_artist_binding_lock_pending'] );
@@ -93,7 +101,9 @@ function ec_release_artist_binding_lock( $lock_token ) {
 		return new WP_Error( 'artist_binding_release_transaction_active', __( 'Canonical artist binding cannot be released before subordinate transaction work finishes.', 'extrachill-artist-platform' ), array( 'retryable' => false ) );
 	}
 	if ( 'mysql' !== ( $GLOBALS['ec_artist_binding_lock_backend'] ?? 'mysql' ) ) {
-		ec_release_artist_membership_named_lock( $lock_token );
+		if ( function_exists( 'ec_release_artist_membership_named_lock' ) ) {
+			ec_release_artist_membership_named_lock( $lock_token );
+		}
 		$released = empty( $GLOBALS['ec_artist_membership_locks'][ $lock_token ] ) ? '1' : '0';
 	} else {
 		$released = $wpdb->get_var( $wpdb->prepare( 'SELECT RELEASE_LOCK(%s)', $lock_token ) ); // phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery,WordPress.DB.DirectDatabaseQuery.NoCaching -- Releases the exact connection-owned lock acquired above.

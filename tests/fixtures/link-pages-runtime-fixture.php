@@ -1,12 +1,26 @@
 <?php
-/** Resolve Homeboy's sibling plugin dependency, with an explicit local override. */
+/**
+ * Resolve the Link Pages runtime for standalone fixtures.
+ *
+ * Order: explicit LINK_PAGES_WORKTREE override, then the path Homeboy's
+ * standalone smoke runner exports for the resolved validation dependency
+ * (EXTRACHILL_LINK_PAGES_PATH), then a sibling plugin directory.
+ */
 function ec_test_link_pages_runtime_path( $artist_root ) {
-	$override = getenv( 'LINK_PAGES_WORKTREE' );
-	$runtime  = $override ? $override : dirname( $artist_root ) . '/extrachill-link-pages';
-	if ( ! is_file( $runtime . '/extrachill-link-pages.php' ) ) {
-		throw new RuntimeException( 'Link Pages runtime unavailable at ' . $runtime . '. Resolve validation_dependencies with Homeboy or set LINK_PAGES_WORKTREE.' );
+	$candidates = array_filter(
+		array(
+			getenv( 'LINK_PAGES_WORKTREE' ),
+			getenv( 'EXTRACHILL_LINK_PAGES_PATH' ),
+			dirname( $artist_root ) . '/extrachill-link-pages',
+		)
+	);
+	foreach ( $candidates as $runtime ) {
+		if ( is_file( $runtime . '/extrachill-link-pages.php' ) ) {
+			return $runtime;
+		}
 	}
-	return $runtime;
+	// phpcs:ignore WordPress.Security.EscapeOutput.ExceptionNotEscaped -- CLI fixture diagnostic, never rendered.
+	throw new RuntimeException( 'Link Pages runtime unavailable (checked: ' . implode( ', ', $candidates ) . '). Resolve validation_dependencies with Homeboy or set LINK_PAGES_WORKTREE.' );
 }
 
 /** Supply the pending migration API when testing against pre-migration main. */

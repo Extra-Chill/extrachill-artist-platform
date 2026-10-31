@@ -31,7 +31,8 @@ function ec_test_load_link_pages_migration_override( $runtime ) {
 }
 
 /** Report whether the selected runtime bootstrap owns a fixture function. */
-function ec_test_link_pages_bootstrap_defines( $runtime, $function ) {
+function ec_test_link_pages_bootstrap_defines( $runtime, $function_name ) {
+	// phpcs:ignore WordPress.WP.AlternativeFunctions.file_get_contents_file_get_contents -- reads a local fixture file, not a remote URL.
 	$bootstrap = file_get_contents( $runtime . '/tests/bootstrap.php' );
-	return false !== $bootstrap && false !== strpos( $bootstrap, 'function ' . $function . '(' );
+	return false !== $bootstrap && false !== strpos( $bootstrap, 'function ' . $function_name . '(' );
 }

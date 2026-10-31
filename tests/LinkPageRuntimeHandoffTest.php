@@ -9,7 +9,30 @@ final class LinkPageRuntimeHandoffTest extends EC_Artist_Platform_TestCase {
 		ec_test_link_pages_runtime_path( dirname( __DIR__ ) );
 	}
 
+	/**
+	 * Whether a PHP subprocess can run here. The WordPress sandbox (php.wasm)
+	 * cannot spawn processes; these fixtures also run as standalone PHP smokes
+	 * (homeboy.json standalone_php_smokes), which is their coverage there.
+	 */
+	private static function canRunPhpSubprocess(): bool {
+		static $available = null;
+		if ( null === $available ) {
+			$available = false;
+			if ( function_exists( 'exec' ) && '' !== (string) PHP_BINARY ) {
+				$probe  = array();
+				$status = 1;
+				// phpcs:ignore WordPress.PHP.DiscouragedPHPFunctions.system_calls_exec -- probes whether the runtime can spawn the helper binary.
+				@exec( escapeshellarg( PHP_BINARY ) . ' -r ' . escapeshellarg( 'echo "ok";' ) . ' 2>/dev/null', $probe, $status ); // phpcs:ignore WordPress.PHP.NoSilencedErrors.Discouraged
+				$available = 0 === $status && array( 'ok' ) === $probe;
+			}
+		}
+		return $available;
+	}
+
 	private function runSmokeFixture( $fixture, $argument = '' ) {
+		if ( ! self::canRunPhpSubprocess() ) {
+			$this->markTestSkipped( 'No PHP subprocess in this runtime; the fixture runs as a standalone PHP smoke instead.' );
+		}
 		$output  = array();
 		$status  = 0;
 		$command = escapeshellarg( PHP_BINARY ) . ' ' . escapeshellarg( __DIR__ . '/fixtures/' . $fixture );

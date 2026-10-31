@@ -1,10 +1,10 @@
 <?php
-/** Resolve the current sibling runtime, with an explicit CI override. */
+/** Resolve Homeboy's sibling plugin dependency, with an explicit local override. */
 function ec_test_link_pages_runtime_path( $artist_root ) {
 	$override = getenv( 'LINK_PAGES_WORKTREE' );
 	$runtime  = $override ? $override : dirname( $artist_root ) . '/extrachill-link-pages';
 	if ( ! is_file( $runtime . '/extrachill-link-pages.php' ) ) {
-		throw new RuntimeException( 'Set LINK_PAGES_WORKTREE to a current Extra Chill Link Pages checkout.' );
+		throw new RuntimeException( 'Link Pages runtime unavailable at ' . $runtime . '. Resolve validation_dependencies with Homeboy or set LINK_PAGES_WORKTREE.' );
 	}
 	return $runtime;
 }

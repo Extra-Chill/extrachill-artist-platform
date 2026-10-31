@@ -11,9 +11,4 @@
 			<exclude>tests/MySQLIntegration</exclude>
 		</testsuite>
 	</testsuites>
-	<groups>
-		<exclude>
-			<group>requires-mysql</group>
-		</exclude>
-	</groups>
 </phpunit>

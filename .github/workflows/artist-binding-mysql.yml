@@ -1,9 +1,20 @@
+# This independent two-process proof needs an installed WordPress database
+# shared with child PHP processes; keep it alongside the managed suite.
 name: Artist binding MySQL proof
 
 on:
   pull_request:
     paths:
       - 'inc/core/artist-term-binding.php'
+      - 'inc/core/artist-genres.php'
+      - 'tests/MySQLIntegration/**'
+      - 'phpunit-binding-mysql.xml.dist'
+      - '.github/workflows/artist-binding-mysql.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'inc/core/artist-term-binding.php'
+      - 'inc/core/artist-genres.php'
       - 'tests/MySQLIntegration/**'
       - 'phpunit-binding-mysql.xml.dist'
       - '.github/workflows/artist-binding-mysql.yml'

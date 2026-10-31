@@ -26,3 +26,7 @@ if ( ! defined( 'ABSPATH' ) ) {
 require_once __DIR__ . '/topology-seed.php';
 
 ec_artist_platform_test_seed_topology();
+
+// Public Link Page redirects end the request with exit; inside PHPUnit that
+// would end the whole suite. Link Pages exposes this seam for tests.
+add_filter( 'ec_link_page_terminate_request', '__return_false' );

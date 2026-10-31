@@ -18,7 +18,9 @@
         "wp_codebox_database_service": {
           "provider": "external",
           "engine": "mysql",
-          "allowed_hosts": ["127.0.0.1:3306"],
+          "allowed_hosts": [
+            "127.0.0.1:3306"
+          ],
           "secret_env": {
             "host": "WP_CODEBOX_DB_HOST",
             "port": "WP_CODEBOX_DB_PORT",
@@ -31,6 +33,13 @@
         "wp_codebox_phpunit_config": "/wordpress/wp-content/plugins/extrachill-artist-platform/phpunit.xml.dist",
         "wp_codebox_phpunit_preload_files": [
           "/wordpress/wp-content/plugins/extrachill-artist-platform/tests/support/managed-preload.php"
+        ],
+        "wp_codebox_extra_plugins": [
+          {
+            "source": "tests/support/harness-topology",
+            "slug": "ec-artist-harness-topology",
+            "loadAs": "mu-plugin"
+          }
         ]
       }
     }
